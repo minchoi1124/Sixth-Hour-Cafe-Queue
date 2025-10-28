@@ -1,54 +1,68 @@
 /**
- * @file Firestore Security Rules
- * @core_philosophy This ruleset prioritizes rapid prototyping and assumes a trusted development environment.  All authenticated users are granted full read and write access to all data.  This is NOT suitable for production and MUST be replaced with a more restrictive security model before launch.
- * @data_structure Data is organized into three top-level collections: /drinks/{drinkId}, /orders/{orderId}, and /categories/{categoryId}.
- * @key_security_decisions All authenticated users can read and write any document.
- * @denormalization None.
- * @structural_segregation None.
+ * @fileoverview Firestore Security Rules for Sixth Hour Cafe Queue.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes security and data protection, enforcing strict limitations on data access.
+ * The application uses anonymous authentication; therefore, all rules deny authenticated access and all `create`, `update` and `delete` operations.
+ *
+ * Data Structure:
+ * - /drinks/{drinkId}: Stores drink menu items. Accessible to the public for reading, but creation, modification, and deletion are disallowed.
+ * - /orders/{orderId}: Stores customer orders. Creation is allowed, but modification and deletion are disallowed.
+ * - /categories/{categoryId}: Stores drink categories. Accessible to the public for reading, but creation, modification, and deletion are disallowed.
+ *
+ * Key Security Decisions:
+ * - No authenticated users: Because the application uses anonymous auth, all rules must allow null auth.
+ * - No listing of orders: Listing of orders is not permitted to prevent exposure of customer data.
+ * - Drinks and Categories are readable by all.
+ * - Deny all write operations as the app should not be writing data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants all authenticated users full access to all drinks.
+     * @description Grants read-only access to the 'drinks' collection.
      * @path /drinks/{drinkId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation on any drink.
-     * @deny (none)
-     * @principle Allows any authenticated user to read and write all drinks for rapid prototyping.
+     * @allow (get, list) Allow anyone to read the drink information.
+     * @deny (create, update, delete) No one should be able to create, update, or delete drinks.
+     * @principle Allows public read access for menu display, but restricts write access.
      */
     match /drinks/{drinkId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Grants all authenticated users full access to all orders.
+     * @description Allows creation of orders but prevents listing, updates, and deletion.
      * @path /orders/{orderId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation on any order.
-     * @deny (none)
-     * @principle Allows any authenticated user to read and write all orders for rapid prototyping.
+     * @allow (create) Allow anyone to create an order.
+     * @deny (get, list, update, delete) No one should be able to get an order, list orders, update an order or delete an order.
+     * @principle Restricts listing of orders for data privacy and prevents unauthorized modifications.
      */
     match /orders/{orderId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Grants all authenticated users full access to all categories.
+     * @description Grants read-only access to the 'categories' collection.
      * @path /categories/{categoryId}
-     * @allow (get, list, create, update, delete) - Any authenticated user can perform any operation on any category.
-     * @deny (none)
-     * @principle Allows any authenticated user to read and write all categories for rapid prototyping.
+     * @allow (get, list) Allow anyone to read the drink categories.
+     * @deny (create, update, delete) No one should be able to create, update, or delete categories.
+     * @principle Allows public read access for menu display, but restricts write access.
      */
     match /categories/{categoryId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
-    }
-
-    // Helper function to check if the user is signed in
-    function isSignedIn() {
-      return request.auth != null;
+        allow get: if true;
+        allow list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
   }
 }

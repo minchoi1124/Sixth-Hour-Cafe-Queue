@@ -84,11 +84,7 @@ export async function markOrderAsCompleted(orderId: string) {
     await completeOrder(orderId);
     // No revalidation needed due to real-time updates
   } catch (e) {
-    if (e instanceof FirestorePermissionError) {
-        throw e;
-    }
-    console.error('Failed to complete order:', e);
-    // Optionally, return an error to the client
+    handlePermissionError(e);
   }
 }
 
@@ -189,11 +185,12 @@ export async function handleAddCategory(prevState: CategoryFormState, formData: 
         // No revalidation needed, component uses real-time listener
         return { success: true, message: `Category "${validatedFields.data.name}" added.` };
     } catch (e) {
+        // Re-throw Firestore permission errors to be caught by the global error boundary
         if (e instanceof FirestorePermissionError) {
-            // Re-throwing the error will be caught by Next.js error boundary
-            // and displayed to the user, which is what we want for permission errors.
             throw e;
         }
+        // Handle other potential errors
+        console.error("handleAddCategory failed:", e);
         return { message: 'Failed to add category. An unexpected error occurred.', success: false };
     }
 }

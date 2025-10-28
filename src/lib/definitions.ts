@@ -23,3 +23,8 @@ export type NewOrder = {
 export type FirestoreOrder = Omit<Order, 'id' | 'createdAt'> & {
   createdAt: FieldValue;
 };
+
+export type Category = {
+    id: string;
+    name: string;
+}

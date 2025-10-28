@@ -1,15 +1,16 @@
 'use client';
 
 import { saveMenu } from '@/lib/actions';
-import type { MenuItem } from '@/lib/definitions';
+import type { MenuItem, Category } from '@/lib/definitions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { toast } from '@/hooks/use-toast';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -20,7 +21,7 @@ function SubmitButton() {
   );
 }
 
-export default function MenuManager({ menu }: { menu: MenuItem[] }) {
+export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
     const formRef = useRef<HTMLFormElement>(null);
     const formAction = async (formData: FormData) => {
         await saveMenu(formData);
@@ -50,13 +51,18 @@ export default function MenuManager({ menu }: { menu: MenuItem[] }) {
                   </div>
                   <div>
                     <Label htmlFor={`item-${item.id}-category`} className="text-lg text-muted-foreground">Category</Label>
-                    <Input
-                        id={`item-${item.id}-category`}
-                        name={`item-${item.id}-category`}
-                        defaultValue={item.category}
-                        className="text-2xl h-14"
-                        required
-                    />
+                    <Select name={`item-${item.id}-category`} defaultValue={item.category}>
+                      <SelectTrigger className="text-2xl h-14" id={`item-${item.id}-category`}>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(cat => (
+                          <SelectItem key={cat.id} value={cat.name} className="text-xl">
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex items-center justify-between sm:justify-self-end gap-4 pt-4 sm:pt-0 border-t sm:border-t-0 border-border">

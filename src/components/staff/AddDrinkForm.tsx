@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
@@ -7,10 +6,11 @@ import { addNewDrink, type AddDrinkFormState } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import type { Category } from '@/lib/definitions';
 
 
 const initialState: AddDrinkFormState = { message: '', errors: {}, success: false };
@@ -24,7 +24,7 @@ function SubmitButton() {
   );
 }
 
-export function AddDrinkForm() {
+export function AddDrinkForm({ categories }: { categories: Category[] }) {
   const [state, dispatch] = useActionState(addNewDrink, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -55,7 +55,18 @@ export function AddDrinkForm() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category" className="text-xl">Category</Label>
-                        <Input id="category" name="category" placeholder="e.g. Coffee" required className="text-2xl h-14" />
+                        <Select name="category" required>
+                            <SelectTrigger className="text-2xl h-14" id="category">
+                                <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {categories.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.name} className="text-xl">
+                                        {cat.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         {state.errors?.category && (
                             <p className="text-destructive text-lg flex items-center gap-2 pt-1">
                                 <AlertCircle className="h-5 w-5" /> {state.errors.category}

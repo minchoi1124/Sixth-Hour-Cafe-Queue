@@ -6,7 +6,7 @@ import { submitOrder } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEffect, useRef, useState, useActionState } from 'react';
 import {
@@ -40,10 +40,9 @@ const drinkIcons: { [key: string]: React.ReactNode } = {
 function DrinkOption({ item }: { item: MenuItem }) {
   return (
     <div>
-      <Checkbox
-        id={`item-${item.id}`}
-        name="itemIds"
+      <RadioGroupItem
         value={item.id.toString()}
+        id={`item-${item.id}`}
         className="sr-only peer"
         aria-labelledby={`label-item-${item.id}`}
       />
@@ -123,25 +122,27 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-4xl">2. Choose your drinks</CardTitle>
+          <CardTitle className="text-4xl">2. Choose your drink</CardTitle>
           <CardDescription className="text-xl">Select one of our drinks from our menu.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
-          <div>
-            <h3 className="text-3xl font-semibold mb-4 text-primary">Lattes</h3>
-            <div id="lattes-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {lattes.map((item) => <DrinkOption key={item.id} item={item} />)}
+          <RadioGroup name="itemId" className="space-y-8" aria-describedby='items-error'>
+            <div>
+              <h3 className="text-3xl font-semibold mb-4 text-primary">Lattes</h3>
+              <div id="lattes-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {lattes.map((item) => <DrinkOption key={item.id} item={item} />)}
+              </div>
             </div>
-          </div>
-          <div>
-            <h3 className="text-3xl font-semibold mb-4 text-primary">Teas</h3>
-            <div id="teas-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {teas.map((item) => <DrinkOption key={item.id} item={item} />)}
+            <div>
+              <h3 className="text-3xl font-semibold mb-4 text-primary">Teas</h3>
+              <div id="teas-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {teas.map((item) => <DrinkOption key={item.id} item={item} />)}
+              </div>
             </div>
-          </div>
-          {state.errors?.itemIds && (
+          </RadioGroup>
+          {state.errors?.itemId && (
             <p id="items-error" className="text-destructive mt-4 text-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> {state.errors.itemIds}
+              <AlertCircle className="h-5 w-5" /> {state.errors.itemId}
             </p>
           )}
         </CardContent>

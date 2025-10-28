@@ -7,14 +7,14 @@ import { z } from 'zod';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
-  itemIds: z.array(z.coerce.number()).min(1, 'Please select at least one drink'),
+  itemId: z.coerce.number({ required_error: 'Please select a drink' }).min(1, 'Please select a drink'),
 });
 
 type OrderFormState = {
   message?: string;
   errors?: {
     customerName?: string[];
-    itemIds?: string[];
+    itemId?: string[];
   };
   success?: boolean;
 };
@@ -22,7 +22,7 @@ type OrderFormState = {
 export async function submitOrder(prevState: OrderFormState, formData: FormData): Promise<OrderFormState> {
   const validatedFields = OrderSchema.safeParse({
     customerName: formData.get('customerName'),
-    itemIds: formData.getAll('itemIds'),
+    itemId: formData.get('itemId'),
   });
 
   if (!validatedFields.success) {
@@ -34,12 +34,22 @@ export async function submitOrder(prevState: OrderFormState, formData: FormData)
   }
 
   const allMenuItems = await getMenu();
-  const selectedItems = allMenuItems.filter(item => validatedFields.data.itemIds.includes(item.id));
+  const selectedItem = allMenuItems.find(item => validatedFields.data.itemId === item.id);
+
+  if (!selectedItem) {
+    return {
+      errors: {
+        itemId: ['Invalid drink selected.'],
+      },
+      message: 'Invalid order.',
+      success: false,
+    };
+  }
 
   try {
     await addOrder({
       customerName: validatedFields.data.customerName,
-      items: selectedItems,
+      items: [selectedItem],
     });
 
     revalidatePath('/staff');

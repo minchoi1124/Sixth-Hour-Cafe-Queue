@@ -7,12 +7,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEffect, useRef, useState } from 'react';
-import {
-  AppleCiderChaiIcon,
-  DalgonaCoffeeIcon,
-  LondonFogIcon,
-  MapleMatchaLatteIcon,
-} from '@/components/icons/CafeIcons';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -25,13 +19,6 @@ const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
   itemId: z.string().min(1, 'Please select a drink'),
 });
-
-const drinkIcons: { [key: string]: React.ReactNode } = {
-  'Maple Matcha Latte': <MapleMatchaLatteIcon className="w-10 h-10" />,
-  'Dalgona Whipped Coffee': <DalgonaCoffeeIcon className="w-10 h-10" />,
-  'London Fog': <LondonFogIcon className="w-10 h-10" />,
-  'Apple Cider Chai': <AppleCiderChaiIcon className="w-10 h-10" />,
-};
 
 function DrinkOption({ item }: { item: MenuItem }) {
   return (
@@ -52,9 +39,6 @@ function DrinkOption({ item }: { item: MenuItem }) {
           'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
         )}
       >
-        <div className="w-16 h-16 flex items-center justify-center mb-4">
-          {drinkIcons[item.name] || <DalgonaCoffeeIcon className="w-10 h-10" />}
-        </div>
         <span className="text-2xl font-medium">{item.name}</span>
       </Label>
     </div>

@@ -2,64 +2,73 @@
  * @fileoverview Firestore Security Rules for the Coffee Ordering App.
  *
  * Core Philosophy:
- * This ruleset prioritizes security and data protection, enforcing strict access controls
- * while allowing flexible data shapes for rapid iteration.
+ * This ruleset prioritizes security while allowing for flexible data shapes during prototyping.
+ * It focuses on securing write access and assumes public read access where appropriate.
  *
  * Data Structure:
- * - /drinks/{drinkId}: Publicly readable drink menu items. Writes are disallowed for all users.
- * - /orders/{orderId}: Publicly readable customer orders. Writes are disallowed for all users.
- * - /categories/{categoryId}: Publicly readable drink categories. Writes are disallowed for all users.
+ * - /drinks/{drinkId}: Stores drink menu items. Publicly readable, writeable only by authenticated users.
+ * - /orders/{orderId}: Stores customer orders. Publicly readable, writeable only by authenticated users.
+ * - /categories/{categoryId}: Stores drink categories. Publicly readable, writeable only by authenticated users.
  *
  * Key Security Decisions:
- * - All write operations are explicitly denied. This application is designed to prevent modification or deletion of the drinks, orders, and categories data.
+ * - Public read access is enabled for all collections to allow easy data exploration during prototyping.
+ * - Write access to all collections requires authentication but does not enforce strict schema validation.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read drink menu items, but no one can create, update, or delete them.
+     * @description Grants public read access to drink menu items and restricts write access to authenticated users.
      * @path /drinks/{drinkId}
-     * @allow (get, list) - Any user can read the drink.
-     * @deny (create, update, delete) - No user can create, update, or delete drinks.
-     * @principle Public read, deny writes.
+     * @allow (get, list): Any user can read drink information.
+     * @allow (create, update, delete): Only authenticated users can create, update, or delete drinks.
+     * @deny (create, update, delete): Unauthenticated users cannot modify drink information.
+     * @principle Allows public read access for prototyping while restricting writes to authenticated users.
      */
     match /drinks/{drinkId} {
       allow get: if true;
       allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Allows anyone to read customer orders, but no one can create, update, or delete them.
+     * @description Grants public read access to customer orders and restricts write access to authenticated users.
      * @path /orders/{orderId}
-     * @allow (get, list) - Any user can read the order.
-     * @deny (create, update, delete) - No user can create, update, or delete orders.
-     * @principle Public read, deny writes.
+     * @allow (get, list): Any user can read order information.
+     * @allow (create, update, delete): Only authenticated users can create, update, or delete orders.
+     * @deny (create, update, delete): Unauthenticated users cannot modify order information.
+     * @principle Allows public read access for prototyping while restricting writes to authenticated users.
      */
     match /orders/{orderId} {
       allow get: if true;
       allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
-    /**
-     * @description Allows anyone to read drink categories, but no one can create, update, or delete them.
-     * @path /categories/{categoryId}
-     * @allow (get, list) - Any user can read the category.
-     * @deny (create, update, delete) - No user can create, update, or delete categories.
-     * @principle Public read, deny writes.
-     */
+     /**
+      * @description Grants public read access to drink categories and restricts write access to authenticated users.
+      * @path /categories/{categoryId}
+      * @allow (get, list): Any user can read category information.
+      * @allow (create, update, delete): Only authenticated users can create, update, or delete categories.
+      * @deny (create, update, delete): Unauthenticated users cannot modify category information.
+      * @principle Allows public read access for prototyping while restricting writes to authenticated users.
+      */
     match /categories/{categoryId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && resource != null;
+        allow delete: if isSignedIn() && resource != null;
     }
+  }
+
+  // Helper function to determine if a user is signed in.
+  function isSignedIn() {
+    return request.auth != null;
   }
 }

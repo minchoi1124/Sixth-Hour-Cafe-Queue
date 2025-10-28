@@ -1,42 +1,68 @@
 'use client';
 
-import { saveMenu } from '@/lib/actions';
 import type { MenuItem, Category } from '@/lib/definitions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useFormStatus } from 'react-dom';
 import { toast } from '@/hooks/use-toast';
-import { useRef } from 'react';
+import { useState, useTransition } from 'react';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full text-2xl py-7 sm:w-auto sm:px-10">
-      {pending ? 'Saving...' : 'Save Changes'}
-    </Button>
-  );
-}
+import { useFirestore } from '@/firebase';
+import { doc, writeBatch } from 'firebase/firestore';
 
 export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
-    const formRef = useRef<HTMLFormElement>(null);
-    const formAction = async (formData: FormData) => {
-        await saveMenu(formData);
+  const firestore = useFirestore();
+  const [isPending, startTransition] = useTransition();
+  const [localMenu, setLocalMenu] = useState<MenuItem[]>(menu);
+
+  const handleInputChange = (id: string, field: 'name' | 'category', value: string) => {
+    setLocalMenu(currentMenu => 
+      currentMenu.map(item => item.id === id ? { ...item, [field]: value } : item)
+    );
+  };
+
+  const handleSwitchChange = (id: string, checked: boolean) => {
+    setLocalMenu(currentMenu => 
+      currentMenu.map(item => item.id === id ? { ...item, inStock: checked } : item)
+    );
+  };
+
+  const handleSaveChanges = () => {
+    startTransition(async () => {
+      if (!firestore) {
+        toast({ variant: "destructive", title: "Error", description: "Database not available." });
+        return;
+      }
+      
+      const batch = writeBatch(firestore);
+      localMenu.forEach(item => {
+        const docRef = doc(firestore, 'drinks', item.id);
+        const { id, ...data } = item;
+        batch.set(docRef, data);
+      });
+
+      try {
+        await batch.commit();
+        toast({ title: "Menu Updated", description: "The menu has been successfully updated." });
+      } catch (e: any) {
+        console.error("Failed to save menu:", e);
         toast({
-            title: "Menu Updated",
-            description: "The menu has been successfully updated.",
+          variant: "destructive",
+          title: "Error",
+          description: "Could not save menu. You may not have permission."
         });
-    }
+      }
+    });
+  };
 
   return (
-    <form ref={formRef} action={formAction}>
+    <div>
       <Card>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           <div className="divide-y divide-border">
-            {menu.map(item => (
+            {localMenu.map(item => (
               <div key={item.id} className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4 py-6 px-4 sm:px-0">
                 <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -44,14 +70,19 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                     <Input
                         id={`item-${item.id}-name`}
                         name={`item-${item.id}-name`}
-                        defaultValue={item.name}
+                        value={item.name}
+                        onChange={(e) => handleInputChange(item.id, 'name', e.target.value)}
                         className="text-2xl h-14"
                         required
                     />
                   </div>
                   <div>
                     <Label htmlFor={`item-${item.id}-category`} className="text-lg text-muted-foreground">Category</Label>
-                    <Select name={`item-${item.id}-category`} defaultValue={item.category}>
+                    <Select 
+                      name={`item-${item.id}-category`} 
+                      value={item.category}
+                      onValueChange={(value) => handleInputChange(item.id, 'category', value)}
+                    >
                       <SelectTrigger className="text-2xl h-14" id={`item-${item.id}-category`}>
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
@@ -72,7 +103,8 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                     <Switch
                         id={`item-${item.id}-instock`}
                         name={`item-${item.id}-instock`}
-                        defaultChecked={item.inStock}
+                        checked={item.inStock}
+                        onCheckedChange={(checked) => handleSwitchChange(item.id, checked)}
                         className="data-[state=checked]:bg-green-500 scale-125"
                     />
                 </div>
@@ -82,8 +114,10 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
         </CardContent>
       </Card>
       <div className="mt-8 flex justify-end">
-        <SubmitButton />
+        <Button onClick={handleSaveChanges} disabled={isPending} className="w-full text-2xl py-7 sm:w-auto sm:px-10">
+          {isPending ? 'Saving...' : 'Save Changes'}
+        </Button>
       </div>
-    </form>
+    </div>
   );
 }

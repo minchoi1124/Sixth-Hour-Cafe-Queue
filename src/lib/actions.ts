@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { addOrder, completeOrder, getMenu, updateMenu, addMenuItem, updateCategory, deleteCategory } from './data';
-import type { MenuItem, NewOrder } from './definitions';
+import { addOrder, completeOrder, addCategory } from './data';
+import type { NewOrder } from './definitions';
 import { z } from 'zod';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { getMenu } from './data';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
@@ -86,102 +87,4 @@ export async function markOrderAsCompleted(orderId: string) {
   } catch (e) {
     handlePermissionError(e);
   }
-}
-
-export async function saveMenu(formData: FormData) {
-  const currentMenu = await getMenu();
-  const updatedMenu: MenuItem[] = [];
-
-  for (const item of currentMenu) {
-      const name = formData.get(`item-${item.id}-name`) as string;
-      const category = formData.get(`item-${item.id}-category`) as string;
-      const inStock = formData.get(`item-${item.id}-instock`) === 'on';
-
-      if (name && category) {
-          updatedMenu.push({
-              ...item,
-              name: name.trim(),
-              category: category.trim(),
-              inStock: inStock,
-          });
-      }
-  }
-
-  try {
-    await updateMenu(updatedMenu);
-    revalidatePath('/staff/menu');
-    revalidatePath('/');
-  } catch (e) {
-    handlePermissionError(e);
-  }
-}
-
-const AddDrinkSchema = z.object({
-    name: z.string().trim().min(2, 'Drink name must be at least 2 characters'),
-    category: z.string().trim().min(1, 'Please select a category'),
-});
-
-export type AddDrinkFormState = {
-    message?: string;
-    errors?: {
-        name?: string[];
-        category?: string[];
-    };
-    success?: boolean;
-}
-
-export async function addNewDrink(prevState: AddDrinkFormState, formData: FormData): Promise<AddDrinkFormState> {
-    const validatedFields = AddDrinkSchema.safeParse({
-        name: formData.get('name'),
-        category: formData.get('category'),
-    });
-
-    if (!validatedFields.success) {
-        return {
-            errors: validatedFields.error.flatten().fieldErrors,
-            message: 'Invalid data.',
-            success: false,
-        };
-    }
-
-    try {
-        await addMenuItem(validatedFields.data.name, validatedFields.data.category);
-        revalidatePath('/staff/menu');
-        revalidatePath('/');
-        return { message: `Added "${validatedFields.data.name}" to the menu.`, success: true };
-    } catch (e) {
-        return { message: 'Failed to add new drink. An unexpected error occurred.', success: false };
-    }
-}
-
-export async function handleUpdateCategory(formData: FormData) {
-    const categoryId = formData.get('categoryId') as string;
-    const newName = formData.get('name') as string;
-
-    if (!categoryId || !newName || newName.trim().length < 2) {
-        // Handle error appropriately
-        console.error("Invalid data for category update");
-        return;
-    }
-
-    try {
-        await updateCategory(categoryId, newName.trim());
-        // No revalidation needed
-    } catch (e) {
-        handlePermissionError(e);
-    }
-}
-
-export async function handleDeleteCategory(formData: FormData) {
-    const categoryId = formData.get('categoryId') as string;
-    if (!categoryId) {
-        console.error("Category ID not provided for deletion");
-        return;
-    }
-    try {
-        await deleteCategory(categoryId);
-        // No revalidation needed
-    } catch(e) {
-        handlePermissionError(e);
-    }
 }

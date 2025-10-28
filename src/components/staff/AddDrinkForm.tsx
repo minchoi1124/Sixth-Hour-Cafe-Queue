@@ -1,8 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
-import { useFormStatus } from 'react-dom';
-import { addNewDrink, type AddDrinkFormState } from '@/lib/actions';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,45 +9,76 @@ import { toast } from '@/hooks/use-toast';
 import { AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { Category } from '@/lib/definitions';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { z } from 'zod';
 
-
-const initialState: AddDrinkFormState = { message: '', errors: {}, success: false };
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto text-xl py-6 px-8">
-      {pending ? 'Adding...' : 'Add Drink'}
-    </Button>
-  );
-}
+const AddDrinkSchema = z.object({
+  name: z.string().trim().min(2, 'Drink name must be at least 2 characters'),
+  category: z.string().trim().min(1, 'Please select a category'),
+});
 
 export function AddDrinkForm({ categories }: { categories: Category[] }) {
-  const [state, dispatch] = useActionState(addNewDrink, initialState);
+  const firestore = useFirestore();
   const formRef = useRef<HTMLFormElement>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string[], category?: string[] } | null>(null);
 
-  useEffect(() => {
-    if (state.success) {
-      formRef.current?.reset();
-      toast({
-        title: "Drink Added!",
-        description: state.message,
-      })
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsPending(true);
+    setErrors(null);
+    
+    if (!firestore) {
+      toast({ variant: "destructive", title: "Error", description: "Could not connect to database." });
+      setIsPending(false);
+      return;
     }
-  }, [state]);
 
+    const formData = new FormData(event.currentTarget);
+    const validatedFields = AddDrinkSchema.safeParse({
+      name: formData.get('name'),
+      category: formData.get('category'),
+    });
+
+    if (!validatedFields.success) {
+      setErrors(validatedFields.error.flatten().fieldErrors);
+      setIsPending(false);
+      return;
+    }
+
+    try {
+      const drinksCol = collection(firestore, 'drinks');
+      await addDoc(drinksCol, { 
+        name: validatedFields.data.name,
+        category: validatedFields.data.category,
+        inStock: true
+      });
+      toast({ title: "Drink Added!", description: `"${validatedFields.data.name}" added to the menu.` });
+      formRef.current?.reset();
+    } catch (e: any) {
+      console.error("Failed to add drink:", e);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not add drink. You may not have permission."
+      });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
-    <form action={dispatch} ref={formRef}>
+    <form onSubmit={handleSubmit} ref={formRef}>
         <Card>
             <CardContent className="pt-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div className="space-y-2">
                         <Label htmlFor="name" className="text-xl">Drink Name</Label>
                         <Input id="name" name="name" placeholder="e.g. Iced Caramel Macchiato" required className="text-2xl h-14"/>
-                        {state.errors?.name && (
+                        {errors?.name && (
                             <p className="text-destructive text-lg flex items-center gap-2 pt-1">
-                                <AlertCircle className="h-5 w-5" /> {state.errors.name}
+                                <AlertCircle className="h-5 w-5" /> {errors.name[0]}
                             </p>
                         )}
                     </div>
@@ -67,19 +96,18 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        {state.errors?.category && (
+                        {errors?.category && (
                             <p className="text-destructive text-lg flex items-center gap-2 pt-1">
-                                <AlertCircle className="h-5 w-5" /> {state.errors.category}
+                                <AlertCircle className="h-5 w-5" /> {errors.category[0]}
                             </p>
                         )}
                     </div>
                     <div className="sm:mt-8 sm:justify-self-end">
-                        <SubmitButton />
+                      <Button type="submit" disabled={isPending} className="w-full sm:w-auto text-xl py-6 px-8">
+                        {isPending ? 'Adding...' : 'Add Drink'}
+                      </Button>
                     </div>
                 </div>
-                {state.message && !state.success && (
-                    <p className="text-destructive text-center text-lg mt-4">{state.message}</p>
-                )}
             </CardContent>
         </Card>
     </form>

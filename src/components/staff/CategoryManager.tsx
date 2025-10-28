@@ -1,7 +1,6 @@
 'use client';
 
 import type { Category } from '@/lib/definitions';
-import { handleUpdateCategory, handleDeleteCategory } from '@/lib/actions';
 import { useRef, useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -21,8 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, query, orderBy, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { z } from 'zod';
 
@@ -41,6 +39,12 @@ function AddCategoryForm() {
     setIsPending(true);
     setError(null);
     
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to database.' });
+      setIsPending(false);
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
     const name = formData.get('name') as string;
 
@@ -49,12 +53,6 @@ function AddCategoryForm() {
         setError(validation.error.flatten().fieldErrors.name?.[0] ?? 'Invalid input.');
         setIsPending(false);
         return;
-    }
-
-    if (!firestore) {
-      setError("Firestore is not available.");
-      setIsPending(false);
-      return;
     }
 
     try {
@@ -100,46 +98,69 @@ function AddCategoryForm() {
 }
 
 function CategoryEditRow({ category }: { category: Category }) {
+  const firestore = useFirestore();
   const [isEditing, setIsEditing] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [name, setName] = useState(category.name);
 
-  const handleUpdateAction = async (formData: FormData) => {
-    await handleUpdateCategory(formData);
-    toast({
-        title: "Category Updated",
-        description: `"${category.name}" has been updated.`
-    });
-    setIsEditing(false);
-  }
+  const handleUpdate = async () => {
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
+      return;
+    }
+    const validation = CategorySchema.safeParse({ name });
+    if (!validation.success) {
+        toast({ variant: 'destructive', title: 'Invalid Name', description: validation.error.flatten().fieldErrors.name?.[0] });
+        return;
+    }
 
-  const handleDeleteAction = async (formData: FormData) => {
-    // The alert dialog will close automatically, no need to manage state here.
-    toast({
-      title: "Category Deleted",
-      description: `"${category.name}" has been deleted.`
-    });
-    await handleDeleteCategory(formData);
-  }
+    setIsPending(true);
+    try {
+      const categoryRef = doc(firestore, 'categories', category.id);
+      await updateDoc(categoryRef, { name: validation.data.name });
+      toast({ title: 'Category Updated', description: `Renamed to "${validation.data.name}".` });
+      setIsEditing(false);
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Update Failed', description: 'You may not have permission.' });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleDelete = async () => {
+     if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
+      return;
+    }
+    // No need for pending state, optimistic UI update from listener
+    try {
+      await deleteDoc(doc(firestore, 'categories', category.id));
+      toast({ title: 'Category Deleted', description: `"${category.name}" has been removed.` });
+    } catch (e) {
+       console.error(e);
+      toast({ variant: 'destructive', title: 'Delete Failed', description: 'You may not have permission.' });
+    }
+  };
 
   return (
     <div className="flex items-center gap-4">
       {isEditing ? (
-        <form action={handleUpdateAction} ref={formRef} className="flex-grow flex items-center gap-4">
-            <input type="hidden" name="categoryId" value={category.id} />
+        <div className="flex-grow flex items-center gap-4">
             <Input
-                name="name"
-                defaultValue={category.name}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="text-2xl h-14 flex-grow"
                 autoFocus
                 required
             />
-            <Button type="submit" className="h-14 text-xl">
-                Save
+            <Button onClick={handleUpdate} disabled={isPending} className="h-14 text-xl">
+                {isPending ? 'Saving...' : 'Save'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setIsEditing(false)} className="h-14 text-xl">
+            <Button type="button" variant="ghost" onClick={() => {setIsEditing(false); setName(category.name)}} className="h-14 text-xl">
                 Cancel
             </Button>
-        </form>
+        </div>
       ) : (
         <>
             <p className="text-2xl flex-grow">{category.name}</p>
@@ -162,12 +183,9 @@ function CategoryEditRow({ category }: { category: Category }) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form action={handleDeleteAction}>
-                      <input type="hidden" name="categoryId" value={category.id} />
-                      <AlertDialogAction asChild>
-                          <Button type="submit" variant="destructive">Yes, delete</Button>
-                      </AlertDialogAction>
-                  </form>
+                  <AlertDialogAction asChild>
+                      <Button onClick={handleDelete} variant="destructive">Yes, delete</Button>
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

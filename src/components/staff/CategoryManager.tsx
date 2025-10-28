@@ -1,7 +1,7 @@
 'use client';
 
 import type { Category } from '@/lib/definitions';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
@@ -133,7 +133,6 @@ function CategoryEditRow({ category }: { category: Category }) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
       return;
     }
-    // No need for pending state, optimistic UI update from listener
     try {
       await deleteDoc(doc(firestore, 'categories', category.id));
       toast({ title: 'Category Deleted', description: `"${category.name}" has been removed.` });
@@ -198,6 +197,12 @@ function CategoryEditRow({ category }: { category: Category }) {
 
 export default function CategoryManager({ initialCategories }: { initialCategories: Category[] }) {
   const firestore = useFirestore();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const categoriesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
@@ -207,6 +212,10 @@ export default function CategoryManager({ initialCategories }: { initialCategori
 
   const displayCategories = categories ?? initialCategories;
   
+  if (!isClient) {
+    return null;
+  }
+
   return (
     <Card>
       <CardContent className="pt-6 space-y-6">

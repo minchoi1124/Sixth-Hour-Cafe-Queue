@@ -185,13 +185,9 @@ export async function handleAddCategory(prevState: CategoryFormState, formData: 
         // No revalidation needed, component uses real-time listener
         return { success: true, message: `Category "${validatedFields.data.name}" added.` };
     } catch (e) {
-        // Re-throw Firestore permission errors to be caught by the global error boundary
-        if (e instanceof FirestorePermissionError) {
-            throw e;
-        }
-        // Handle other potential errors
-        console.error("handleAddCategory failed:", e);
-        return { message: 'Failed to add category. An unexpected error occurred.', success: false };
+        // Re-throw any error to be caught by the global error boundary
+        // This will display the detailed FirestorePermissionError overlay
+        throw e;
     }
 }
 

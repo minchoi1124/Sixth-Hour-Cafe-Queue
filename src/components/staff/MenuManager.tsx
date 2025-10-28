@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useFirestore } from '@/firebase';
@@ -16,6 +16,10 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
   const firestore = useFirestore();
   const [isPending, startTransition] = useTransition();
   const [localMenu, setLocalMenu] = useState<MenuItem[]>(menu);
+
+  useEffect(() => {
+    setLocalMenu(menu);
+  }, [menu]);
 
   const handleInputChange = (id: string, field: 'name' | 'category', value: string) => {
     setLocalMenu(currentMenu => 

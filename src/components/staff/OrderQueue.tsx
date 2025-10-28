@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  Timestamp,
 } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Order } from '@/lib/definitions';
@@ -37,6 +38,9 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
     }
   };
   
+  const createdAtTimestamp = order.createdAt as unknown as Timestamp;
+  const date = createdAtTimestamp ? createdAtTimestamp.toDate().toLocaleString() : 'Processing...';
+
   return (
     <Card className="flex flex-col h-full overflow-hidden border-primary/20 shadow-lg hover:shadow-xl hover:border-primary/40 transition-all duration-300">
       <CardHeader className="pb-4">
@@ -45,7 +49,7 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
           {order.customerName}
         </CardTitle>
         <CardDescription className="text-lg">
-          {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Processing...'}
+          {date}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1">

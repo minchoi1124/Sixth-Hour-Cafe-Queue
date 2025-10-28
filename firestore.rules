@@ -1,88 +1,63 @@
 /**
- * @file Firestore Security Rules
- * @version 2
+ * @fileoverview Firestore Security Rules for the Coffee Ordering App.
  *
- * @Core Philosophy
- * This ruleset is in prototyping mode and prioritizes security by enforcing
- * authorization checks on all write operations while relaxing data validation.
- * All write operations (create, update, delete) require authentication.
- * Read access is generally public.
+ * Core Philosophy:
+ * This ruleset allows any signed-in user (including anonymous users) to read all data but restricts modifications (create, update, delete) to authenticated users only.
+ * It does not enforce a strict ownership model.
  *
- * @Data Structure
- * The Firestore database contains three top-level collections:
- *   - /drinks/{drinkId}: Stores drink menu items.
- *   - /orders/{orderId}: Stores customer orders.
- *   - /categories/{categoryId}: Stores drink categories.
+ * Data Structure:
+ * - /drinks/{drinkId}: Publicly readable drink menu items.
+ * - /orders/{orderId}: Orders placed by customers.
+ * - /categories/{categoryId}: Publicly readable drink categories.
  *
- * @Key Security Decisions
- *   - Anonymous authentication is enabled, so `request.auth` will be populated for all users.
- *   - Data validation is minimal to allow for rapid schema iteration.
- *   - Public read access is enabled on all collections to simplify the UI in the prototyping phase.
+ * Key Security Decisions:
+ * - Allows anonymous authentication to enable order submission without requiring account creation.
+ * - Permits anyone to create orders.
+ * - Does not allow listing orders - should not be generally accessible.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants public read access to drink categories, but restricts
-     *  creation, modification, and deletion to authenticated users.
-     * @path /categories/{categoryId}
-     * @allow (get, list): Any user can read the category details.
-     * @allow (create): Any authenticated user can create a new category.
-     * @deny (create): An unauthenticated user attempts to create a category.
-     * @allow (update, delete): Any authenticated user can modify or delete a category.
-     * @deny (update, delete): An unauthenticated user attempts to modify or delete a category.
-     * @principle Allows public reads, restricts writes to authenticated users.
-     */
-    match /categories/{categoryId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    /**
-     * @description Grants public read access to drinks, but restricts
-     *  creation, modification, and deletion to authenticated users.
+     * @description Grants public read access to drink menu items and allows anyone to create orders.
      * @path /drinks/{drinkId}
-     * @allow (get, list): Any user can read the drink details.
-     * @allow (create): Any authenticated user can create a new drink.
-     * @deny (create): An unauthenticated user attempts to create a drink.
-     * @allow (update, delete): Any authenticated user can modify or delete a drink.
-     * @deny (update, delete): An unauthenticated user attempts to modify or delete a drink.
-     * @principle Allows public reads, restricts writes to authenticated users.
+     * @allow (get, list) Any user can read drink information.
+     * @deny (create, update, delete) No one can modify drink information.
+     * @principle Grants public read access.
      */
     match /drinks/{drinkId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Grants public read access to orders, but restricts
-     *  creation, modification, and deletion to authenticated users.
+     * @description Allows any signed-in user to create orders. Orders cannot be listed.
      * @path /orders/{orderId}
-     * @allow (get, list): Any user can read order details.
-     * @allow (create): Any authenticated user can create a new order.
-     * @deny (create): An unauthenticated user attempts to create an order.
-     * @allow (update, delete): Any authenticated user can modify or delete an order.
-     * @deny (update, delete): An unauthenticated user attempts to modify or delete an order.
-     * @principle Allows public reads, restricts writes to authenticated users.
+     * @allow (create) Any authenticated user can create an order.
+     * @deny (get, list, update, delete) Orders should not be generally accessible.
+     * @principle Allows order submission by authenticated users.
      */
     match /orders/{orderId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if false;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if false;
     }
-  }
+    
+    /**
+     * @description Grants public read access to drink categories.
+     * @path /categories/{categoryId}
+     * @allow (get, list) Any user can read category information.
+     * @deny (create, update, delete) No one can modify category information.
+     * @principle Grants public read access.
+     */
+    match /categories/{categoryId} {
+        allow get, list: if true;
+        allow create, update, delete: if false;
+    }
 
-  // Helper function to determine if a user is signed in
-  function isSignedIn() {
-    return request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { getMenu } from '@/lib/data';
+import { getMenu, getCategories } from '@/lib/data';
 import MenuManager from '@/components/staff/MenuManager';
 import { AddDrinkForm } from '@/components/staff/AddDrinkForm';
 import { Separator } from '@/components/ui/separator';

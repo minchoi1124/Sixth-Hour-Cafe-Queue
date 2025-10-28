@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { addOrder, completeOrder, addCategory } from './data';
+import { addOrder, completeOrder } from './data';
 import type { NewOrder } from './definitions';
 import { z } from 'zod';
 import { FirestorePermissionError } from '@/firebase/errors';

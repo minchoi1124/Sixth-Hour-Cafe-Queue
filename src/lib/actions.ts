@@ -2,12 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { addOrder, completeOrder, getMenu, updateMenu, addMenuItem } from './data';
-import type { MenuItem } from './definitions';
+import type { MenuItem, NewOrder } from './definitions';
 import { z } from 'zod';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
-  itemId: z.coerce.number({ required_error: 'Please select a drink' }).min(1, 'Please select a drink'),
+  itemId: z.string().min(1, 'Please select a drink'), // ID is now a string
 });
 
 export type OrderFormState = {
@@ -49,13 +49,13 @@ export async function submitOrder(prevState: OrderFormState, formData: FormData)
   }
 
   try {
-    await addOrder({
+    const newOrder: NewOrder = {
       customerName: validatedFields.data.customerName,
-      items: [selectedItem],
-    });
+      items: [{ id: selectedItem.id, name: selectedItem.name }],
+    };
+    await addOrder(newOrder);
 
-    revalidatePath('/staff');
-    revalidatePath('/api/orders');
+    // No revalidation needed for staff page due to real-time updates
     return { message: `Thanks, ${validatedFields.data.customerName}! Your order is in.`, success: true };
   } catch (e) {
     return { message: 'Failed to submit order.', success: false };
@@ -65,8 +65,7 @@ export async function submitOrder(prevState: OrderFormState, formData: FormData)
 export async function markOrderAsCompleted(orderId: string) {
   try {
     await completeOrder(orderId);
-    revalidatePath('/staff');
-    revalidatePath('/api/orders');
+    // No revalidation needed due to real-time updates
   } catch (e) {
     console.error('Failed to complete order:', e);
     // Optionally, return an error to the client
@@ -74,7 +73,6 @@ export async function markOrderAsCompleted(orderId: string) {
 }
 
 export async function saveMenu(formData: FormData) {
-  'use server';
   const currentMenu = await getMenu();
   const updatedMenu: MenuItem[] = [];
 
@@ -133,6 +131,7 @@ export async function addNewDrink(prevState: AddDrinkFormState, formData: FormDa
     try {
         await addMenuItem(validatedFields.data.name, validatedFields.data.category);
         revalidatePath('/staff/menu');
+        revalidatePath('/');
         return { message: `Added "${validatedFields.data.name}" to the menu.`, success: true };
     } catch (e) {
         return { message: 'Failed to add new drink.', success: false };

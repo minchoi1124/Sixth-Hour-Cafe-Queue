@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+} from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,28 +15,30 @@ import { markOrderAsCompleted } from '@/lib/actions';
 import { Check, Coffee, Tag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '../ui/skeleton';
 
-async function fetchOrders(): Promise<Order[]> {
-  const res = await fetch('/api/orders', { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error('Failed to fetch orders');
-  }
-  return res.json();
-}
-
-const OrderCard = ({ order, onComplete }: { order: Order; onComplete: (id: string) => void }) => {
+const OrderCard = ({ order }: { order: Order; }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
 
   const handleComplete = async () => {
     setIsCompleting(true);
-    await markOrderAsCompleted(order.id);
-    toast({
-        title: "Order Completed!",
-        description: `${order.customerName}'s order is done.`,
-    });
-    // The onComplete callback will be called optimistically by the parent
-    // No need to call it here to avoid race conditions with polling
+    // Optimistically update UI, then call server action
+    try {
+        await markOrderAsCompleted(order.id);
+        toast({
+            title: "Order Completed!",
+            description: `${order.customerName}'s order is done.`,
+        });
+    } catch (error) {
+        console.error("Failed to complete order:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not complete the order. Please try again.",
+        });
+        setIsCompleting(false); // Re-enable button on error
+    }
   };
   
   return (
@@ -56,7 +65,7 @@ const OrderCard = ({ order, onComplete }: { order: Order; onComplete: (id: strin
       <CardFooter>
         <Button 
           className="w-full text-2xl py-7" 
-          onClick={() => { onComplete(order.id); handleComplete(); }} 
+          onClick={handleComplete} 
           disabled={isCompleting}
         >
           <Check className="w-7 h-7 mr-2" />
@@ -67,28 +76,54 @@ const OrderCard = ({ order, onComplete }: { order: Order; onComplete: (id: strin
   );
 };
 
+function OrderQueueSkeleton() {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-6 rounded-lg bg-card border">
+                    <Skeleton className="h-8 w-3/4 mb-4" />
+                    <Skeleton className="h-4 w-1/2 mb-6" />
+                    <div className="space-y-3">
+                        <Skeleton className="h-6 w-full" />
+                        <Skeleton className="h-6 w-5/6" />
+                    </div>
+                    <Skeleton className="h-12 w-full mt-8" />
+                </div>
+            ))}
+        </div>
+    )
+}
 
 export function OrderQueue({ initialOrders }: { initialOrders: Order[] }) {
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
-  
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const newOrders = await fetchOrders();
-        setOrders(newOrders);
-      } catch (error) {
-        console.error(error);
-      }
-    }, 3000); // Poll every 3 seconds
+  const firestore = useFirestore();
 
-    return () => clearInterval(interval);
-  }, []);
+  const ordersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+      collection(firestore, 'orders'),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'asc')
+    );
+  }, [firestore]);
 
-  const handleCompleteOrder = (orderId: string) => {
-    setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
-  };
+  const { data: orders, isLoading, error } = useCollection<Order>(ordersQuery);
 
-  if (orders.length === 0) {
+  const displayOrders = orders ?? initialOrders;
+
+  if (isLoading && !displayOrders.length) {
+    return <OrderQueueSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-24 text-destructive">
+        <h2 className="text-3xl font-bold">Error loading orders</h2>
+        <p className="text-xl mt-2">{error.message}</p>
+      </div>
+    );
+  }
+
+  if (displayOrders.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
             <Coffee className="w-24 h-24 text-muted-foreground/50 mb-6"/>
@@ -101,16 +136,16 @@ export function OrderQueue({ initialOrders }: { initialOrders: Order[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       <AnimatePresence>
-        {orders.map((order) => (
+        {displayOrders.map((order) => (
           <motion.div
             key={order.id}
             layout
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+            exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.9, transition: { duration: 0.3 } }}
             className="h-full"
           >
-            <OrderCard order={order} onComplete={handleCompleteOrder} />
+            <OrderCard order={order} />
           </motion.div>
         ))}
       </AnimatePresence>

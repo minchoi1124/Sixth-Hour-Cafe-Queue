@@ -15,13 +15,22 @@ import { z } from 'zod';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
+import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
   itemId: z.string().min(1, 'Please select a drink'),
 });
 
+const drinkIcons: { [key: string]: React.FC<{ className?: string }> } = {
+    "Maple Matcha Latte": MapleMatchaLatteIcon,
+    "Dalgona Coffee": DalgonaCoffeeIcon,
+    "London Fog": LondonFogIcon,
+    "Apple Cider Chai": AppleCiderChaiIcon,
+};
+
 function DrinkOption({ item }: { item: MenuItem }) {
+  const Icon = drinkIcons[item.name];
   return (
     <div>
       <RadioGroupItem
@@ -40,6 +49,7 @@ function DrinkOption({ item }: { item: MenuItem }) {
           'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
         )}
       >
+        {Icon && <div className="mb-3 h-14 w-14"><Icon /></div>}
         <span className="text-2xl font-medium">{item.name}</span>
       </Label>
     </div>
@@ -152,7 +162,8 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
           <Input
             id="customerName"
             name="customerName"
-            className="text-3xl h-16"
+            placeholder="e.g. Alex"
+            className="text-3xl h-16 border-2 border-primary/20 focus-visible:border-primary"
             required
             aria-describedby="name-error"
           />
@@ -167,7 +178,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-4xl">2. Choose your drink</CardTitle>
-          <CardDescription className="text-xl">Select one of the drinks from our menu.</CardDescription>
+          <CardDescription className="text-xl">Select one of our drinks from our menu.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <RadioGroup name="itemId" className="space-y-8" aria-describedby='items-error'>

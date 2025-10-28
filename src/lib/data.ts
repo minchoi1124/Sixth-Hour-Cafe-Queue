@@ -1,67 +1,85 @@
-import type { Order, MenuItem } from './definitions';
+'use server';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  deleteDoc,
+  writeBatch,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { getSdks } from '@/firebase';
+import type { Order, MenuItem, NewOrder } from './definitions';
 
-// In-memory store
-let orders: Order[] = [];
-let menu: MenuItem[] = [
-  { id: 1, name: 'Maple Matcha Latte', inStock: true, category: 'Lattes' },
-  { id: 2, name: 'Dalgona Whipped Coffee', inStock: true, category: 'Lattes' },
-  { id: 3, name: 'London Fog', inStock: true, category: 'Teas' },
-  { id: 4, name: 'Apple Cider Chai', inStock: true, category: 'Teas' },
-];
-let nextMenuItemId = 5;
+// This is a server-side only file.
+// We use getSdks to get the admin-like firestore instance.
+const { firestore } = getSdks();
+
+const MENU_COLLECTION = 'drinks';
+const ORDERS_COLLECTION = 'orders';
 
 export const getMenu = async (): Promise<MenuItem[]> => {
-  // Simulate async operation
-  await new Promise(resolve => setTimeout(resolve, 100));
-  return Promise.resolve([...menu]);
+  const menuSnapshot = await getDocs(collection(firestore, MENU_COLLECTION));
+  const menu: MenuItem[] = [];
+  menuSnapshot.forEach((doc) => {
+    menu.push({ id: doc.id, ...doc.data() } as MenuItem);
+  });
+  return menu;
 };
 
-export const updateMenu = async (updatedMenu: MenuItem[]): Promise<MenuItem[]> => {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  menu = updatedMenu;
-  return Promise.resolve([...menu]);
+export const updateMenu = async (updatedMenu: MenuItem[]): Promise<void> => {
+  const batch = writeBatch(firestore);
+  updatedMenu.forEach((item) => {
+    const { id, ...data } = item;
+    const docRef = doc(firestore, MENU_COLLECTION, id);
+    batch.set(docRef, data, { merge: true });
+  });
+  await batch.commit();
 };
 
 export const addMenuItem = async (name: string, category: string): Promise<MenuItem> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const newItem: MenuItem = {
-        id: nextMenuItemId++,
-        name,
-        category,
-        inStock: true,
-    };
-    menu.push(newItem);
-    return Promise.resolve(newItem);
-}
+  const newItem = {
+    name,
+    category,
+    inStock: true,
+  };
+  const docRef = await addDoc(collection(firestore, MENU_COLLECTION), newItem);
+  return { ...newItem, id: docRef.id };
+};
 
 export const getOrders = async (): Promise<Order[]> => {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  return Promise.resolve(
-    orders
-      .filter(o => o.status === 'pending')
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  const q = query(
+    collection(firestore, ORDERS_COLLECTION),
+    where('status', '==', 'pending'),
+    orderBy('createdAt', 'asc')
   );
+  const ordersSnapshot = await getDocs(q);
+  const orders: Order[] = [];
+  ordersSnapshot.forEach((doc) => {
+    const data = doc.data();
+    orders.push({ 
+      id: doc.id,
+      ...data,
+      // Convert Firestore Timestamp to ISO string for client-side compatibility
+      createdAt: data.createdAt.toDate().toISOString(),
+    } as Order);
+  });
+  return orders;
 };
 
-export const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'status'>): Promise<Order> => {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  const newOrder: Order = {
+export const addOrder = async (order: NewOrder): Promise<void> => {
+  await addDoc(collection(firestore, ORDERS_COLLECTION), {
     ...order,
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
+    createdAt: serverTimestamp(),
     status: 'pending',
-  };
-  orders.push(newOrder);
-  return Promise.resolve(newOrder);
+  });
 };
 
-export const completeOrder = async (orderId: string): Promise<Order | undefined> => {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  const orderIndex = orders.findIndex(o => o.id === orderId);
-  if (orderIndex > -1) {
-    orders[orderIndex].status = 'completed';
-    // For this simulation, we'll just mark as completed. A real app might move it to a different collection or filter it out.
-    return Promise.resolve(orders[orderIndex]);
-  }
-  return Promise.resolve(undefined);
+export const completeOrder = async (orderId: string): Promise<void> => {
+  const docRef = doc(firestore, ORDERS_COLLECTION, orderId);
+  // Instead of changing status, we just delete it for simplicity
+  await deleteDoc(docRef);
 };

@@ -1,7 +1,6 @@
 'use client';
 
 import type { MenuItem } from '@/lib/definitions';
-import { useFormStatus } from 'react-dom';
 import { submitOrder } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,9 +21,38 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 const initialState = { message: '', errors: {}, success: false };
 
 function SubmitButton() {
-  const { pending } = useFormStatus();
+  // We can't use useFormStatus here because we're using useActionState on the form.
+  // We'll manage loading state manually.
+  const [pending, setPending] = useState(false);
+  
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+
+    const handleSubmission = (event: Event) => {
+        setPending(true);
+    };
+
+    form.addEventListener('submit', handleSubmission);
+
+    return () => {
+        form.removeEventListener('submit', handleSubmission);
+    };
+  }, []);
+
   return (
-    <Button type="submit" disabled={pending} className="w-full text-3xl py-8">
+    <Button ref={(node) => {
+        // Find the parent form and assign it to the ref
+        if (node) {
+            let parentForm = node.parentElement;
+            while(parentForm && parentForm.tagName !== 'FORM') {
+                parentForm = parentForm.parentElement;
+            }
+            formRef.current = parentForm as HTMLFormElement;
+        }
+    }} type="submit" disabled={pending} className="w-full text-3xl py-8">
       {pending ? 'Placing Order...' : 'Place My Order'}
     </Button>
   );
@@ -66,32 +94,39 @@ function DrinkOption({ item }: { item: MenuItem }) {
 }
 
 export default function OrderForm({ menu }: { menu: MenuItem[] }) {
-  const [state, dispatch] = useActionState(submitOrder, initialState);
+  const [state, dispatch, isPending] = useActionState(submitOrder, initialState);
   const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
   const lattes = menu.filter(item => item.category === 'Lattes');
   const teas = menu.filter(item => item.category === 'Teas');
 
+  const resetForm = () => {
+    setFormKey(k => k + 1);
+  };
+
   useEffect(() => {
     if (state.success) {
       formRef.current?.reset();
-      const timer = setTimeout(() => {
-        setFormKey(k => k + 1); // This resets the form state by changing the key
-      }, 3000);
+      const timer = setTimeout(resetForm, 10000); // 10 seconds
       return () => clearTimeout(timer);
     }
   }, [state.success]);
   
-  if (state.success && formKey > 0) {
+  if (state.success) {
     return (
-      <Alert className="border-primary/50 text-center">
-        <CheckCircle className="h-4 w-4" />
-        <AlertTitle className="text-3xl font-bold">Order Submitted!</AlertTitle>
-        <AlertDescription className="text-xl">
-          {state.message}
-        </AlertDescription>
-      </Alert>
+      <div className="text-center space-y-8">
+        <Alert className="border-primary/50 text-center">
+          <CheckCircle className="h-4 w-4" />
+          <AlertTitle className="text-3xl font-bold">Order Submitted!</AlertTitle>
+          <AlertDescription className="text-xl">
+            {state.message}
+          </AlertDescription>
+        </Alert>
+        <Button onClick={resetForm} className="text-2xl py-6">
+            New Order
+        </Button>
+      </div>
     );
   }
 
@@ -148,7 +183,9 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
         </CardContent>
       </Card>
       
-      <SubmitButton />
+      <Button type="submit" disabled={isPending} className="w-full text-3xl py-8">
+        {isPending ? 'Placing Order...' : 'Place My Order'}
+      </Button>
 
       {state.message && !state.success && (
         <p className="text-destructive text-center text-lg">{state.message}</p>

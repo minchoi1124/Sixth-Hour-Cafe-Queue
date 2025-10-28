@@ -10,7 +10,7 @@ const OrderSchema = z.object({
   itemId: z.coerce.number({ required_error: 'Please select a drink' }).min(1, 'Please select a drink'),
 });
 
-type OrderFormState = {
+export type OrderFormState = {
   message?: string;
   errors?: {
     customerName?: string[];
@@ -20,6 +20,8 @@ type OrderFormState = {
 };
 
 export async function submitOrder(prevState: OrderFormState, formData: FormData): Promise<OrderFormState> {
+  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network latency
+
   const validatedFields = OrderSchema.safeParse({
     customerName: formData.get('customerName'),
     itemId: formData.get('itemId'),

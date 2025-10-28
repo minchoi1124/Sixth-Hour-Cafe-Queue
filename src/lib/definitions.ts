@@ -5,6 +5,7 @@ export type MenuItem = {
   name: string;
   inStock: boolean;
   category: string;
+  order: number;
 };
 
 export type Order = {

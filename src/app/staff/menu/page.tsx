@@ -36,7 +36,7 @@ export default function MenuManagementPage() {
 
   const menuQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'drinks'));
+    return query(collection(firestore, 'drinks'), orderBy('order', 'asc'));
   }, [firestore]);
 
   const categoriesQuery = useMemoFirebase(() => {
@@ -63,7 +63,7 @@ export default function MenuManagementPage() {
       <div>
         <h1 className="text-5xl font-bold">Menu Management</h1>
         <p className="text-2xl text-muted-foreground">
-          Update drink availability, names, and categories.
+          Update drink availability, names, categories, and display order.
         </p>
       </div>
       <MenuManager menu={safeMenu} categories={safeCategories} />

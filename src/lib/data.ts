@@ -12,28 +12,33 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { getFirestore } from 'firebase-admin/firestore';
 import { initializeServerApp } from '@/firebase/server-app';
 import type { Order, MenuItem, NewOrder, Category } from './definitions';
 
 // This is a server-side only file.
-const { firestore } = initializeServerApp();
 
 const MENU_COLLECTION = 'drinks';
 const ORDERS_COLLECTION = 'orders';
 const CATEGORIES_COLLECTION = 'categories';
 
+const getDb = async () => {
+    const { firestore } = await initializeServerApp();
+    return firestore;
+}
 
 export const getCategories = async (): Promise<Category[]> => {
+    const firestore = await getDb();
     const snapshot = await getDocs(query(collection(firestore, CATEGORIES_COLLECTION), orderBy('name')));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
 };
 
 export const addCategory = async (name: string): Promise<void> => {
+    const firestore = await getDb();
     await addDoc(collection(firestore, CATEGORIES_COLLECTION), { name });
 };
 
 export const updateCategory = async (id: string, name: string): Promise<void> => {
+    const firestore = await getDb();
     const docRef = doc(firestore, CATEGORIES_COLLECTION, id);
     await updateDoc(docRef, { name });
 };
@@ -41,12 +46,14 @@ export const updateCategory = async (id: string, name: string): Promise<void> =>
 export const deleteCategory = async (id: string): Promise<void> => {
     // Note: This doesn't handle migrating drinks in the deleted category.
     // For this app's purpose, we'll allow drinks to have stale categories.
+    const firestore = await getDb();
     const docRef = doc(firestore, CATEGORIES_COLLECTION, id);
     await deleteDoc(docRef);
 };
 
 
 export const getMenu = async (): Promise<MenuItem[]> => {
+  const firestore = await getDb();
   const menuSnapshot = await getDocs(collection(firestore, MENU_COLLECTION));
   const menu: MenuItem[] = [];
   menuSnapshot.forEach((doc) => {
@@ -56,6 +63,7 @@ export const getMenu = async (): Promise<MenuItem[]> => {
 };
 
 export const updateMenu = async (updatedMenu: MenuItem[]): Promise<void> => {
+  const firestore = await getDb();
   const batch = writeBatch(firestore);
   updatedMenu.forEach((item) => {
     const { id, ...data } = item;
@@ -66,6 +74,7 @@ export const updateMenu = async (updatedMenu: MenuItem[]): Promise<void> => {
 };
 
 export const addMenuItem = async (name: string, category: string): Promise<MenuItem> => {
+  const firestore = await getDb();
   const newItem = {
     name,
     category,
@@ -76,6 +85,7 @@ export const addMenuItem = async (name: string, category: string): Promise<MenuI
 };
 
 export const getOrders = async (): Promise<Order[]> => {
+  const firestore = await getDb();
   const q = query(
     collection(firestore, ORDERS_COLLECTION),
     where('status', '==', 'pending'),
@@ -96,6 +106,7 @@ export const getOrders = async (): Promise<Order[]> => {
 };
 
 export const addOrder = async (order: NewOrder): Promise<void> => {
+  const firestore = await getDb();
   await addDoc(collection(firestore, ORDERS_COLLECTION), {
     ...order,
     createdAt: serverTimestamp(),
@@ -104,6 +115,7 @@ export const addOrder = async (order: NewOrder): Promise<void> => {
 };
 
 export const completeOrder = async (orderId: string): Promise<void> => {
+  const firestore = await getDb();
   const docRef = doc(firestore, ORDERS_COLLECTION, orderId);
   // Instead of changing status, we just delete it for simplicity
   await deleteDoc(docRef);

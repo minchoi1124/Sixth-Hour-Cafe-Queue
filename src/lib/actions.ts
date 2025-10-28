@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { addOrder, completeOrder, getMenu, updateMenu } from './data';
+import { addOrder, completeOrder, getMenu, updateMenu, addMenuItem } from './data';
 import type { MenuItem } from './definitions';
 import { z } from 'zod';
 
@@ -74,11 +74,24 @@ export async function markOrderAsCompleted(orderId: string) {
 }
 
 export async function saveMenu(formData: FormData) {
+  'use server';
   const currentMenu = await getMenu();
-  const updatedMenu: MenuItem[] = currentMenu.map(item => ({
-    ...item,
-    inStock: formData.get(`item-${item.id}-instock`) === 'on',
-  }));
+  const updatedMenu: MenuItem[] = [];
+
+  for (const item of currentMenu) {
+      const name = formData.get(`item-${item.id}-name`) as string;
+      const category = formData.get(`item-${item.id}-category`) as string;
+      const inStock = formData.get(`item-${item.id}-instock`) === 'on';
+
+      if (name && category) {
+          updatedMenu.push({
+              ...item,
+              name: name.trim(),
+              category: category.trim(),
+              inStock: inStock,
+          });
+      }
+  }
 
   try {
     await updateMenu(updatedMenu);
@@ -87,4 +100,41 @@ export async function saveMenu(formData: FormData) {
   } catch (e) {
     console.error('Failed to save menu:', e);
   }
+}
+
+const AddDrinkSchema = z.object({
+    name: z.string().trim().min(2, 'Drink name must be at least 2 characters'),
+    category: z.string().trim().min(2, 'Category must be at least 2 characters'),
+});
+
+export type AddDrinkFormState = {
+    message?: string;
+    errors?: {
+        name?: string[];
+        category?: string[];
+    };
+    success?: boolean;
+}
+
+export async function addNewDrink(prevState: AddDrinkFormState, formData: FormData): Promise<AddDrinkFormState> {
+    const validatedFields = AddDrinkSchema.safeParse({
+        name: formData.get('name'),
+        category: formData.get('category'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            errors: validatedFields.error.flatten().fieldErrors,
+            message: 'Invalid data.',
+            success: false,
+        };
+    }
+
+    try {
+        await addMenuItem(validatedFields.data.name, validatedFields.data.category);
+        revalidatePath('/staff/menu');
+        return { message: `Added "${validatedFields.data.name}" to the menu.`, success: true };
+    } catch (e) {
+        return { message: 'Failed to add new drink.', success: false };
+    }
 }

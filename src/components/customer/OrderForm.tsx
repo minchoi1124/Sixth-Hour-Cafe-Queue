@@ -98,8 +98,13 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const lattes = menu.filter(item => item.category === 'Lattes');
-  const teas = menu.filter(item => item.category === 'Teas');
+  const categories = menu.reduce((acc, item) => {
+    if (!acc[item.category]) {
+      acc[item.category] = [];
+    }
+    acc[item.category].push(item);
+    return acc;
+  }, {} as { [key: string]: MenuItem[] });
 
   const resetForm = () => {
     setFormKey(k => k + 1);
@@ -162,18 +167,14 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
         </CardHeader>
         <CardContent className="space-y-8">
           <RadioGroup name="itemId" className="space-y-8" aria-describedby='items-error'>
-            <div>
-              <h3 className="text-3xl font-semibold mb-4 text-primary">Lattes</h3>
-              <div id="lattes-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {lattes.map((item) => <DrinkOption key={item.id} item={item} />)}
-              </div>
-            </div>
-            <div>
-              <h3 className="text-3xl font-semibold mb-4 text-primary">Teas</h3>
-              <div id="teas-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {teas.map((item) => <DrinkOption key={item.id} item={item} />)}
-              </div>
-            </div>
+            {Object.entries(categories).map(([category, items]) => (
+                <div key={category}>
+                    <h3 className="text-3xl font-semibold mb-4 text-primary">{category}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {items.map((item) => <DrinkOption key={item.id} item={item} />)}
+                    </div>
+                </div>
+            ))}
           </RadioGroup>
           {state.errors?.itemId && (
             <p id="items-error" className="text-destructive mt-4 text-lg flex items-center gap-2">

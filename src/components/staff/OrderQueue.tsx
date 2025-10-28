@@ -12,12 +12,12 @@ import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { markOrderAsCompleted } from '@/lib/actions';
-import { Check, Coffee, Tag } from 'lucide-react';
+import { Check, Coffee, Tag, History } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 
-const OrderCard = ({ order }: { order: Order; }) => {
+const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'completed' }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
 
@@ -45,7 +45,7 @@ const OrderCard = ({ order }: { order: Order; }) => {
           {order.customerName}
         </CardTitle>
         <CardDescription className="text-lg">
-          {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'Processing...'}
+          {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Processing...'}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
@@ -58,16 +58,18 @@ const OrderCard = ({ order }: { order: Order; }) => {
           ))}
         </ul>
       </CardContent>
-      <CardFooter>
-        <Button 
-          className="w-full text-2xl py-7" 
-          onClick={handleComplete} 
-          disabled={isCompleting}
-        >
-          <Check className="w-7 h-7 mr-2" />
-          {isCompleting ? 'Completing...' : 'Mark as Done'}
-        </Button>
-      </CardFooter>
+      {status === 'pending' && (
+        <CardFooter>
+            <Button 
+            className="w-full text-2xl py-7" 
+            onClick={handleComplete} 
+            disabled={isCompleting}
+            >
+            <Check className="w-7 h-7 mr-2" />
+            {isCompleting ? 'Completing...' : 'Mark as Done'}
+            </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 };
@@ -90,23 +92,42 @@ function OrderQueueSkeleton() {
     )
 }
 
-export function OrderQueue({ initialOrders }: { initialOrders: Order[] }) {
+const EmptyState = ({ status }: { status: 'pending' | 'completed' }) => {
+    if (status === 'completed') {
+        return (
+            <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
+                <History className="w-24 h-24 text-muted-foreground/50 mb-6"/>
+                <h2 className="text-4xl font-bold">No Completed Orders</h2>
+                <p className="text-2xl text-muted-foreground mt-2">The order history is empty.</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
+            <Coffee className="w-24 h-24 text-muted-foreground/50 mb-6"/>
+            <h2 className="text-4xl font-bold">All Caught Up!</h2>
+            <p className="text-2xl text-muted-foreground mt-2">The order queue is empty. Waiting for new orders...</p>
+        </div>
+    )
+}
+
+export function OrderQueue({ status }: { status: 'pending' | 'completed' }) {
   const firestore = useFirestore();
 
   const ordersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
+    const orderDirection = status === 'pending' ? 'asc' : 'desc';
     return query(
       collection(firestore, 'orders'),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'asc')
+      where('status', '==', status),
+      orderBy('createdAt', orderDirection)
     );
-  }, [firestore]);
+  }, [firestore, status]);
 
   const { data: orders, isLoading, error } = useCollection<Order>(ordersQuery);
 
-  const displayOrders = orders ?? initialOrders;
-
-  if (isLoading && !displayOrders.length) {
+  if (isLoading && !orders) {
     return <OrderQueueSkeleton />;
   }
 
@@ -115,20 +136,14 @@ export function OrderQueue({ initialOrders }: { initialOrders: Order[] }) {
     throw error;
   }
 
-  if (displayOrders.length === 0) {
-    return (
-        <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
-            <Coffee className="w-24 h-24 text-muted-foreground/50 mb-6"/>
-            <h2 className="text-4xl font-bold">All Caught Up!</h2>
-            <p className="text-2xl text-muted-foreground mt-2">The order queue is empty. Waiting for new orders...</p>
-        </div>
-    )
+  if (orders?.length === 0) {
+    return <EmptyState status={status} />;
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       <AnimatePresence>
-        {displayOrders.map((order) => (
+        {orders?.map((order) => (
           <motion.div
             key={order.id}
             layout
@@ -137,7 +152,7 @@ export function OrderQueue({ initialOrders }: { initialOrders: Order[] }) {
             exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.9, transition: { duration: 0.3 } }}
             className="h-full"
           >
-            <OrderCard order={order} />
+            <OrderCard order={order} status={status} />
           </motion.div>
         ))}
       </AnimatePresence>

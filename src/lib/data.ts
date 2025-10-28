@@ -1,3 +1,4 @@
+
 'use server';
 
 import {
@@ -65,15 +66,22 @@ export const getOrders = async (): Promise<Order[]> => {
     where('status', '==', 'pending'),
     orderBy('createdAt', 'asc')
   );
-  const orderSnapshot = await getDocs(q);
-  const orders: Order[] = [];
-  orderSnapshot.forEach((doc) => {
-    const data = doc.data();
-    // Convert Firestore Timestamp to ISO string for client-side compatibility
-    const createdAt = (data.createdAt as Timestamp)?.toDate().toISOString() ?? new Date().toISOString();
-    orders.push({ id: doc.id, ...data, createdAt } as Order);
-  });
-  return orders;
+  try {
+    const orderSnapshot = await getDocs(q);
+    const orders: Order[] = [];
+    orderSnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Convert Firestore Timestamp to ISO string for client-side compatibility
+      const createdAt = (data.createdAt as Timestamp)?.toDate().toISOString() ?? new Date().toISOString();
+      orders.push({ id: doc.id, ...data, createdAt } as Order);
+    });
+    return orders;
+  } catch (e) {
+    console.warn("Server-side getOrders failed, likely due to permissions. The client-side real-time listener will take over.");
+    // Return an empty array to allow the page to render.
+    // The client-side useCollection hook will then fetch the data in real-time.
+    return [];
+  }
 };
 
 

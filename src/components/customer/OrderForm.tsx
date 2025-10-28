@@ -162,7 +162,6 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
           <Input
             id="customerName"
             name="customerName"
-            placeholder="e.g. Alex"
             className="text-3xl h-16 border-2 border-primary/20 focus-visible:border-primary"
             required
             aria-describedby="name-error"

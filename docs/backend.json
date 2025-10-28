@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "Order": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Order",
+      "type": "object",
+      "description": "Represents a customer's order including their name and selected drinks.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the order."
+        },
+        "customerName": {
+          "type": "string",
+          "description": "The name of the customer who placed the order."
+        },
+        "drinkIds": {
+          "type": "array",
+          "description": "References to Drinks in this order. (Relationship: Order N:N Drink)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "submissionTime": {
+          "type": "string",
+          "description": "The time the order was submitted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "customerName",
+        "drinkIds",
+        "submissionTime"
+      ]
+    },
+    "Drink": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Drink",
+      "type": "object",
+      "description": "Represents a drink available on the menu.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the drink."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the drink (e.g., Maple Matcha Latte)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the drink."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the drink."
+        },
+        "inStock": {
+          "type": "boolean",
+          "description": "Indicates whether the drink is currently in stock."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "price",
+        "inStock"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/drinks/{drinkId}",
+        "definition": {
+          "entityName": "Drink",
+          "schema": {
+            "$ref": "#/backend/entities/Drink"
+          },
+          "description": "Stores drink menu items. Accessible to staff for management.  Staff role authorization is assumed to be handled separately, via checking a role document based on `request.auth.uid`.",
+          "params": [
+            {
+              "name": "drinkId",
+              "description": "The unique identifier for the drink."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/orders/{orderId}",
+        "definition": {
+          "entityName": "Order",
+          "schema": {
+            "$ref": "#/backend/entities/Order"
+          },
+          "description": "Stores customer orders.  Accessible for creation by all authenticated users (anonymous or password).",
+          "params": [
+            {
+              "name": "orderId",
+              "description": "The unique identifier for the order."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This design prioritizes simplicity and security for the Sixth Hour Cafe Queue application. It leverages structural segregation to separate drink menu data (staff-managed) from customer order data. Authorization independence is maintained, eliminating the need for `get()` calls in security rules. All `list` operations are secured by the data structure itself.  The structure is designed around these key principles:\n\n*   **/drinks (Menu Management):** A top-level collection stores drink menu items.  Staff members manage this collection.\n*   **/orders (Order Submission):** A top-level collection to store customer orders. This simplifies querying and real-time updates for the staff-facing iPad. The customer's name and `drinkIds` are stored directly in the order document.\n\n**Authorization Independence:**\n\n*   The security rules will primarily rely on `request.auth.uid` to ensure that only authenticated users can modify data. The `drinks` collection can be configured to only be accessible to staff accounts by storing staff role in a separate roles collection (not shown here as it was not requested in the instructions).\n\n**QAPs (Rules are not Filters):**\n\n*   The segregation of `drinks` and `orders` into separate collections ensures secure `list` operations. Staff can `list` all drinks without exposing order data, and vice-versa.  Security rules can be written to allow only staff to modify drinks and all authenticated users to create order data.\n"
+  }
+}

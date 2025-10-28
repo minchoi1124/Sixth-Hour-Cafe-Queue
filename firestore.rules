@@ -1,0 +1,63 @@
+/**
+ * @fileoverview Firestore Security Rules for the Sixth Hour Cafe Queue application.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes simplicity and security, leveraging structural segregation
+ * to protect data access based on user roles and data ownership. It emphasizes
+ * authenticated access and restricts unauthorized modifications.
+ *
+ * Data Structure:
+ * - /drinks/{drinkId}: Stores drink menu items, intended for staff management.
+ * - /orders/{orderId}: Stores customer orders, intended for creation by authenticated users.
+ *
+ * Key Security Decisions:
+ * - Authenticated access is required for creating orders.
+ * - No user listing is permitted.
+ * - Staff role authorization for /drinks is assumed to be handled separately (e.g., via a roles collection) and is not explicitly implemented here.
+ *
+ * Denormalization for Authorization:
+ * - No denormalization is needed as the current rules only check for authentication.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Manages access to the drinks collection, intended for staff.
+     * @path /drinks/{drinkId}
+     * @allow (get, list): Allows any user to read the menu.
+     * @allow (create, update, delete): Placeholder for staff role authorization.
+     * @deny (create, update, delete): Denies writes for non-staff users.
+     * @principle Staff-only write access with public reads.
+     */
+    match /drinks/{drinkId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Implement staff role check (e.g., `isAdmin()`)
+    }
+
+    /**
+     * @description Manages customer orders, allowing authenticated users to create them.
+     * @path /orders/{orderId}
+     * @allow (create): Allows authenticated users (anonymous or password) to create orders.
+     * @deny (create): Denies creation from unauthenticated users.
+     * @allow (get, list): Allows any user to read orders.
+     * @deny (update, delete): Denies updates and deletes to anyone.
+     * @principle Authenticated users can create orders; no updates or deletes allowed.
+     */
+    match /orders/{orderId} {
+      allow create: if isSignedIn();
+      allow get, list: if true;
+      allow update, delete: if false;
+    }
+
+    // --- Helper functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @returns True if the user is authenticated, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+  }
+}

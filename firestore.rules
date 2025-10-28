@@ -1,68 +1,57 @@
 /**
- * @fileoverview Firestore Security Rules for Sixth Hour Cafe Queue.
+ * @fileoverview Firestore Security Rules for the Coffee Ordering App.
  *
  * Core Philosophy:
- * This ruleset prioritizes security and data protection, enforcing strict limitations on data access.
- * The application uses anonymous authentication; therefore, all rules deny authenticated access and all `create`, `update` and `delete` operations.
+ * This ruleset prioritizes security and data protection, enforcing strict access controls based on authentication and authorization.
+ * It is configured to allow unauthenticated users to read all available documents, but disallows writing.
  *
  * Data Structure:
- * - /drinks/{drinkId}: Stores drink menu items. Accessible to the public for reading, but creation, modification, and deletion are disallowed.
- * - /orders/{orderId}: Stores customer orders. Creation is allowed, but modification and deletion are disallowed.
- * - /categories/{categoryId}: Stores drink categories. Accessible to the public for reading, but creation, modification, and deletion are disallowed.
+ * The data is organized into three top-level collections: 'drinks', 'orders', and 'categories'.
+ *  - /drinks/{drinkId}: Stores individual drink menu items.
+ *  - /orders/{orderId}: Stores customer orders submitted through the app.
+ *  - /categories/{categoryId}: Stores drink categories.
  *
  * Key Security Decisions:
- * - No authenticated users: Because the application uses anonymous auth, all rules must allow null auth.
- * - No listing of orders: Listing of orders is not permitted to prevent exposure of customer data.
- * - Drinks and Categories are readable by all.
- * - Deny all write operations as the app should not be writing data.
+ *  - Public Read Access: 'drinks' and 'categories' are publicly readable to allow unauthenticated users to view the menu and available categories.
+ *  - No Write Access: No users, even authenticated ones, have write access to the database in this current configuration.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants read-only access to the 'drinks' collection.
+     * @description Allows anyone to read the drink menu, but restricts creation, updates, and deletes.
      * @path /drinks/{drinkId}
-     * @allow (get, list) Allow anyone to read the drink information.
-     * @deny (create, update, delete) No one should be able to create, update, or delete drinks.
-     * @principle Allows public read access for menu display, but restricts write access.
+     * @allow (get, list) Allows any user (authenticated or not) to read the drink menu.
+     * @deny (create, update, delete) Prevents any user from creating, updating, or deleting drinks.
+     * @principle Allows public read access while restricting write access.
      */
     match /drinks/{drinkId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows creation of orders but prevents listing, updates, and deletion.
+     * @description Restricts all access to the orders collection.
      * @path /orders/{orderId}
-     * @allow (create) Allow anyone to create an order.
-     * @deny (get, list, update, delete) No one should be able to get an order, list orders, update an order or delete an order.
-     * @principle Restricts listing of orders for data privacy and prevents unauthorized modifications.
+     * @allow None. All operations are denied.
+     * @deny All operations are denied.
+     * @principle No one is authorized to interact with orders in this configuration.
      */
     match /orders/{orderId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if true;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list, create, update, delete: if false;
     }
 
     /**
-     * @description Grants read-only access to the 'categories' collection.
+     * @description Allows anyone to read the drink categories, but restricts creation, updates, and deletes.
      * @path /categories/{categoryId}
-     * @allow (get, list) Allow anyone to read the drink categories.
-     * @deny (create, update, delete) No one should be able to create, update, or delete categories.
-     * @principle Allows public read access for menu display, but restricts write access.
+     * @allow (get, list) Allows any user (authenticated or not) to read the drink categories.
+     * @deny (create, update, delete) Prevents any user from creating, updating, or deleting categories.
+     * @principle Allows public read access while restricting write access.
      */
     match /categories/{categoryId} {
-        allow get: if true;
-        allow list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
   }
 }

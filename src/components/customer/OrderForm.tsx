@@ -1,13 +1,12 @@
 'use client';
 
 import type { MenuItem } from '@/lib/definitions';
-import { submitOrder } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useRef, useState, useActionState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AppleCiderChaiIcon,
   DalgonaCoffeeIcon,
@@ -17,8 +16,15 @@ import {
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { z } from 'zod';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { toast } from '@/hooks/use-toast';
 
-const initialState = { message: '', errors: {}, success: false };
+const OrderSchema = z.object({
+  customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
+  itemId: z.string().min(1, 'Please select a drink'),
+});
 
 const drinkIcons: { [key: string]: React.ReactNode } = {
   'Maple Matcha Latte': <MapleMatchaLatteIcon className="w-10 h-10" />,
@@ -56,8 +62,11 @@ function DrinkOption({ item }: { item: MenuItem }) {
 }
 
 export default function OrderForm({ menu }: { menu: MenuItem[] }) {
-  const [state, dispatch, isPending] = useActionState(submitOrder, initialState);
-  const [formKey, setFormKey] = useState(0);
+  const firestore = useFirestore();
+  const [isPending, setIsPending] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [errors, setErrors] = useState<{ customerName?: string[], itemId?: string[] } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const categories = menu.reduce((acc, item) => {
@@ -69,25 +78,74 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   }, {} as { [key: string]: MenuItem[] });
 
   const resetForm = () => {
-    setFormKey(k => k + 1);
+    setIsSuccess(false);
+    setCustomerName('');
+    setErrors(null);
+    formRef.current?.reset();
   };
 
-  useEffect(() => {
-    if (state.success) {
-      formRef.current?.reset();
-      const timer = setTimeout(resetForm, 10000); // 10 seconds
-      return () => clearTimeout(timer);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsPending(true);
+    setErrors(null);
+
+    if (!firestore) {
+      toast({ variant: "destructive", title: "Error", description: "Could not connect to database." });
+      setIsPending(false);
+      return;
     }
-  }, [state.success]);
+
+    const formData = new FormData(event.currentTarget);
+    const validatedFields = OrderSchema.safeParse({
+      customerName: formData.get('customerName'),
+      itemId: formData.get('itemId'),
+    });
+
+    if (!validatedFields.success) {
+      setErrors(validatedFields.error.flatten().fieldErrors);
+      setIsPending(false);
+      return;
+    }
+
+    const selectedItem = menu.find(item => validatedFields.data.itemId === item.id);
+    if (!selectedItem) {
+      setErrors({ itemId: ['Invalid drink selected.'] });
+      setIsPending(false);
+      return;
+    }
+
+    try {
+      const ordersCol = collection(firestore, 'orders');
+      await addDoc(ordersCol, {
+        customerName: validatedFields.data.customerName,
+        items: [{ id: selectedItem.id, name: selectedItem.name }],
+        createdAt: serverTimestamp(),
+        status: 'pending',
+      });
+      
+      setCustomerName(validatedFields.data.customerName);
+      setIsSuccess(true);
+
+    } catch (e: any) {
+      console.error("Failed to submit order:", e);
+      toast({
+        variant: "destructive",
+        title: "Submission Error",
+        description: "Could not place your order. Please try again."
+      });
+    } finally {
+      setIsPending(false);
+    }
+  };
   
-  if (state.success) {
+  if (isSuccess) {
     return (
       <div className="text-center space-y-8">
         <Alert className="border-primary/50 text-center">
           <CheckCircle className="h-4 w-4" />
           <AlertTitle className="text-3xl font-bold">Order Submitted!</AlertTitle>
           <AlertDescription className="text-xl">
-            {state.message}
+            Thanks, {customerName}! Your order is in.
           </AlertDescription>
         </Alert>
         <Button onClick={resetForm} className="text-2xl py-6">
@@ -98,7 +156,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   }
 
   return (
-    <form ref={formRef} action={dispatch} key={formKey} className="space-y-12">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-12">
       <Card>
         <CardHeader>
           <CardTitle className="text-4xl">1. What's your name?</CardTitle>
@@ -114,9 +172,9 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
             required
             aria-describedby="name-error"
           />
-          {state.errors?.customerName && (
+          {errors?.customerName && (
             <p id="name-error" className="text-destructive mt-2 text-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> {state.errors.customerName}
+              <AlertCircle className="h-5 w-5" /> {errors.customerName}
             </p>
           )}
         </CardContent>
@@ -138,9 +196,9 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
                 </div>
             ))}
           </RadioGroup>
-          {state.errors?.itemId && (
+          {errors?.itemId && (
             <p id="items-error" className="text-destructive mt-4 text-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> {state.errors.itemId}
+              <AlertCircle className="h-5 w-5" /> {errors.itemId}
             </p>
           )}
         </CardContent>
@@ -149,10 +207,6 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       <Button type="submit" disabled={isPending} className="w-full text-3xl py-8">
         {isPending ? 'Placing Order...' : 'Place My Order'}
       </Button>
-
-      {state.message && !state.success && (
-        <p className="text-destructive text-center text-lg">{state.message}</p>
-      )}
     </form>
   );
 }

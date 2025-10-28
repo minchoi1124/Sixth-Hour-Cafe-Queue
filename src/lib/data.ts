@@ -12,28 +12,23 @@ import {
   orderBy,
   serverTimestamp,
   updateDoc,
-  Firestore,
 } from 'firebase/firestore';
-import { initializeApp, getApps, getApp, type App } from 'firebase-admin/app';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+import admin from 'firebase-admin';
+import type { Firestore } from 'firebase-admin/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import type { Order, MenuItem, NewOrder, Category } from './definitions';
 
-// This is a server-side only file.
-
 // --- Firebase Admin SDK Initialization (Singleton Pattern) ---
-let adminApp: App;
 let firestore: Firestore;
 
-if (!getApps().length) {
-  adminApp = initializeApp({
+if (!admin.apps.length) {
+  admin.initializeApp({
     projectId: firebaseConfig.projectId,
   });
+  firestore = admin.firestore();
 } else {
-  adminApp = getApp();
+  firestore = admin.firestore();
 }
-
-firestore = getAdminFirestore(adminApp);
 // --- End of Initialization ---
 
 const MENU_COLLECTION = 'drinks';

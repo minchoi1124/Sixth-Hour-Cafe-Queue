@@ -1,4 +1,4 @@
-import { getOrders } from '@/lib/data';
+
 import { OrderQueue } from '@/components/staff/OrderQueue';
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,10 +21,7 @@ function OrderQueueSkeleton() {
     )
 }
 
-export default async function StaffQueuePage() {
-  // Fetch initial data on the server
-  const initialOrders = await getOrders();
-
+export default function StaffQueuePage() {
   return (
     <div className="container mx-auto p-4 sm:p-8">
       <div className="mb-8">
@@ -34,7 +31,7 @@ export default async function StaffQueuePage() {
         </p>
       </div>
       <Suspense fallback={<OrderQueueSkeleton />}>
-        <OrderQueue initialOrders={initialOrders} />
+        <OrderQueue initialOrders={[]} />
       </Suspense>
     </div>
   );

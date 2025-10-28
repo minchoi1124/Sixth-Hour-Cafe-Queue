@@ -1,74 +1,74 @@
 /**
- * @fileoverview Firestore Security Rules for the drink ordering application.
+ * @fileoverview Firestore Security Rules for Prototyping.
  *
  * Core Philosophy:
- * This ruleset provides public read access to drinks and categories, allowing all users to view the menu.
- * Orders can be created by anyone, but modification and deletion are disallowed to prevent tampering with order history.
+ * This ruleset prioritizes rapid prototyping and ease of iteration. It provides a baseline level of security
+ * focusing on preventing unauthorized data access while minimizing data validation constraints. The app supports
+ * anonymous authentication, meaning all rules must account for potentially unauthenticated users.
  *
  * Data Structure:
- * - /drinks/{drinkId}: Stores information about individual drinks. Publicly readable.
- * - /orders/{orderId}: Stores customer order data. Creatable by any authenticated user, but not updatable or deletable.
- * - /categories/{categoryId}: Stores drink categories. Publicly readable.
+ * - /drinks/{drinkId}: Stores individual drink menu items.
+ * - /orders/{orderId}: Stores customer orders submitted through the app.
+ * - /categories/{categoryId}: Stores drink categories.
  *
  * Key Security Decisions:
- * - Public Read Access: The 'drinks' and 'categories' collections are readable by anyone.
- * - Orders are Immutable: Orders can be created, but not updated or deleted.
+ * - Public Read Access: All collections allow public read access (`get`, `list`). This simplifies initial development
+ *   but should be restricted in a production environment.
+ * - Unrestricted Writes (Needs Review): Write access (`create`, `update`, `delete`) is currently open to all authenticated users.
+ *   This is a major security risk and MUST be secured before deployment. Consider implementing role-based access
+ *   or ownership checks based on the application's requirements.
+ * - No Data Validation: The ruleset deliberately avoids enforcing strict data validation to enable faster prototyping.
+ *   However, this means that data integrity is not guaranteed, and the application must handle data validation on the client-side.
+ *
+ * Denormalization for Authorization:
+ * This ruleset does not currently implement any denormalization strategies.
+ *
+ * Structural Segregation:
+ * This ruleset does not currently implement any structural segregation strategies.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants public read access to drinks and allows anyone to create orders.
+     * @description Allows anyone to read drinks. Write access is open to all authenticated users. THIS IS INSECURE.
      * @path /drinks/{drinkId}
-     * @allow get, list: Anyone can read the drinks menu.
-     * @allow create: Not applicable (no creation allowed at this path).
-     * @deny update, delete: No updates or deletes allowed to drinks.
-     * @principle Public read access for menu items.
+     * @allow (get, list) Anyone can read drink information.
+     * @allow (create, update, delete) Authenticated users can create, update and delete drinks.
+     * @deny  Unauthenticated users cannot write to drinks.
+     * @principle Open read access for prototyping, authenticated users can write. Requires further security review.
      */
     match /drinks/{drinkId} {
       allow get, list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Allows anyone to create an order, but prohibits modification or deletion.
+     * @description Allows anyone to read orders. Write access is open to all authenticated users. THIS IS INSECURE.
      * @path /orders/{orderId}
-     * @allow create: Any authenticated user can create an order.
-     * @allow get: Any authenticated user can read an order.
-     * @allow list: Any authenticated user can list orders.
-     * @deny update, delete: Orders cannot be modified or deleted.
-     * @principle Orders are immutable after creation.
+     * @allow (get, list) Anyone can read order information.
+     * @allow (create, update, delete) Authenticated users can create, update and delete orders.
+     * @deny  Unauthenticated users cannot write to orders.
+     * @principle Open read access for prototyping, authenticated users can write. Requires further security review.
      */
     match /orders/{orderId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Grants public read access to drink categories.
+     * @description Allows anyone to read categories. Write access is open to all authenticated users. THIS IS INSECURE.
      * @path /categories/{categoryId}
-     * @allow get, list: Anyone can read the drink categories.
-     * @allow create: Not applicable (no creation allowed at this path).
-     * @deny update, delete: No updates or deletes allowed to categories.
-     * @principle Public read access for drink categories.
+     * @allow (get, list) Anyone can read category information.
+     * @allow (create, update, delete) Authenticated users can create, update and delete categories.
+     * @deny  Unauthenticated users cannot write to categories.
+     * @principle Open read access for prototyping, authenticated users can write. Requires further security review.
      */
     match /categories/{categoryId} {
-        allow get, list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn();
     }
 
-
-    /**
-     * @description Checks if the user is signed in.
-     * @return {bool} True if the user is signed in, false otherwise.
-     */
     function isSignedIn() {
       return request.auth != null;
     }

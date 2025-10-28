@@ -3,10 +3,10 @@ import type { Order, MenuItem } from './definitions';
 // In-memory store
 let orders: Order[] = [];
 const menu: MenuItem[] = [
-  { id: 1, name: 'Maple Matcha Latte', inStock: true },
-  { id: 2, name: 'Dalgona Whipped Coffee', inStock: true },
-  { id: 3, name: 'London Fog', inStock: true },
-  { id: 4, name: 'Apple Cider Chai', inStock: false },
+  { id: 1, name: 'Maple Matcha Latte', inStock: true, category: 'Lattes & Coffee' },
+  { id: 2, name: 'Dalgona Whipped Coffee', inStock: true, category: 'Lattes & Coffee' },
+  { id: 3, name: 'London Fog', inStock: true, category: 'Teas & Ciders' },
+  { id: 4, name: 'Apple Cider Chai', inStock: false, category: 'Teas & Ciders' },
 ];
 
 export const getMenu = async (): Promise<MenuItem[]> => {

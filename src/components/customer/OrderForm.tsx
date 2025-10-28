@@ -37,10 +37,42 @@ const drinkIcons: { [key: string]: React.ReactNode } = {
   'Apple Cider Chai': <AppleCiderChaiIcon className="w-10 h-10" />,
 };
 
+function DrinkOption({ item }: { item: MenuItem }) {
+  return (
+    <div>
+      <Checkbox
+        id={`item-${item.id}`}
+        name="itemIds"
+        value={item.id.toString()}
+        className="sr-only peer"
+        aria-labelledby={`label-item-${item.id}`}
+      />
+      <Label
+        htmlFor={`item-${item.id}`}
+        id={`label-item-${item.id}`}
+        className={cn(
+          'flex flex-col items-center justify-center p-6 text-center rounded-lg border-2 border-primary/20 cursor-pointer',
+          'transition-all duration-200 ease-in-out',
+          'bg-background hover:bg-accent',
+          'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
+        )}
+      >
+        <div className="w-16 h-16 flex items-center justify-center mb-4">
+          {drinkIcons[item.name] || <DalgonaCoffeeIcon className="w-10 h-10" />}
+        </div>
+        <span className="text-2xl font-medium">{item.name}</span>
+      </Label>
+    </div>
+  )
+}
+
 export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   const [state, dispatch] = useActionState(submitOrder, initialState);
   const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+
+  const lattesAndCoffee = menu.filter(item => item.category === 'Lattes & Coffee');
+  const teasAndCiders = menu.filter(item => item.category === 'Teas & Ciders');
 
   useEffect(() => {
     if (state.success) {
@@ -94,34 +126,18 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
           <CardTitle className="text-4xl">2. Choose your drinks</CardTitle>
           <CardDescription className="text-xl">Select one or more from our menu.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div id="drink-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {menu.map((item) => (
-              <div key={item.id}>
-                <Checkbox
-                  id={`item-${item.id}`}
-                  name="itemIds"
-                  value={item.id}
-                  className="sr-only peer"
-                  aria-labelledby={`label-item-${item.id}`}
-                />
-                <Label
-                  htmlFor={`item-${item.id}`}
-                  id={`label-item-${item.id}`}
-                  className={cn(
-                    'flex flex-col items-center justify-center p-6 text-center rounded-lg border-2 border-primary/20 cursor-pointer',
-                    'transition-all duration-200 ease-in-out',
-                    'bg-background hover:bg-accent',
-                    'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
-                  )}
-                >
-                  <div className="w-16 h-16 flex items-center justify-center mb-4">
-                    {drinkIcons[item.name] || <DalgonaCoffeeIcon className="w-10 h-10" />}
-                  </div>
-                  <span className="text-2xl font-medium">{item.name}</span>
-                </Label>
-              </div>
-            ))}
+        <CardContent className="space-y-8">
+          <div>
+            <h3 className="text-3xl font-semibold mb-4 text-primary">Lattes & Coffee</h3>
+            <div id="lattes-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {lattesAndCoffee.map((item) => <DrinkOption key={item.id} item={item} />)}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-3xl font-semibold mb-4 text-primary">Teas & Ciders</h3>
+            <div id="teas-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {teasAndCiders.map((item) => <DrinkOption key={item.id} item={item} />)}
+            </div>
           </div>
           {state.errors?.itemIds && (
             <p id="items-error" className="text-destructive mt-4 text-lg flex items-center gap-2">

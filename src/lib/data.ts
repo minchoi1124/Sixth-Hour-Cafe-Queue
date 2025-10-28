@@ -10,9 +10,10 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { getSdks } from '@/firebase';
-import type { Order, MenuItem, NewOrder } from './definitions';
+import type { Order, MenuItem, NewOrder, Category } from './definitions';
 
 // This is a server-side only file.
 // We use getSdks to get the admin-like firestore instance.
@@ -20,6 +21,30 @@ const { firestore } = getSdks();
 
 const MENU_COLLECTION = 'drinks';
 const ORDERS_COLLECTION = 'orders';
+const CATEGORIES_COLLECTION = 'categories';
+
+
+export const getCategories = async (): Promise<Category[]> => {
+    const snapshot = await getDocs(query(collection(firestore, CATEGORIES_COLLECTION), orderBy('name')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+};
+
+export const addCategory = async (name: string): Promise<void> => {
+    await addDoc(collection(firestore, CATEGORIES_COLLECTION), { name });
+};
+
+export const updateCategory = async (id: string, name: string): Promise<void> => {
+    const docRef = doc(firestore, CATEGORIES_COLLECTION, id);
+    await updateDoc(docRef, { name });
+};
+
+export const deleteCategory = async (id: string): Promise<void> => {
+    // Note: This doesn't handle migrating drinks in the deleted category.
+    // For this app's purpose, we'll allow drinks to have stale categories.
+    const docRef = doc(firestore, CATEGORIES_COLLECTION, id);
+    await deleteDoc(docRef);
+};
+
 
 export const getMenu = async (): Promise<MenuItem[]> => {
   const menuSnapshot = await getDocs(collection(firestore, MENU_COLLECTION));

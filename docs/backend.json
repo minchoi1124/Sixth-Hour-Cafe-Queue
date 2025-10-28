@@ -65,6 +65,18 @@
         "category",
         "inStock"
       ]
+    },
+    "Category": {
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a drink category.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the category (e.g., Lattes)."
+        }
+      },
+      "required": ["name"]
     }
   },
   "auth": {
@@ -84,6 +96,12 @@
         "$ref": "#/entities/Order"
       },
       "description": "Stores customer orders submitted through the app."
+    },
+    "/categories/{categoryId}": {
+        "schema": {
+            "$ref": "#/entities/Category"
+        },
+        "description": "Stores drink categories."
     }
   }
 }

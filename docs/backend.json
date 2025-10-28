@@ -58,12 +58,17 @@
         "inStock": {
           "type": "boolean",
           "description": "Indicates whether the drink is currently in stock."
+        },
+        "order": {
+          "type": "number",
+          "description": "The display order of the drink."
         }
       },
       "required": [
         "name",
         "category",
-        "inStock"
+        "inStock",
+        "order"
       ]
     },
     "Category": {

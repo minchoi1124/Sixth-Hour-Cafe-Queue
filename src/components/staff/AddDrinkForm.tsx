@@ -10,7 +10,7 @@ import { AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { Category } from '@/lib/definitions';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { z } from 'zod';
 
 const AddDrinkSchema = z.object({
@@ -54,10 +54,14 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
 
     try {
       const drinksCol = collection(firestore, 'drinks');
+      const drinksSnapshot = await getDocs(drinksCol);
+      const newOrder = drinksSnapshot.size;
+
       await addDoc(drinksCol, { 
         name: validatedFields.data.name,
         category: validatedFields.data.category,
-        inStock: true
+        inStock: true,
+        order: newOrder
       });
       toast({ title: "Drink Added!", description: `"${validatedFields.data.name}" added to the menu.` });
       formRef.current?.reset();

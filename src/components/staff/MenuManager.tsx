@@ -11,14 +11,16 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useFirestore } from '@/firebase';
 import { doc, writeBatch } from 'firebase/firestore';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
   const firestore = useFirestore();
   const [isPending, startTransition] = useTransition();
-  const [localMenu, setLocalMenu] = useState<MenuItem[]>(menu);
+  const [localMenu, setLocalMenu] = useState<MenuItem[]>([]);
 
   useEffect(() => {
-    setLocalMenu(menu);
+    // Sort menu by order when it's passed in
+    setLocalMenu(menu.sort((a, b) => a.order - b.order));
   }, [menu]);
 
   const handleInputChange = (id: string, field: 'name' | 'category', value: string) => {
@@ -31,6 +33,27 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     setLocalMenu(currentMenu => 
       currentMenu.map(item => item.id === id ? { ...item, inStock: checked } : item)
     );
+  };
+
+  const handleMove = (index: number, direction: 'up' | 'down') => {
+    setLocalMenu(currentMenu => {
+      const newMenu = [...currentMenu];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+      if (targetIndex < 0 || targetIndex >= newMenu.length) {
+        return newMenu; // Can't move
+      }
+
+      // Swap the order values of the two items
+      const item1 = newMenu[index];
+      const item2 = newMenu[targetIndex];
+      
+      newMenu[index] = { ...item1, order: item2.order };
+      newMenu[targetIndex] = { ...item2, order: item1.order };
+      
+      // Sort the array based on the new order to visually update the list
+      return newMenu.sort((a, b) => a.order - b.order);
+    });
   };
 
   const handleSaveChanges = () => {
@@ -66,8 +89,8 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
       <Card>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           <div className="divide-y divide-border">
-            {localMenu.map(item => (
-              <div key={item.id} className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4 py-6 px-4 sm:px-0">
+            {localMenu.map((item, index) => (
+              <div key={item.id} className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4 py-6 px-4 sm:px-0">
                 <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor={`item-${item.id}-name`} className="text-lg text-muted-foreground">Name</Label>
@@ -111,6 +134,16 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                         onCheckedChange={(checked) => handleSwitchChange(item.id, checked)}
                         className="data-[state=checked]:bg-green-500 scale-125"
                     />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" size="icon" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
+                        <ArrowUp className="h-6 w-6"/>
+                        <span className="sr-only">Move Up</span>
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => handleMove(index, 'down')} disabled={index === localMenu.length - 1}>
+                        <ArrowDown className="h-6 w-6"/>
+                        <span className="sr-only">Move Down</span>
+                    </Button>
                 </div>
               </div>
             ))}

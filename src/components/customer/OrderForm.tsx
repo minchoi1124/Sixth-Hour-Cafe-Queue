@@ -71,8 +71,8 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const lattesAndCoffee = menu.filter(item => item.category === 'Lattes & Coffee');
-  const teasAndCiders = menu.filter(item => item.category === 'Teas & Ciders');
+  const lattes = menu.filter(item => item.category === 'Lattes');
+  const teas = menu.filter(item => item.category === 'Teas');
 
   useEffect(() => {
     if (state.success) {
@@ -124,19 +124,19 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-4xl">2. Choose your drinks</CardTitle>
-          <CardDescription className="text-xl">Select one or more from our menu.</CardDescription>
+          <CardDescription className="text-xl">Select one of our drinks from our menu.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <div>
-            <h3 className="text-3xl font-semibold mb-4 text-primary">Lattes & Coffee</h3>
+            <h3 className="text-3xl font-semibold mb-4 text-primary">Lattes</h3>
             <div id="lattes-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {lattesAndCoffee.map((item) => <DrinkOption key={item.id} item={item} />)}
+              {lattes.map((item) => <DrinkOption key={item.id} item={item} />)}
             </div>
           </div>
           <div>
-            <h3 className="text-3xl font-semibold mb-4 text-primary">Teas & Ciders</h3>
+            <h3 className="text-3xl font-semibold mb-4 text-primary">Teas</h3>
             <div id="teas-options" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {teasAndCiders.map((item) => <DrinkOption key={item.id} item={item} />)}
+              {teas.map((item) => <DrinkOption key={item.id} item={item} />)}
             </div>
           </div>
           {state.errors?.itemIds && (

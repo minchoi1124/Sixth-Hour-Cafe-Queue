@@ -2,7 +2,7 @@ export type MenuItem = {
   id: number;
   name: string;
   inStock: boolean;
-  category: 'Lattes & Coffee' | 'Teas & Ciders';
+  category: 'Lattes' | 'Teas';
 };
 
 export type Order = {

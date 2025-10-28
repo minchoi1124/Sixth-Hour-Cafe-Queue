@@ -50,6 +50,25 @@ export const getMenu = async (): Promise<MenuItem[]> => {
   return menu;
 };
 
+export const getOrders = async (): Promise<Order[]> => {
+  const firestore = getDb();
+  const q = query(
+    collection(firestore, ORDERS_COLLECTION),
+    where('status', '==', 'pending'),
+    orderBy('createdAt', 'asc')
+  );
+  const orderSnapshot = await getDocs(q);
+  const orders: Order[] = [];
+  orderSnapshot.forEach((doc) => {
+    const data = doc.data();
+    // Convert Firestore Timestamp to ISO string for client-side compatibility
+    const createdAt = (data.createdAt as Timestamp)?.toDate().toISOString() ?? new Date().toISOString();
+    orders.push({ id: doc.id, ...data, createdAt } as Order);
+  });
+  return orders;
+};
+
+
 export const addOrder = async (order: NewOrder): Promise<void> => {
   const firestore = getDb();
   const colRef = collection(firestore, ORDERS_COLLECTION);

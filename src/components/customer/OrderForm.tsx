@@ -1,14 +1,14 @@
 'use client';
 
 import type { MenuItem } from '@/lib/definitions';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { submitOrder } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useActionState } from 'react';
 import {
   AppleCiderChaiIcon,
   DalgonaCoffeeIcon,
@@ -38,7 +38,7 @@ const drinkIcons: { [key: string]: React.ReactNode } = {
 };
 
 export default function OrderForm({ menu }: { menu: MenuItem[] }) {
-  const [state, dispatch] = useFormState(submitOrder, initialState);
+  const [state, dispatch] = useActionState(submitOrder, initialState);
   const [formKey, setFormKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 

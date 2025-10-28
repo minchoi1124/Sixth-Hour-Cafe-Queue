@@ -12,15 +12,14 @@ const NavLink = ({ href, children }: { href: string, children: React.ReactNode }
   const isActive = pathname === href;
 
   return (
-    <Link href={href} legacyBehavior passHref>
-      <a
-        className={cn(
-          "px-6 py-3 rounded-lg text-2xl transition-colors",
-          isActive ? "bg-primary text-primary-foreground" : "hover:bg-accent"
-        )}
-      >
-        {children}
-      </a>
+    <Link
+      href={href}
+      className={cn(
+        "px-6 py-3 rounded-lg text-2xl transition-colors",
+        isActive ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+      )}
+    >
+      {children}
     </Link>
   );
 };

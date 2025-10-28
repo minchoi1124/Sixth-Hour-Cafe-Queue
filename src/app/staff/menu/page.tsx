@@ -1,14 +1,62 @@
-import { getMenu, getCategories } from '@/lib/data';
+'use client';
+
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import type { MenuItem, Category } from '@/lib/definitions';
 import MenuManager from '@/components/staff/MenuManager';
 import { AddDrinkForm } from '@/components/staff/AddDrinkForm';
 import { Separator } from '@/components/ui/separator';
 import CategoryManager from '@/components/staff/CategoryManager';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export const dynamic = 'force-dynamic';
+function MenuPageSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <Skeleton className="h-14 w-1/2" />
+        <Skeleton className="h-6 w-3/4" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-48 w-full" />
+        <div className="flex justify-end">
+          <Skeleton className="h-12 w-40" />
+        </div>
+      </div>
+      <Separator />
+      <Skeleton className="h-32 w-full" />
+      <Separator />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  )
+}
 
-export default async function MenuManagementPage() {
-  const menu = await getMenu();
-  const categories = await getCategories();
+
+export default function MenuManagementPage() {
+  const firestore = useFirestore();
+
+  const menuQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'drinks'));
+  }, [firestore]);
+
+  const categoriesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
+  }, [firestore]);
+
+  const { data: menu, isLoading: isLoadingMenu } = useCollection<MenuItem>(menuQuery);
+  const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);
+
+  if (isLoadingMenu || isLoadingCategories) {
+    return (
+      <div className="container mx-auto p-4 sm:p-8">
+        <MenuPageSkeleton />
+      </div>
+    );
+  }
+
+  const safeMenu = menu ?? [];
+  const safeCategories = categories ?? [];
 
   return (
     <div className="container mx-auto p-4 sm:p-8 space-y-12">
@@ -18,20 +66,20 @@ export default async function MenuManagementPage() {
           Update drink availability, names, and categories.
         </p>
       </div>
-      <MenuManager menu={menu} categories={categories} />
+      <MenuManager menu={safeMenu} categories={safeCategories} />
       
       <Separator />
 
       <div>
         <h2 className="text-4xl font-bold mb-4">Manage Categories</h2>
-        <CategoryManager initialCategories={categories} />
+        <CategoryManager initialCategories={safeCategories} />
       </div>
 
       <Separator />
 
       <div>
           <h2 className="text-4xl font-bold mb-4">Add a New Drink</h2>
-          <AddDrinkForm categories={categories} />
+          <AddDrinkForm categories={safeCategories} />
       </div>
     </div>
   );

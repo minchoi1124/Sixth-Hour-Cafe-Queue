@@ -2,30 +2,37 @@ import type { Order, MenuItem } from './definitions';
 
 // In-memory store
 let orders: Order[] = [];
-const menu: MenuItem[] = [
+let menu: MenuItem[] = [
   { id: 1, name: 'Maple Matcha Latte', inStock: true, category: 'Lattes' },
   { id: 2, name: 'Dalgona Whipped Coffee', inStock: true, category: 'Lattes' },
   { id: 3, name: 'London Fog', inStock: true, category: 'Teas' },
   { id: 4, name: 'Apple Cider Chai', inStock: true, category: 'Teas' },
 ];
+let nextMenuItemId = 5;
 
 export const getMenu = async (): Promise<MenuItem[]> => {
   // Simulate async operation
   await new Promise(resolve => setTimeout(resolve, 100));
-  return Promise.resolve(menu);
+  return Promise.resolve([...menu]);
 };
 
 export const updateMenu = async (updatedMenu: MenuItem[]): Promise<MenuItem[]> => {
   await new Promise(resolve => setTimeout(resolve, 100));
-  // This is a simple example. In a real app, you'd update a database.
-  updatedMenu.forEach(updatedItem => {
-    const itemIndex = menu.findIndex(i => i.id === updatedItem.id);
-    if (itemIndex !== -1) {
-      menu[itemIndex] = updatedItem;
-    }
-  });
-  return Promise.resolve(menu);
+  menu = updatedMenu;
+  return Promise.resolve([...menu]);
 };
+
+export const addMenuItem = async (name: string, category: string): Promise<MenuItem> => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const newItem: MenuItem = {
+        id: nextMenuItemId++,
+        name,
+        category,
+        inStock: true,
+    };
+    menu.push(newItem);
+    return Promise.resolve(newItem);
+}
 
 export const getOrders = async (): Promise<Order[]> => {
   await new Promise(resolve => setTimeout(resolve, 100));

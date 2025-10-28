@@ -42,12 +42,20 @@ export const getCategories = async (): Promise<Category[]> => {
 export const getMenu = async (): Promise<MenuItem[]> => {
   const firestore = getDb();
   const q = query(collection(firestore, MENU_COLLECTION), orderBy('order', 'asc'));
-  const menuSnapshot = await getDocs(q);
-  const menu: MenuItem[] = [];
-  menuSnapshot.forEach((doc) => {
-    menu.push({ id: doc.id, ...doc.data() } as MenuItem);
-  });
-  return menu;
+  try {
+    const menuSnapshot = await getDocs(q);
+    const menu: MenuItem[] = [];
+    menuSnapshot.forEach((doc) => {
+      menu.push({ id: doc.id, ...doc.data() } as MenuItem);
+    });
+    return menu;
+  } catch (error) {
+    // Re-throw permission errors with more context for debugging.
+    throw new FirestorePermissionError({
+      path: MENU_COLLECTION,
+      operation: 'list',
+    });
+  }
 };
 
 export const getOrders = async (): Promise<Order[]> => {

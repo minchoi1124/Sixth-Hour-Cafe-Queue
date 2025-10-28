@@ -1,60 +1,73 @@
 /**
- * @fileoverview Firestore Security Rules for the Sixth Hour Cafe Queue application.
+ * @fileoverview Firestore Security Rules for the drink ordering application.
  *
  * Core Philosophy:
- * This ruleset prioritizes simplicity and security, leveraging structural segregation
- * to protect data access based on user roles and data ownership. It emphasizes
- * authenticated access and restricts unauthorized modifications.
+ * This ruleset provides public read access to drinks and categories, allowing all users to view the menu.
+ * Orders can be created by anyone, but modification and deletion are disallowed to prevent tampering with order history.
  *
  * Data Structure:
- * - /drinks/{drinkId}: Stores drink menu items, intended for staff management.
- * - /orders/{orderId}: Stores customer orders, intended for creation by authenticated users.
+ * - /drinks/{drinkId}: Stores information about individual drinks. Publicly readable.
+ * - /orders/{orderId}: Stores customer order data. Creatable by any authenticated user, but not updatable or deletable.
+ * - /categories/{categoryId}: Stores drink categories. Publicly readable.
  *
  * Key Security Decisions:
- * - Authenticated access is required for creating orders.
- * - No user listing is permitted.
- * - Staff role authorization for /drinks is assumed to be handled separately (e.g., via a roles collection) and is not explicitly implemented here.
- *
- * Denormalization for Authorization:
- * - No denormalization is needed as the current rules only check for authentication.
+ * - Public Read Access: The 'drinks' and 'categories' collections are readable by anyone.
+ * - Orders are Immutable: Orders can be created, but not updated or deleted.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to the drinks collection, intended for staff.
+     * @description Grants public read access to drinks and allows anyone to create orders.
      * @path /drinks/{drinkId}
-     * @allow (get, list): Allows any user to read the menu.
-     * @allow (create, update, delete): Placeholder for staff role authorization.
-     * @deny (create, update, delete): Denies writes for non-staff users.
-     * @principle Staff-only write access with public reads.
+     * @allow get, list: Anyone can read the drinks menu.
+     * @allow create: Not applicable (no creation allowed at this path).
+     * @deny update, delete: No updates or deletes allowed to drinks.
+     * @principle Public read access for menu items.
      */
     match /drinks/{drinkId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Implement staff role check (e.g., `isAdmin()`)
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Manages customer orders, allowing authenticated users to create them.
+     * @description Allows anyone to create an order, but prohibits modification or deletion.
      * @path /orders/{orderId}
-     * @allow (create): Allows authenticated users (anonymous or password) to create orders.
-     * @deny (create): Denies creation from unauthenticated users.
-     * @allow (get, list): Allows any user to read orders.
-     * @deny (update, delete): Denies updates and deletes to anyone.
-     * @principle Authenticated users can create orders; no updates or deletes allowed.
+     * @allow create: Any authenticated user can create an order.
+     * @allow get: Any authenticated user can read an order.
+     * @allow list: Any authenticated user can list orders.
+     * @deny update, delete: Orders cannot be modified or deleted.
+     * @principle Orders are immutable after creation.
      */
     match /orders/{orderId} {
-      allow create: if isSignedIn();
       allow get, list: if true;
-      allow update, delete: if false;
+      allow create: if isSignedIn();
+      allow update: if false;
+      allow delete: if false;
     }
 
-    // --- Helper functions ---
+    /**
+     * @description Grants public read access to drink categories.
+     * @path /categories/{categoryId}
+     * @allow get, list: Anyone can read the drink categories.
+     * @allow create: Not applicable (no creation allowed at this path).
+     * @deny update, delete: No updates or deletes allowed to categories.
+     * @principle Public read access for drink categories.
+     */
+    match /categories/{categoryId} {
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+    }
+
 
     /**
      * @description Checks if the user is signed in.
-     * @returns True if the user is authenticated, false otherwise.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;

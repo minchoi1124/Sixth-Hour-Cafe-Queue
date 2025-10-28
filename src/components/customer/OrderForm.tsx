@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { MenuItem } from '@/lib/definitions';
@@ -167,7 +168,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-4xl">2. Choose your drink</CardTitle>
-          <CardDescription className="text-xl">Select one of our drinks from our menu.</CardDescription>
+          <CardDescription className="text-xl">Select one of the drinks from our menu.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           <RadioGroup name="itemId" className="space-y-8" aria-describedby='items-error'>

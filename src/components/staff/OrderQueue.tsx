@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   collection,
   query,
@@ -23,19 +23,15 @@ const OrderCard = ({ order }: { order: Order; }) => {
 
   const handleComplete = async () => {
     setIsCompleting(true);
-    // Optimistically update UI, then call server action
     try {
         await markOrderAsCompleted(order.id);
-        toast({
-            title: "Order Completed!",
-            description: `${order.customerName}'s order is done.`,
-        });
+        // Optimistic update handled by real-time listener removing the card
     } catch (error) {
         console.error("Failed to complete order:", error);
         toast({
             variant: "destructive",
             title: "Error",
-            description: "Could not complete the order. Please try again.",
+            description: "Could not complete the order. You may not have permission.",
         });
         setIsCompleting(false); // Re-enable button on error
     }
@@ -49,7 +45,7 @@ const OrderCard = ({ order }: { order: Order; }) => {
           {order.customerName}
         </CardTitle>
         <CardDescription className="text-lg">
-          {new Date(order.createdAt).toLocaleTimeString()}
+          {order.createdAt ? new Date(order.createdAt).toLocaleTimeString() : 'Processing...'}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
@@ -115,12 +111,8 @@ export function OrderQueue({ initialOrders }: { initialOrders: Order[] }) {
   }
 
   if (error) {
-    return (
-      <div className="text-center py-24 text-destructive">
-        <h2 className="text-3xl font-bold">Error loading orders</h2>
-        <p className="text-xl mt-2">{error.message}</p>
-      </div>
-    );
+    // This will now be caught by Next.js's error boundary via the FirebaseErrorListener
+    throw error;
   }
 
   if (displayOrders.length === 0) {

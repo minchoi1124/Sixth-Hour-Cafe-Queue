@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { addOrder, completeOrder, getMenu, updateMenu, addMenuItem, addCategory, updateCategory, deleteCategory } from './data';
 import type { MenuItem, NewOrder } from './definitions';
 import { z } from 'zod';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
@@ -18,6 +20,19 @@ export type OrderFormState = {
   };
   success?: boolean;
 };
+
+// Helper function to handle throwing permission errors in server actions
+function handlePermissionError(error: unknown) {
+  if (error instanceof FirestorePermissionError) {
+    // We re-throw the error to be caught by the framework's error boundary.
+    // The FirebaseErrorListener on the client will not catch server-side errors.
+    throw error;
+  }
+  // For other errors, we can log them or handle them differently
+  console.error("An unexpected error occurred:", error);
+  throw new Error("An unexpected server error occurred.");
+}
+
 
 export async function submitOrder(prevState: OrderFormState, formData: FormData): Promise<OrderFormState> {
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network latency
@@ -58,6 +73,9 @@ export async function submitOrder(prevState: OrderFormState, formData: FormData)
     // No revalidation needed for staff page due to real-time updates
     return { message: `Thanks, ${validatedFields.data.customerName}! Your order is in.`, success: true };
   } catch (e) {
+    if (e instanceof FirestorePermissionError) {
+        throw e;
+    }
     return { message: 'Failed to submit order.', success: false };
   }
 }
@@ -67,6 +85,9 @@ export async function markOrderAsCompleted(orderId: string) {
     await completeOrder(orderId);
     // No revalidation needed due to real-time updates
   } catch (e) {
+    if (e instanceof FirestorePermissionError) {
+        throw e;
+    }
     console.error('Failed to complete order:', e);
     // Optionally, return an error to the client
   }
@@ -96,6 +117,9 @@ export async function saveMenu(formData: FormData) {
     revalidatePath('/staff/menu');
     revalidatePath('/');
   } catch (e) {
+    if (e instanceof FirestorePermissionError) {
+        throw e;
+    }
     console.error('Failed to save menu:', e);
   }
 }
@@ -134,6 +158,9 @@ export async function addNewDrink(prevState: AddDrinkFormState, formData: FormDa
         revalidatePath('/');
         return { message: `Added "${validatedFields.data.name}" to the menu.`, success: true };
     } catch (e) {
+        if (e instanceof FirestorePermissionError) {
+            throw e;
+        }
         return { message: 'Failed to add new drink.', success: false };
     }
 }
@@ -166,6 +193,9 @@ export async function handleAddCategory(prevState: CategoryFormState, formData: 
         revalidatePath('/staff/menu');
         return { success: true, message: `Category "${validatedFields.data.name}" added.` };
     } catch (e) {
+        if (e instanceof FirestorePermissionError) {
+            throw e;
+        }
         return { message: 'Failed to add category.', success: false };
     }
 }
@@ -184,6 +214,9 @@ export async function handleUpdateCategory(formData: FormData) {
         await updateCategory(categoryId, newName.trim());
         revalidatePath('/staff/menu');
     } catch (e) {
+        if (e instanceof FirestorePermissionError) {
+            throw e;
+        }
         console.error('Failed to update category:', e);
     }
 }
@@ -198,6 +231,9 @@ export async function handleDeleteCategory(formData: FormData) {
         await deleteCategory(categoryId);
         revalidatePath('/staff/menu');
     } catch(e) {
+        if (e instanceof FirestorePermissionError) {
+            throw e;
+        }
         console.error('Failed to delete category', e);
     }
 }

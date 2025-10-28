@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +23,11 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [errors, setErrors] = useState<{ name?: string[], category?: string[] } | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -67,6 +72,10 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
       setIsPending(false);
     }
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <form onSubmit={handleSubmit} ref={formRef}>

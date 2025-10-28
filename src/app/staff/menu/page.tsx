@@ -1,4 +1,4 @@
-import { getMenu, getCategories } from '@/lib/data';
+import { getMenu } from '@/lib/data';
 import MenuManager from '@/components/staff/MenuManager';
 import { AddDrinkForm } from '@/components/staff/AddDrinkForm';
 import { Separator } from '@/components/ui/separator';
@@ -24,7 +24,7 @@ export default async function MenuManagementPage() {
 
       <div>
         <h2 className="text-4xl font-bold mb-4">Manage Categories</h2>
-        <CategoryManager categories={categories} />
+        <CategoryManager initialCategories={categories} />
       </div>
 
       <Separator />

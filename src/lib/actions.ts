@@ -150,10 +150,7 @@ export async function addNewDrink(prevState: AddDrinkFormState, formData: FormDa
         revalidatePath('/');
         return { message: `Added "${validatedFields.data.name}" to the menu.`, success: true };
     } catch (e) {
-        if (e instanceof FirestorePermissionError) {
-            throw e;
-        }
-        return { message: 'Failed to add new drink.', success: false };
+        return { message: 'Failed to add new drink. An unexpected error occurred.', success: false };
     }
 }
 
@@ -185,9 +182,7 @@ export async function handleAddCategory(prevState: CategoryFormState, formData: 
         // No revalidation needed, component uses real-time listener
         return { success: true, message: `Category "${validatedFields.data.name}" added.` };
     } catch (e) {
-        // Re-throw any error to be caught by the global error boundary
-        // This will display the detailed FirestorePermissionError overlay
-        throw e;
+        return { message: 'Failed to add category. An unexpected error occurred.', success: false };
     }
 }
 

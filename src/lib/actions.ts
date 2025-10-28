@@ -192,8 +192,7 @@ export async function handleAddCategory(prevState: CategoryFormState, formData: 
         if (e instanceof FirestorePermissionError) {
             // Re-throwing the error will be caught by Next.js error boundary
             // and displayed to the user, which is what we want for permission errors.
-            // For other errors, we might want a more user-friendly message.
-            return { message: e.message, success: false };
+            throw e;
         }
         return { message: 'Failed to add category. An unexpected error occurred.', success: false };
     }

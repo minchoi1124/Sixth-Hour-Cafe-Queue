@@ -21,6 +21,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { Skeleton } from '../ui/skeleton';
 
 const initialState: CategoryFormState = { message: '', errors: {}, success: false };
 
@@ -53,6 +56,11 @@ function AddCategoryForm() {
             <AlertCircle className="h-5 w-5" /> {state.errors.name}
           </p>
         )}
+         {state.message && !state.success && (
+          <p className="text-destructive text-lg flex items-center gap-2 pt-1">
+            <AlertCircle className="h-5 w-5" /> {state.message}
+          </p>
+        )}
       </div>
       <Button type="submit" disabled={pending} size="lg" className="h-14 text-xl">
         <PlusCircle className="mr-2 h-6 w-6" />
@@ -63,21 +71,31 @@ function AddCategoryForm() {
 }
 
 function CategoryEditRow({ category }: { category: Category }) {
-  const { pending } = useFormStatus();
   const [isEditing, setIsEditing] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const handleSave = () => {
+  const handleUpdateAction = async (formData: FormData) => {
+    await handleUpdateCategory(formData);
     toast({
         title: "Category Updated",
         description: `"${category.name}" has been updated.`
-    })
+    });
     setIsEditing(false);
+  }
+
+  const handleDeleteAction = async (formData: FormData) => {
+    // The alert dialog will close automatically, no need to manage state here.
+    toast({
+      title: "Category Deleted",
+      description: `"${category.name}" has been deleted.`
+    });
+    await handleDeleteCategory(formData);
   }
 
   return (
     <div className="flex items-center gap-4">
       {isEditing ? (
-        <form action={handleUpdateCategory} onSubmit={handleSave} className="flex-grow flex items-center gap-4">
+        <form action={handleUpdateAction} ref={formRef} className="flex-grow flex items-center gap-4">
             <input type="hidden" name="categoryId" value={category.id} />
             <Input
                 name="name"
@@ -86,8 +104,8 @@ function CategoryEditRow({ category }: { category: Category }) {
                 autoFocus
                 required
             />
-            <Button type="submit" disabled={pending} className="h-14 text-xl">
-                {pending ? 'Saving...' : 'Save'}
+            <Button type="submit" className="h-14 text-xl">
+                Save
             </Button>
             <Button type="button" variant="ghost" onClick={() => setIsEditing(false)} className="h-14 text-xl">
                 Cancel
@@ -115,7 +133,7 @@ function CategoryEditRow({ category }: { category: Category }) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <form action={handleDeleteCategory}>
+                  <form action={handleDeleteAction}>
                       <input type="hidden" name="categoryId" value={category.id} />
                       <AlertDialogAction asChild>
                           <Button type="submit" variant="destructive">Yes, delete</Button>
@@ -131,7 +149,17 @@ function CategoryEditRow({ category }: { category: Category }) {
 }
 
 
-export default function CategoryManager({ categories }: { categories: Category[] }) {
+export default function CategoryManager({ initialCategories }: { initialCategories: Category[] }) {
+  const firestore = useFirestore();
+  const categoriesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
+  }, [firestore]);
+
+  const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
+
+  const displayCategories = categories ?? initialCategories;
+  
   return (
     <Card>
       <CardContent className="pt-6 space-y-6">
@@ -142,10 +170,16 @@ export default function CategoryManager({ categories }: { categories: Category[]
 
         <h3 className="text-2xl font-semibold">Existing Categories</h3>
         <div className="space-y-4">
-          {categories.map(cat => (
-            <CategoryEditRow key={cat.id} category={cat} />
-          ))}
-          {categories.length === 0 && (
+          {isLoading && displayCategories.length === 0 ? (
+            <div className="space-y-4">
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+            </div>
+          ) : displayCategories.length > 0 ? (
+            displayCategories.map(cat => (
+              <CategoryEditRow key={cat.id} category={cat} />
+            ))
+          ) : (
             <p className="text-muted-foreground text-xl text-center py-4">
               No categories found. Add one above to get started.
             </p>

@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { addOrder, completeOrder, getMenu, updateMenu, addMenuItem, addCategory, updateCategory, deleteCategory } from './data';
 import type { MenuItem, NewOrder } from './definitions';
 import { z } from 'zod';
-import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 const OrderSchema = z.object({
@@ -117,10 +116,7 @@ export async function saveMenu(formData: FormData) {
     revalidatePath('/staff/menu');
     revalidatePath('/');
   } catch (e) {
-    if (e instanceof FirestorePermissionError) {
-        throw e;
-    }
-    console.error('Failed to save menu:', e);
+    handlePermissionError(e);
   }
 }
 
@@ -190,13 +186,16 @@ export async function handleAddCategory(prevState: CategoryFormState, formData: 
 
     try {
         await addCategory(validatedFields.data.name);
-        revalidatePath('/staff/menu');
+        // No revalidation needed, component uses real-time listener
         return { success: true, message: `Category "${validatedFields.data.name}" added.` };
     } catch (e) {
         if (e instanceof FirestorePermissionError) {
-            throw e;
+            // Re-throwing the error will be caught by Next.js error boundary
+            // and displayed to the user, which is what we want for permission errors.
+            // For other errors, we might want a more user-friendly message.
+            return { message: e.message, success: false };
         }
-        return { message: 'Failed to add category.', success: false };
+        return { message: 'Failed to add category. An unexpected error occurred.', success: false };
     }
 }
 
@@ -212,12 +211,9 @@ export async function handleUpdateCategory(formData: FormData) {
 
     try {
         await updateCategory(categoryId, newName.trim());
-        revalidatePath('/staff/menu');
+        // No revalidation needed
     } catch (e) {
-        if (e instanceof FirestorePermissionError) {
-            throw e;
-        }
-        console.error('Failed to update category:', e);
+        handlePermissionError(e);
     }
 }
 
@@ -229,11 +225,8 @@ export async function handleDeleteCategory(formData: FormData) {
     }
     try {
         await deleteCategory(categoryId);
-        revalidatePath('/staff/menu');
+        // No revalidation needed
     } catch(e) {
-        if (e instanceof FirestorePermissionError) {
-            throw e;
-        }
-        console.error('Failed to delete category', e);
+        handlePermissionError(e);
     }
 }

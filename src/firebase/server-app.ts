@@ -19,7 +19,7 @@ function getServerApp(): App {
     });
 }
 
-export function initializeServerApp() {
+export async function initializeServerApp() {
     const firebaseApp = getServerApp();
     return {
         firestore: getFirestore(firebaseApp),

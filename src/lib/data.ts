@@ -12,12 +12,12 @@ import {
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { getSdks } from '@/firebase';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeServerApp } from '@/firebase/server-app';
 import type { Order, MenuItem, NewOrder, Category } from './definitions';
 
 // This is a server-side only file.
-// We use getSdks to get the admin-like firestore instance.
-const { firestore } = getSdks();
+const { firestore } = initializeServerApp();
 
 const MENU_COLLECTION = 'drinks';
 const ORDERS_COLLECTION = 'orders';

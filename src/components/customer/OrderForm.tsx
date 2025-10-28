@@ -20,44 +20,6 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const initialState = { message: '', errors: {}, success: false };
 
-function SubmitButton() {
-  // We can't use useFormStatus here because we're using useActionState on the form.
-  // We'll manage loading state manually.
-  const [pending, setPending] = useState(false);
-  
-  const formRef = useRef<HTMLFormElement | null>(null);
-
-  useEffect(() => {
-    const form = formRef.current;
-    if (!form) return;
-
-    const handleSubmission = (event: Event) => {
-        setPending(true);
-    };
-
-    form.addEventListener('submit', handleSubmission);
-
-    return () => {
-        form.removeEventListener('submit', handleSubmission);
-    };
-  }, []);
-
-  return (
-    <Button ref={(node) => {
-        // Find the parent form and assign it to the ref
-        if (node) {
-            let parentForm = node.parentElement;
-            while(parentForm && parentForm.tagName !== 'FORM') {
-                parentForm = parentForm.parentElement;
-            }
-            formRef.current = parentForm as HTMLFormElement;
-        }
-    }} type="submit" disabled={pending} className="w-full text-3xl py-8">
-      {pending ? 'Placing Order...' : 'Place My Order'}
-    </Button>
-  );
-}
-
 const drinkIcons: { [key: string]: React.ReactNode } = {
   'Maple Matcha Latte': <MapleMatchaLatteIcon className="w-10 h-10" />,
   'Dalgona Whipped Coffee': <DalgonaCoffeeIcon className="w-10 h-10" />,

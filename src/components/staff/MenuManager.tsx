@@ -10,8 +10,19 @@ import { useState, useTransition, useEffect } from 'react';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useFirestore } from '@/firebase';
-import { doc, writeBatch } from 'firebase/firestore';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { doc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
   const firestore = useFirestore();
@@ -56,6 +67,27 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     });
   };
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
+      return;
+    }
+    
+    // Optimistically remove from local state
+    setLocalMenu(currentMenu => currentMenu.filter(item => item.id !== id));
+
+    try {
+      await deleteDoc(doc(firestore, 'drinks', id));
+      toast({ title: 'Drink Deleted', description: `"${name}" has been removed from the menu.` });
+      // Note: We don't re-add on failure, user can refresh. Or we could...
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Delete Failed', description: 'You may not have permission. Please refresh.' });
+      // If delete fails, the optimistic update will be reverted on the next data fetch from Firestore.
+    }
+  };
+
+
   const handleSaveChanges = () => {
     startTransition(async () => {
       if (!firestore) {
@@ -64,10 +96,11 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
       }
       
       const batch = writeBatch(firestore);
-      localMenu.forEach(item => {
+      localMenu.forEach((item, index) => {
         const docRef = doc(firestore, 'drinks', item.id);
         const { id, ...data } = item;
-        batch.set(docRef, data);
+        // Re-assign order based on the new array index to ensure it's sequential
+        batch.set(docRef, { ...data, order: index });
       });
 
       try {
@@ -144,6 +177,29 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                         <ArrowDown className="h-6 w-6"/>
                         <span className="sr-only">Move Down</span>
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon">
+                            <Trash2 className="h-6 w-6"/>
+                            <span className="sr-only">Delete</span>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the drink "{item.name}" from the menu.
+                            This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(item.id, item.name)} className={Button({variant: "destructive"}).className}>
+                            Yes, delete drink
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                 </div>
               </div>
             ))}
@@ -152,7 +208,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
       </Card>
       <div className="mt-8 flex justify-end">
         <Button onClick={handleSaveChanges} disabled={isPending} className="w-full text-2xl py-7 sm:w-auto sm:px-10">
-          {isPending ? 'Saving...' : 'Save Changes'}
+          {isPending ? 'Saving...' : 'Save All Changes'}
         </Button>
       </div>
     </div>

@@ -1,9 +1,12 @@
+'use client';
 
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coffee, Tag, History } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { getCompletedOrders } from '@/lib/data';
+import { fetchCompletedOrders } from '@/lib/actions';
+import { useEffect, useState } from 'react';
+import { Skeleton } from '../ui/skeleton';
 
 function HistoryCard({ order }: { order: Order }) {
   const date = new Date(order.createdAt).toLocaleString();
@@ -51,8 +54,41 @@ const EmptyState = () => {
     )
 }
 
-export default async function OrderHistory() {
-  const orders = await getCompletedOrders();
+function OrderHistorySkeleton() {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-6 rounded-lg bg-card border">
+                    <Skeleton className="h-8 w-3/4 mb-4" />
+                    <Skeleton className="h-4 w-1/2 mb-6" />
+                    <div className="space-y-3">
+                        <Skeleton className="h-6 w-full" />
+                        <Skeleton className="h-6 w-5/6" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+
+export default function OrderHistory() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const getOrders = async () => {
+      setIsLoading(true);
+      const completedOrders = await fetchCompletedOrders();
+      setOrders(completedOrders);
+      setIsLoading(false);
+    };
+    getOrders();
+  }, []);
+
+  if (isLoading) {
+    return <OrderHistorySkeleton />;
+  }
 
   if (orders.length === 0) {
     return <EmptyState />;

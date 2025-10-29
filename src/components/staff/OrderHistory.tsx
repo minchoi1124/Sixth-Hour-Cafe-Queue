@@ -3,9 +3,30 @@ import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coffee, Tag, History } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { Timestamp } from 'firebase/firestore';
 
 function HistoryCard({ order }: { order: Order }) {
-  const date = new Date(order.createdAt).toLocaleString();
+  // The 'createdAt' field can be either an ISO string (from server-side rendering)
+  // or a Firestore Timestamp object (from the real-time client-side listener).
+  // We need to handle both cases to prevent an "Invalid Date" error.
+  const getDisplayDate = (createdAt: string | Timestamp | undefined): string => {
+    if (!createdAt) return 'Date not available';
+
+    if (typeof createdAt === 'string') {
+      // It's already an ISO string from the server.
+      return new Date(createdAt).toLocaleString();
+    } 
+    
+    if (createdAt instanceof Timestamp) {
+      // It's a Timestamp object from the client-side listener.
+      return createdAt.toDate().toLocaleString();
+    }
+    
+    // Fallback for any other unexpected type
+    return 'Invalid Date';
+  };
+
+  const date = getDisplayDate(order.createdAt as any);
 
   return (
     <Card className="flex flex-col h-full overflow-hidden border-primary/20 shadow-lg">

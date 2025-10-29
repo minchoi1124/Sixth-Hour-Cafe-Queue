@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Home } from 'lucide-react';
+import { Home, Maximize, Minimize } from 'lucide-react';
+import { useState } from 'react';
 
 const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => {
   const pathname = usePathname();
@@ -30,6 +31,26 @@ export default function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  if (isFullScreen) {
+    return (
+        <div className="relative">
+            <Button 
+                variant="secondary" 
+                size="icon" 
+                onClick={() => setIsFullScreen(false)} 
+                className="absolute top-4 right-4 z-20 h-14 w-14 rounded-full shadow-lg"
+                aria-label="Exit full screen"
+            >
+                <Minimize className="w-8 h-8"/>
+            </Button>
+            <main className="flex-1">
+                {children}
+            </main>
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -43,11 +64,16 @@ export default function StaffLayout({
             <NavLink href="/staff">Queue</NavLink>
             <NavLink href="/staff/menu">Menu</NavLink>
           </nav>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/" aria-label="Go to customer page">
-                <Home className="w-8 h-8"/>
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
+                <Maximize className="w-8 h-8"/>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/" aria-label="Go to customer page">
+                  <Home className="w-8 h-8"/>
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
       <main className="flex-1">

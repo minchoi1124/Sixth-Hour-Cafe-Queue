@@ -13,11 +13,13 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { z } from 'zod';
 import { Textarea } from '../ui/textarea';
+import { Switch } from '../ui/switch';
 
 const AddDrinkSchema = z.object({
   name: z.string().trim().min(2, 'Drink name must be at least 2 characters'),
   description: z.string().trim().min(10, 'Description must be at least 10 characters'),
   category: z.string().trim().min(1, 'Please select a category'),
+  oatMilkAvailable: z.boolean(),
 });
 
 export function AddDrinkForm({ categories }: { categories: Category[] }) {
@@ -47,6 +49,7 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
       name: formData.get('name'),
       description: formData.get('description'),
       category: formData.get('category'),
+      oatMilkAvailable: formData.get('oatMilkAvailable') === 'on',
     });
 
     if (!validatedFields.success) {
@@ -65,6 +68,7 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
         description: validatedFields.data.description,
         category: validatedFields.data.category,
         inStock: true,
+        oatMilkAvailable: validatedFields.data.oatMilkAvailable,
         order: newOrder
       });
       toast({ title: "Drink Added!", description: `"${validatedFields.data.name}" added to the menu.` });
@@ -128,6 +132,12 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
                             <AlertCircle className="h-5 w-5" /> {errors.description[0]}
                         </p>
                     )}
+                </div>
+                 <div className="flex items-center space-x-4 rounded-md border p-4">
+                    <Switch name="oatMilkAvailable" id="oatMilkAvailable" defaultChecked={true} />
+                    <Label htmlFor="oatMilkAvailable" className="text-xl flex-1">
+                        Oat Milk Available?
+                    </Label>
                 </div>
                 <div className="flex justify-end">
                     <Button type="submit" disabled={isPending} className="w-full sm:w-auto text-xl py-6 px-8">

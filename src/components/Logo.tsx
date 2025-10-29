@@ -5,8 +5,8 @@ export const Logo = ({ className }: { className?: string }) => (
   <Image
     src="/logo.svg"
     alt="Sixth Hour Cafe Logo"
-    width={100}
-    height={100}
+    width={3000}
+    height={3000}
     className={cn("text-primary", className)}
   />
 );

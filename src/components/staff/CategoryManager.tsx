@@ -20,7 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { z } from 'zod';
 
@@ -108,6 +108,10 @@ function CategoryEditRow({ category }: { category: Category }) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
       return;
     }
+    if (name === category.name) {
+      setIsEditing(false);
+      return;
+    }
     const validation = CategorySchema.safeParse({ name });
     if (!validation.success) {
         toast({ variant: 'destructive', title: 'Invalid Name', description: validation.error.flatten().fieldErrors.name?.[0] });
@@ -116,9 +120,25 @@ function CategoryEditRow({ category }: { category: Category }) {
 
     setIsPending(true);
     try {
+      const batch = writeBatch(firestore);
+
+      // 1. Update the category document itself
       const categoryRef = doc(firestore, 'categories', category.id);
-      await updateDoc(categoryRef, { name: validation.data.name });
-      toast({ title: 'Category Updated', description: `Renamed to "${validation.data.name}".` });
+      batch.update(categoryRef, { name: validation.data.name });
+      
+      // 2. Find all drinks with the old category name and update them
+      const drinksRef = collection(firestore, 'drinks');
+      const q = query(drinksRef, where("category", "==", category.name));
+      const drinksSnapshot = await getDocs(q);
+
+      drinksSnapshot.forEach((drinkDoc) => {
+        batch.update(drinkDoc.ref, { category: validation.data.name });
+      });
+
+      // 3. Commit the batch
+      await batch.commit();
+
+      toast({ title: 'Category Updated', description: `Renamed to "${validation.data.name}" and updated ${drinksSnapshot.size} drink(s).` });
       setIsEditing(false);
     } catch (e) {
       console.error(e);

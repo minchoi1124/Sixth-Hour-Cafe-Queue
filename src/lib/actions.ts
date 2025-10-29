@@ -1,6 +1,7 @@
+
 'use server';
 
-import { completeOrder, getCompletedOrders } from './data';
+import { completeOrder, getCompletedOrders, clearCompletedOrders as clearHistoryData } from './data';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { Order } from './definitions';
 
@@ -35,4 +36,12 @@ export async function fetchCompletedOrders(): Promise<Order[]> {
         // Return an empty array or re-throw the error depending on how you want to handle it
         return [];
     }
+}
+
+export async function clearCompletedOrders() {
+  try {
+    await clearHistoryData();
+  } catch (e) {
+    handlePermissionError(e);
+  }
 }

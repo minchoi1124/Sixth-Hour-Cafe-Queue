@@ -67,14 +67,21 @@ export function useCollection<T = any>(
   useEffect(() => {
     // This is the primary guard clause.
     // We must wait until authentication is no longer loading AND we have a user.
-    if (isUserLoading || !user) {
+    if (isUserLoading) {
       // Reflect the auth loading state. Keep loading until auth is resolved.
-      setIsLoading(isUserLoading); 
+      setIsLoading(true); 
       setData(null);
       setError(null);
       return;
     }
 
+    if (!user) {
+        setIsLoading(false);
+        setData(null);
+        setError(new Error("User not authenticated. Cannot fetch collection."));
+        return;
+    }
+    
     // If we have a user but no query, we are done loading and there's no data.
     if (!memoizedTargetRefOrQuery) {
         setIsLoading(false);

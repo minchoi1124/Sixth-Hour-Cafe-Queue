@@ -67,20 +67,16 @@ export function useCollection<T = any>(
     // The query should only run when auth is no longer loading.
     if (isUserLoading) {
       setIsLoading(true); // Keep loading until we know the auth state.
+      setData(null);
+      setError(null);
       return;
     }
     
     // If auth is resolved but there's no user OR no query, stop.
     if (!user || !memoizedTargetRefOrQuery) {
         setIsLoading(false);
-        // If there's no user, it's not strictly an error, but we can't fetch data.
-        // We set an error so consuming components know why data is null.
-        if (!user) {
-          setError(new Error("No authenticated user available to fetch data."));
-        } else {
-          setError(null);
-        }
         setData(null);
+        setError(null); // Not an error if there's no query to run
         return;
     }
 

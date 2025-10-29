@@ -64,26 +64,19 @@ export function useCollection<T = any>(
   const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    // The query should only run when auth is no longer loading.
-    if (isUserLoading) {
-      setIsLoading(true); // Keep loading until we know the auth state.
+    // This is the primary guard clause.
+    // We must wait until authentication is no longer loading AND we have a user.
+    // If there's no query provided, we also don't do anything.
+    if (isUserLoading || !user || !memoizedTargetRefOrQuery) {
+      setIsLoading(isUserLoading); // Reflect the auth loading state.
       setData(null);
       setError(null);
       return;
-    }
-    
-    // If auth is resolved but there's no user OR no query, stop.
-    if (!user || !memoizedTargetRefOrQuery) {
-        setIsLoading(false);
-        setData(null);
-        setError(null); // Not an error if there's no query to run
-        return;
     }
 
     setIsLoading(true);
     setError(null);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
@@ -96,7 +89,6 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
         const path: string =
           memoizedTargetRefOrQuery.type === 'collection'
             ? (memoizedTargetRefOrQuery as CollectionReference).path
@@ -111,13 +103,12 @@ export function useCollection<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, isUserLoading, user]); // Re-run if the target query/reference or user state changes.
+  }, [memoizedTargetRefOrQuery, isUserLoading, user]);
   
   if (memoizedTargetRefOrQuery && (memoizedTargetRefOrQuery as any).__memo !== true) {
     console.warn('The query or reference passed to useCollection was not created with useMemoFirebase. This can lead to infinite loops and performance issues.', memoizedTargetRefOrQuery);

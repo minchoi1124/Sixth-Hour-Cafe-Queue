@@ -17,8 +17,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['Patrick Hand', 'cursive'],
-        headline: ['Patrick Hand', 'cursive'],
+        body: ['"FF Providence Sans"', 'sans-serif'],
+        headline: ['"FF Providence Sans"', 'sans-serif'],
         category: ['Beth Ellen', 'cursive'],
         code: ['monospace'],
       },

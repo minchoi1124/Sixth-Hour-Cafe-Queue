@@ -57,6 +57,15 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
   const [activeTab, setActiveTab] = useState('queue');
   const firestore = useFirestore();
 
+  const pendingOrdersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+      collection(firestore, 'orders'),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'asc')
+    );
+  }, [firestore]);
+
   const completedOrdersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -74,8 +83,10 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     );
   }, [firestore]);
 
+  const { data: pendingOrders } = useCollection<Order>(pendingOrdersQuery);
   const { data: completedOrders } = useCollection<Order>(completedOrdersQuery);
   const { data: archivedOrders } = useCollection<Order>(archivedOrdersQuery);
+  
   const [localCompletedOrders, setLocalCompletedOrders] = useState(initialCompletedOrders);
 
   useEffect(() => {
@@ -183,7 +194,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
         
             <TabsContent value="queue">
                 <Suspense fallback={<OrderQueueSkeleton />}>
-                    <OrderQueue status="pending" />
+                    <OrderQueue status="pending" orders={pendingOrders} />
                 </Suspense>
             </TabsContent>
             <TabsContent value="history">

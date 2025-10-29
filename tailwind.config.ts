@@ -19,6 +19,7 @@ export default {
       fontFamily: {
         body: ['Patrick Hand', 'cursive'],
         headline: ['Patrick Hand', 'cursive'],
+        category: ['Beth Ellen', 'cursive'],
         code: ['monospace'],
       },
       colors: {

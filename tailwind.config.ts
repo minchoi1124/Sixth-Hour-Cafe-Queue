@@ -17,8 +17,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['"FF Providence Sans"', 'sans-serif'],
-        headline: ['"FF Providence Sans"', 'sans-serif'],
+        body: ['var(--font-providence-sans)', 'sans-serif'],
+        headline: ['var(--font-providence-sans)', 'sans-serif'],
         category: ['Beth Ellen', 'cursive'],
         code: ['monospace'],
       },

@@ -2,11 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
+  @font-face {
+    font-family: 'FF Providence Sans';
+    src: url('/fonts/providence-sans.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
   :root {
     --background: 43 27% 95%; /* #F6F4F0 */
     --foreground: 234 100% 34%; /* #1800AD */

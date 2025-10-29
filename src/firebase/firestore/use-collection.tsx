@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -67,12 +68,20 @@ export function useCollection<T = any>(
     // This is the primary guard clause.
     // We must wait until authentication is no longer loading AND we have a user.
     // If there's no query provided, we also don't do anything.
-    if (isUserLoading || !user || !memoizedTargetRefOrQuery) {
-      // Reflect the auth loading state. If there's no query, we are not "loading" data.
-      setIsLoading(isUserLoading || !!memoizedTargetRefOrQuery); 
+    if (isUserLoading || !user) {
+      // Reflect the auth loading state. If there's no query, we are not "loading" data, unless auth is loading.
+      setIsLoading(isUserLoading); 
       setData(null);
       setError(null);
       return;
+    }
+
+    // If we have a user but no query, we are done loading and there's no data.
+    if (!memoizedTargetRefOrQuery) {
+        setIsLoading(false);
+        setData(null);
+        setError(null);
+        return;
     }
 
     setIsLoading(true);

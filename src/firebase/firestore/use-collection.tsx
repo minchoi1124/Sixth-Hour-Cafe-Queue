@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useUser } from '../provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -60,12 +61,16 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    if (!memoizedTargetRefOrQuery) {
-      setData(null);
-      setIsLoading(false);
-      setError(null);
+    // Wait for user to be authenticated and for the query to be available
+    if (isUserLoading || !memoizedTargetRefOrQuery || !user) {
+      setIsLoading(isUserLoading);
+      if (!user && !isUserLoading) {
+        // If there's definitively no user, don't just hang in a loading state.
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -106,7 +111,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
+  }, [memoizedTargetRefOrQuery, isUserLoading, user]); // Re-run if the target query/reference or user state changes.
   
   if (memoizedTargetRefOrQuery && (memoizedTargetRefOrQuery as any).__memo !== true) {
     console.warn('The query or reference passed to useCollection was not created with useMemoFirebase. This can lead to infinite loops and performance issues.', memoizedTargetRefOrQuery);

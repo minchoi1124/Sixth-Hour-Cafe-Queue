@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -16,10 +16,12 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
+import { Checkbox } from '../ui/checkbox';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
   itemId: z.string().min(1, 'Please select a drink'),
+  oatMilk: z.boolean(),
 });
 
 const drinkIcons: { [key: string]: React.FC<{ className?: string }> } = {
@@ -94,6 +96,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
     const validatedFields = OrderSchema.safeParse({
       customerName: formData.get('customerName'),
       itemId: formData.get('itemId'),
+      oatMilk: formData.get('oatMilk') === 'on',
     });
 
     if (!validatedFields.success) {
@@ -113,7 +116,11 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       const ordersCol = collection(firestore, 'orders');
       await addDoc(ordersCol, {
         customerName: validatedFields.data.customerName,
-        items: [{ id: selectedItem.id, name: selectedItem.name }],
+        items: [{ 
+            id: selectedItem.id, 
+            name: selectedItem.name,
+            oatMilk: validatedFields.data.oatMilk
+        }],
         createdAt: serverTimestamp(),
         status: 'pending',
       });
@@ -195,6 +202,29 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
               <AlertCircle className="h-5 w-5" /> {errors.itemId}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-4xl">3. Any modifications?</CardTitle>
+          <CardDescription className="text-xl">Optional add-ons for your drink.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="items-top flex space-x-4 p-4 rounded-lg border-2 border-primary/20 hover:bg-accent transition-all">
+            <Checkbox id="oatMilk" name="oatMilk" className="w-7 h-7 mt-1 border-2" />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="oatMilk"
+                className="text-2xl font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Make it with Oat Milk
+              </label>
+              <p className="text-lg text-muted-foreground">
+                Substitute regular milk with creamy oat milk.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
       

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -17,6 +18,7 @@ import { Check, Coffee, Tag, History } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
+import { Badge } from '../ui/badge';
 
 const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'completed' }) => {
   const [isCompleting, setIsCompleting] = useState(false);
@@ -55,9 +57,16 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
       <CardContent className="flex-1">
         <ul className="space-y-3">
           {order.items.map((item) => (
-            <li key={item.id} className="text-2xl flex items-center gap-3">
-              <Coffee className="w-6 h-6 text-muted-foreground flex-shrink-0" />
-              <span>{item.name}</span>
+            <li key={item.id} className="text-2xl">
+                <div className="flex items-start gap-3">
+                    <Coffee className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
+                    <div className="flex-1">
+                        <span>{item.name}</span>
+                        {item.oatMilk && (
+                            <Badge variant="secondary" className="ml-2 text-base">Oat Milk</Badge>
+                        )}
+                    </div>
+                </div>
             </li>
           ))}
         </ul>

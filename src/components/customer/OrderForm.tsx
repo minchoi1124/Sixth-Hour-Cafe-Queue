@@ -152,7 +152,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
           </AlertDescription>
         </Alert>
 
-        <Card className="text-center">
+        <Card className="text-center border-primary/50 bg-background shadow-none">
             <CardHeader>
                 <CardTitle className="text-3xl">Follow us on Instagram for updates!</CardTitle>
             </CardHeader>

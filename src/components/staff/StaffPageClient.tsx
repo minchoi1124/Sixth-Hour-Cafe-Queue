@@ -84,12 +84,13 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
+                  {completedOrders.length > 0 && (
+                    <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
+                      <Coffee className="w-6 h-6" />
+                      <span>{completedDrinksCount} Drinks Made</span>
+                    </div>
+                  )}
                   {activeTab === 'history' && completedOrders.length > 0 && (
-                     <>
-                      <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
-                        <Coffee className="w-6 h-6" />
-                        <span>{completedDrinksCount} Drinks Made</span>
-                      </div>
                       <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="destructive" disabled={isPending}>
@@ -112,7 +113,6 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
-                     </>
                   )}
                   <TabsList className="grid w-full sm:w-[300px] grid-cols-2 h-auto">
                       <TabsTrigger value="queue" className="py-3 text-xl">Queue</TabsTrigger>

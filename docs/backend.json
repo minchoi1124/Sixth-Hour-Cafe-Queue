@@ -66,6 +66,10 @@
           "type": "boolean",
           "description": "Indicates whether the drink is currently in stock."
         },
+        "oatMilkAvailable": {
+          "type": "boolean",
+          "description": "Indicates whether oat milk is an available modification for this drink."
+        },
         "order": {
           "type": "number",
           "description": "The display order of the drink."
@@ -76,6 +80,7 @@
         "description",
         "category",
         "inStock",
+        "oatMilkAvailable",
         "order"
       ]
     },

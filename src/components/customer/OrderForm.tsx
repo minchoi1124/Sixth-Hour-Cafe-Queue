@@ -69,6 +69,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [customerName, setCustomerName] = useState('');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ customerName?: string[], itemId?: string[] } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -83,9 +84,13 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   const resetForm = () => {
     setIsSuccess(false);
     setCustomerName('');
+    setSelectedItemId(null);
     setErrors(null);
     formRef.current?.reset();
   };
+
+  const selectedItem = menu.find(item => item.id === selectedItemId);
+  const showOatMilkOption = selectedItem?.oatMilkAvailable ?? false;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -99,10 +104,12 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
     }
 
     const formData = new FormData(event.currentTarget);
+    const oatMilkValue = showOatMilkOption ? formData.get('oatMilk') === 'on' : false;
+    
     const validatedFields = OrderSchema.safeParse({
       customerName: formData.get('customerName'),
       itemId: formData.get('itemId'),
-      oatMilk: formData.get('oatMilk') === 'on',
+      oatMilk: oatMilkValue,
     });
 
     if (!validatedFields.success) {
@@ -111,8 +118,8 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       return;
     }
 
-    const selectedItem = menu.find(item => validatedFields.data.itemId === item.id);
-    if (!selectedItem) {
+    const foundSelectedItem = menu.find(item => validatedFields.data.itemId === item.id);
+    if (!foundSelectedItem) {
       setErrors({ itemId: ['Invalid drink selected.'] });
       setIsPending(false);
       return;
@@ -123,8 +130,8 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
       await addDoc(ordersCol, {
         customerName: validatedFields.data.customerName,
         items: [{ 
-            id: selectedItem.id, 
-            name: selectedItem.name,
+            id: foundSelectedItem.id, 
+            name: foundSelectedItem.name,
             oatMilk: validatedFields.data.oatMilk
         }],
         createdAt: serverTimestamp(),
@@ -203,7 +210,12 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
           <CardDescription className="text-xl">Select one of our drinks from our menu.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
-          <RadioGroup name="itemId" className="space-y-8" aria-describedby='items-error'>
+          <RadioGroup 
+            name="itemId" 
+            className="space-y-8" 
+            aria-describedby='items-error'
+            onValueChange={setSelectedItemId}
+          >
             {Object.entries(categories).map(([category, items]) => (
                 <div key={category}>
                     <h3 className="text-4xl font-category mb-4 text-primary">{category}</h3>
@@ -221,30 +233,32 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-4xl">3. Any modifications?</CardTitle>
-          <CardDescription className="text-xl">Optional add-ons for your drink.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
-            <Checkbox id="oatMilk" name="oatMilk" className="w-7 h-7 mt-1 border-2" />
-            <div className="grid gap-1.5 leading-none">
-              <label
-                htmlFor="oatMilk"
-                className="text-2xl font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Make it with Oat Milk
-              </label>
-              <p className="text-lg text-muted-foreground">
-                Substitute regular milk with creamy oat milk.
-              </p>
+      {selectedItemId && showOatMilkOption && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-4xl">3. Any modifications?</CardTitle>
+            <CardDescription className="text-xl">Optional add-ons for your drink.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
+              <Checkbox id="oatMilk" name="oatMilk" className="w-7 h-7 mt-1 border-2" />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="oatMilk"
+                  className="text-2xl font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Make it with Oat Milk
+                </label>
+                <p className="text-lg text-muted-foreground">
+                  Substitute regular milk with creamy oat milk.
+                </p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
       
-      <Button type="submit" disabled={isPending} className="w-full text-3xl py-8">
+      <Button type="submit" disabled={isPending || !selectedItemId} className="w-full text-3xl py-8">
         {isPending ? 'Placing Order...' : 'Place My Order'}
       </Button>
     </form>

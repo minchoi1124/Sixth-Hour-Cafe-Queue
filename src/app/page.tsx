@@ -1,3 +1,4 @@
+
 import { getMenu } from '@/lib/data';
 import OrderForm from '@/components/customer/OrderForm';
 import { Logo } from '@/components/Logo';
@@ -17,9 +18,9 @@ export default async function CustomerPage() {
           <blockquote className="text-2xl italic text-muted-foreground">
             “Come, see a man who told me everything I ever did.”
           </blockquote>
-          <p className="text-right text-lg text-muted-foreground/80 mt-1 pr-2">– John 4:29</p>
+          <p className="text-right text-lg text-muted-foreground mt-1 pr-2">– John 4:29</p>
         </div>
-        <p className="mt-4 text-2xl text-primary/80">
+        <p className="mt-4 text-2xl text-muted-foreground">
           This is where it all began.
         </p>
       </div>

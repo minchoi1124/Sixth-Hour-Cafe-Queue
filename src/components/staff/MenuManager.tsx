@@ -194,7 +194,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(item.id, item.name)} className={Button({variant: "destructive"}).className}>
+                          <AlertDialogAction onClick={() => handleDelete(item.id, item.name)} variant="destructive">
                             Yes, delete drink
                           </AlertDialogAction>
                         </AlertDialogFooter>

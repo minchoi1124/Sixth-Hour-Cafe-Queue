@@ -125,28 +125,9 @@ const EmptyState = ({ status }: { status: 'pending' | 'completed' }) => {
     )
 }
 
-export function OrderQueue({ status }: { status: 'pending' | 'completed' }) {
-  const firestore = useFirestore();
-
-  const ordersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    const orderDirection = status === 'pending' ? 'asc' : 'desc';
-    return query(
-      collection(firestore, 'orders'),
-      where('status', '==', status),
-      orderBy('createdAt', orderDirection)
-    );
-  }, [firestore, status]);
-
-  const { data: orders, isLoading, error } = useCollection<Order>(ordersQuery);
-
-  if (isLoading && !orders) {
+export function OrderQueue({ status, orders }: { status: 'pending' | 'completed', orders: Order[] | null }) {
+  if (orders === null) {
     return <OrderQueueSkeleton />;
-  }
-
-  if (error) {
-    // This will now be caught by Next.js's error boundary via the FirebaseErrorListener
-    throw error;
   }
 
   if (orders?.length === 0) {

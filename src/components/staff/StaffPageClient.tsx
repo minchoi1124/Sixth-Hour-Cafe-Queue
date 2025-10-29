@@ -57,7 +57,16 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     );
   }, [firestore]);
 
+  const allCountableOrdersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+      collection(firestore, 'orders'),
+      where('status', 'in', ['completed', 'archived'])
+    );
+  }, [firestore]);
+
   const { data: completedOrders, isLoading: isLoadingCompleted } = useCollection<Order>(completedOrdersQuery);
+  const { data: allCountableOrders } = useCollection<Order>(allCountableOrdersQuery);
   const [localCompletedOrders, setLocalCompletedOrders] = useState(initialCompletedOrders);
 
   useEffect(() => {
@@ -68,17 +77,16 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
 
 
   const completedDrinksCount = useMemo(() => {
-    return (completedOrders || []).reduce((total, order) => total + order.items.length, 0);
-  }, [completedOrders]);
+    return (allCountableOrders || []).reduce((total, order) => total + order.items.length, 0);
+  }, [allCountableOrders]);
   
   const handleClearHistory = () => {
     startTransition(async () => {
       try {
         await clearCompletedOrders();
-        // The real-time listener will automatically update the UI to an empty list.
         toast({
           title: "History Cleared",
-          description: "All completed orders have been removed.",
+          description: "All completed orders have been archived.",
         });
       } catch (error) {
         toast({
@@ -103,12 +111,10 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  {displayOrders.length > 0 && (
-                    <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
-                      <Coffee className="w-6 h-6" />
-                      <span>{completedDrinksCount} Drinks Made</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
+                    <Coffee className="w-6 h-6" />
+                    <span>{completedDrinksCount} Drinks Made</span>
+                  </div>
                   {activeTab === 'history' && displayOrders.length > 0 && (
                       <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -121,13 +127,13 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete all {displayOrders.length} completed orders. This action cannot be undone.
+                                This will archive all {displayOrders.length} completed orders. This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction onClick={handleClearHistory} variant="destructive">
-                                Yes, delete all
+                                Yes, archive all
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

@@ -17,6 +17,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
 import { Checkbox } from '../ui/checkbox';
+import Image from 'next/image';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
@@ -150,6 +151,16 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
             Thanks, {customerName}! Your order is in.
           </AlertDescription>
         </Alert>
+
+        <Card className="text-center">
+            <CardHeader>
+                <CardTitle className="text-3xl">Follow us on Instagram for updates!</CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+                <Image src="/instagramqrcode.svg" alt="Instagram QR Code" width={200} height={200} />
+            </CardContent>
+        </Card>
+
         <Button onClick={resetForm} className="text-2xl py-6">
             New Order
         </Button>
@@ -211,7 +222,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
           <CardDescription className="text-xl">Optional add-ons for your drink.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="items-top flex space-x-4 p-4 rounded-lg border-2 border-primary/20 hover:bg-accent transition-all">
+          <div className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
             <Checkbox id="oatMilk" name="oatMilk" className="w-7 h-7 mt-1 border-2" />
             <div className="grid gap-1.5 leading-none">
               <label

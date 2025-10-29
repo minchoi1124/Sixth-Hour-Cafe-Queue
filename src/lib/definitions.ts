@@ -3,6 +3,7 @@ import { FieldValue } from "firebase/firestore";
 export type MenuItem = {
   id: string; // Firestore document ID
   name: string;
+  description: string;
   inStock: boolean;
   category: string;
   order: number;

@@ -3,20 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  @font-face {
-    font-family: 'FF Providence Sans';
-    src: url('/fonts/Providence Sans.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-  }
-
-  @font-face {
-    font-family: 'FF Providence Sans';
-    src: url('/fonts/Providence Sans Bold.ttf') format('truetype');
-    font-weight: bold;
-    font-style: normal;
-  }
-
   :root {
     --background: 43 27% 95%; /* #F6F4F0 */
     --foreground: 234 100% 34%; /* #1800AD */

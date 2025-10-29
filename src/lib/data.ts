@@ -84,6 +84,29 @@ export const getOrders = async (): Promise<Order[]> => {
   }
 };
 
+export const getCompletedOrders = async (): Promise<Order[]> => {
+  const firestore = getDb();
+  const q = query(
+    collection(firestore, ORDERS_COLLECTION),
+    where('status', '==', 'completed'),
+    orderBy('createdAt', 'desc')
+  );
+  try {
+    const orderSnapshot = await getDocs(q);
+    const orders: Order[] = [];
+    orderSnapshot.forEach((doc) => {
+      const data = doc.data();
+      const createdAt = (data.createdAt as Timestamp)?.toDate().toISOString() ?? new Date().toISOString();
+      orders.push({ id: doc.id, ...data, createdAt } as Order);
+    });
+    return orders;
+  } catch (error) {
+    console.error("Failed to fetch completed orders:", error);
+    // On error, return an empty array to prevent the page from crashing.
+    return [];
+  }
+}
+
 
 export const addOrder = async (order: NewOrder): Promise<void> => {
   const firestore = getDb();

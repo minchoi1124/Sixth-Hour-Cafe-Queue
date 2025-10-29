@@ -5,6 +5,7 @@ import { OrderQueue } from '@/components/staff/OrderQueue';
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import OrderHistory from '@/components/staff/OrderHistory';
 
 function OrderQueueSkeleton() {
     return (
@@ -48,7 +49,7 @@ export default function StaffQueuePage() {
             </TabsContent>
             <TabsContent value="history">
                 <Suspense fallback={<OrderQueueSkeleton />}>
-                    <OrderQueue status="completed" />
+                    <OrderHistory />
                 </Suspense>
             </TabsContent>
         </Tabs>

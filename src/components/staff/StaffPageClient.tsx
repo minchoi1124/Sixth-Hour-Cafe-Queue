@@ -2,11 +2,26 @@
 'use client';
 
 import { OrderQueue } from '@/components/staff/OrderQueue';
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderHistory from '@/components/staff/OrderHistory';
 import type { Order } from '@/lib/definitions';
+import { Button } from '../ui/button';
+import { clearCompletedOrders } from '@/lib/actions';
+import { toast } from '@/hooks/use-toast';
+import { History } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 function OrderQueueSkeleton() {
     return (
@@ -28,14 +43,35 @@ function OrderQueueSkeleton() {
 
 export default function StaffPageClient({ initialCompletedOrders }: { initialCompletedOrders: Order[] }) {
   const [completedOrders, setCompletedOrders] = useState(initialCompletedOrders);
+  const [isPending, startTransition] = useTransition();
+  const [activeTab, setActiveTab] = useState('queue');
 
   useEffect(() => {
     setCompletedOrders(initialCompletedOrders);
   }, [initialCompletedOrders]);
   
+  const handleClearHistory = () => {
+    startTransition(async () => {
+      try {
+        await clearCompletedOrders();
+        setCompletedOrders([]); // Optimistically update the UI
+        toast({
+          title: "History Cleared",
+          description: "All completed orders have been removed.",
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not clear history. You may not have permission.",
+        });
+      }
+    });
+  }
+
   return (
     <div className="container mx-auto p-4 sm:p-8">
-        <Tabs defaultValue="queue">
+        <Tabs defaultValue="queue" onValueChange={setActiveTab}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                 <div className="flex-1">
                     <h1 className="text-5xl font-bold">Order Queue</h1>
@@ -43,10 +79,36 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                         View pending and completed orders.
                     </p>
                 </div>
-                <TabsList className="grid w-full sm:w-[300px] grid-cols-2 h-auto">
-                    <TabsTrigger value="queue" className="py-3 text-xl">Queue</TabsTrigger>
-                    <TabsTrigger value="history" className="py-3 text-xl">History</TabsTrigger>
-                </TabsList>
+                <div className="flex items-center gap-4">
+                  {activeTab === 'history' && completedOrders.length > 0 && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" disabled={isPending}>
+                            <History className="mr-2 h-5 w-5" />
+                            {isPending ? 'Clearing...' : 'Clear History'}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete all {completedOrders.length} completed orders. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleClearHistory} variant="destructive">
+                              Yes, delete all
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                  )}
+                  <TabsList className="grid w-full sm:w-[300px] grid-cols-2 h-auto">
+                      <TabsTrigger value="queue" className="py-3 text-xl">Queue</TabsTrigger>
+                      <TabsTrigger value="history" className="py-3 text-xl">History</TabsTrigger>
+                  </TabsList>
+                </div>
             </div>
         
             <TabsContent value="queue">

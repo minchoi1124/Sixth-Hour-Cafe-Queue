@@ -1,4 +1,6 @@
 
+'use client';
+
 import { OrderQueue } from '@/components/staff/OrderQueue';
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';

@@ -184,7 +184,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
             {Object.entries(categories).map(([category, items]) => (
                 <div key={category}>
                     <h3 className="text-4xl font-category mb-4 text-primary">{category}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         {items.map((item) => <DrinkOption key={item.id} item={item} />)}
                     </div>
                 </div>

@@ -74,6 +74,7 @@ export function useCollection<T = any>(
     if (!user || !memoizedTargetRefOrQuery) {
         setIsLoading(false);
         // If there's no user, it's not strictly an error, but we can't fetch data.
+        // We set an error so consuming components know why data is null.
         if (!user) {
           setError(new Error("No authenticated user available to fetch data."));
         } else {

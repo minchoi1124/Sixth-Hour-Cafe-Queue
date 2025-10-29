@@ -64,14 +64,16 @@ export function useCollection<T = any>(
   const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    // Wait for user to be authenticated and for the query to be available
-    if (isUserLoading || !memoizedTargetRefOrQuery || !user) {
-      setIsLoading(isUserLoading);
-      if (!user && !isUserLoading) {
-        // If there's definitively no user, don't just hang in a loading state.
-        setIsLoading(false);
-      }
+    // The query should only run when auth is no longer loading AND we have a user.
+    if (isUserLoading || !user) {
+      setIsLoading(true); // Keep loading until we have an authenticated user.
       return;
+    }
+
+    // The query should also only run if the query itself is ready.
+    if (!memoizedTargetRefOrQuery) {
+        setIsLoading(false); // Not loading if there's no query to run.
+        return;
     }
 
     setIsLoading(true);

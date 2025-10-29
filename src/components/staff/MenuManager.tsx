@@ -48,23 +48,51 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
   };
 
   const handleMove = (index: number, direction: 'up' | 'down') => {
-    setLocalMenu(currentMenu => {
-      const newMenu = [...currentMenu];
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
-
-      if (targetIndex < 0 || targetIndex >= newMenu.length) {
-        return newMenu; // Can't move
+    startTransition(async () => {
+      if (!firestore) {
+        toast({ variant: "destructive", title: "Error", description: "Database not available." });
+        return;
       }
-
-      // Swap the order values of the two items
+  
+      const newMenu = [...localMenu];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  
+      if (targetIndex < 0 || targetIndex >= newMenu.length) {
+        return; // Can't move
+      }
+  
       const item1 = newMenu[index];
       const item2 = newMenu[targetIndex];
-      
+  
+      // Create a batched write
+      const batch = writeBatch(firestore);
+  
+      // Get references to both documents
+      const doc1Ref = doc(firestore, 'drinks', item1.id);
+      const doc2Ref = doc(firestore, 'drinks', item2.id);
+  
+      // Set the new order values in the batch
+      batch.update(doc1Ref, { order: item2.order });
+      batch.update(doc2Ref, { order: item1.order });
+  
+      // Optimistically update local state for immediate UI feedback
       newMenu[index] = { ...item1, order: item2.order };
       newMenu[targetIndex] = { ...item2, order: item1.order };
-      
-      // Sort the array based on the new order to visually update the list
-      return newMenu.sort((a, b) => a.order - b.order);
+      setLocalMenu(newMenu.sort((a, b) => a.order - b.order));
+  
+      try {
+        await batch.commit();
+        toast({ title: "Order Updated", description: `"${item1.name}" moved.` });
+      } catch (e: any) {
+        console.error("Failed to reorder menu:", e);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not reorder drinks. Please try again."
+        });
+        // On failure, revert the optimistic update
+        setLocalMenu(localMenu);
+      }
     });
   };
 
@@ -185,11 +213,11 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                         </div>
                     </div>
                     <div className="flex items-center justify-end gap-2 sm:pt-9">
-                        <Button variant="outline" size="icon" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
+                        <Button variant="outline" size="icon" onClick={() => handleMove(index, 'up')} disabled={isPending || index === 0}>
                             <ArrowUp className="h-6 w-6"/>
                             <span className="sr-only">Move Up</span>
                         </Button>
-                        <Button variant="outline" size="icon" onClick={() => handleMove(index, 'down')} disabled={index === localMenu.length - 1}>
+                        <Button variant="outline" size="icon" onClick={() => handleMove(index, 'down')} disabled={isPending || index === localMenu.length - 1}>
                             <ArrowDown className="h-6 w-6"/>
                             <span className="sr-only">Move Down</span>
                         </Button>

@@ -13,8 +13,14 @@ export default async function CustomerPage() {
         <h1 className="text-5xl md:text-6xl font-bold tracking-tighter">
           Sixth Hour Cafe
         </h1>
-        <p className="mt-4 text-2xl text-muted-foreground">
-          A wellspring of refreshment for your daily journey.
+        <div className="mt-6 text-center">
+          <blockquote className="text-2xl italic text-muted-foreground">
+            “Come, see a man who told me everything I ever did.”
+          </blockquote>
+          <p className="text-right text-lg text-muted-foreground/80 mt-1 pr-2">– John 4:29</p>
+        </div>
+        <p className="mt-4 text-2xl text-primary/80">
+          This is where it all began.
         </p>
       </div>
 

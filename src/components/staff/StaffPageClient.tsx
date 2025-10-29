@@ -10,7 +10,7 @@ import type { Order } from '@/lib/definitions';
 import { Button } from '../ui/button';
 import { clearCompletedOrders } from '@/lib/actions';
 import { toast } from '@/hooks/use-toast';
-import { Coffee, History } from 'lucide-react';
+import { Coffee, History, Sigma } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +22,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 
@@ -57,16 +66,16 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     );
   }, [firestore]);
 
-  const allCountableOrdersQuery = useMemoFirebase(() => {
+  const archivedOrdersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, 'orders'),
-      where('status', 'in', ['completed', 'archived'])
+      where('status', '==', 'archived')
     );
   }, [firestore]);
 
-  const { data: completedOrders, isLoading: isLoadingCompleted } = useCollection<Order>(completedOrdersQuery);
-  const { data: allCountableOrders } = useCollection<Order>(allCountableOrdersQuery);
+  const { data: completedOrders } = useCollection<Order>(completedOrdersQuery);
+  const { data: archivedOrders } = useCollection<Order>(archivedOrdersQuery);
   const [localCompletedOrders, setLocalCompletedOrders] = useState(initialCompletedOrders);
 
   useEffect(() => {
@@ -77,8 +86,13 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
 
 
   const completedDrinksCount = useMemo(() => {
-    return (allCountableOrders || []).reduce((total, order) => total + order.items.length, 0);
-  }, [allCountableOrders]);
+    return (completedOrders || []).reduce((total, order) => total + order.items.length, 0);
+  }, [completedOrders]);
+
+  const totalDrinksCount = useMemo(() => {
+    const archivedCount = (archivedOrders || []).reduce((total, order) => total + order.items.length, 0);
+    return completedDrinksCount + archivedCount;
+  }, [completedDrinksCount, archivedOrders]);
   
   const handleClearHistory = () => {
     startTransition(async () => {
@@ -111,10 +125,31 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg" title="Drinks completed in this session">
                     <Coffee className="w-6 h-6" />
                     <span>{completedDrinksCount} Drinks Made</span>
                   </div>
+
+                   <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" title="View all-time total drinks made">
+                        <Sigma className="w-5 h-5" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="text-3xl">All-Time Drink Counter</DialogTitle>
+                        <DialogDescription className="text-lg">
+                          This is the total number of drinks made, including all previously archived orders.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4 text-center">
+                        <p className="text-6xl font-bold text-primary">{totalDrinksCount}</p>
+                        <p className="text-xl text-muted-foreground">Total Drinks</p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                   {activeTab === 'history' && displayOrders.length > 0 && (
                       <AlertDialog>
                           <AlertDialogTrigger asChild>

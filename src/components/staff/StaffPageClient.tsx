@@ -2,7 +2,7 @@
 'use client';
 
 import { OrderQueue } from '@/components/staff/OrderQueue';
-import { Suspense, useState, useEffect, useTransition } from 'react';
+import { Suspense, useState, useEffect, useTransition, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderHistory from '@/components/staff/OrderHistory';
@@ -10,7 +10,7 @@ import type { Order } from '@/lib/definitions';
 import { Button } from '../ui/button';
 import { clearCompletedOrders } from '@/lib/actions';
 import { toast } from '@/hooks/use-toast';
-import { History } from 'lucide-react';
+import { Coffee, History } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +49,10 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
   useEffect(() => {
     setCompletedOrders(initialCompletedOrders);
   }, [initialCompletedOrders]);
+
+  const completedDrinksCount = useMemo(() => {
+    return completedOrders.reduce((total, order) => total + order.items.length, 0);
+  }, [completedOrders]);
   
   const handleClearHistory = () => {
     startTransition(async () => {
@@ -81,28 +85,34 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                 </div>
                 <div className="flex items-center gap-4">
                   {activeTab === 'history' && completedOrders.length > 0 && (
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" disabled={isPending}>
-                            <History className="mr-2 h-5 w-5" />
-                            {isPending ? 'Clearing...' : 'Clear History'}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete all {completedOrders.length} completed orders. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleClearHistory} variant="destructive">
-                              Yes, delete all
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                     <>
+                      <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
+                        <Coffee className="w-6 h-6" />
+                        <span>{completedDrinksCount} Drinks Made</span>
+                      </div>
+                      <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={isPending}>
+                              <History className="mr-2 h-5 w-5" />
+                              {isPending ? 'Clearing...' : 'Clear History'}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete all {completedOrders.length} completed orders. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleClearHistory} variant="destructive">
+                                Yes, delete all
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                     </>
                   )}
                   <TabsList className="grid w-full sm:w-[300px] grid-cols-2 h-auto">
                       <TabsTrigger value="queue" className="py-3 text-xl">Queue</TabsTrigger>

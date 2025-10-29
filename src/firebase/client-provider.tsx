@@ -17,17 +17,15 @@ interface FirebaseClientProviderProps {
  * It initiates anonymous sign-in and only renders children when a user is authenticated.
  */
 function AuthHandler({ children }: { children: ReactNode }) {
-  // We get auth directly from the initialized app instance because this component
-  // is rendered inside the provider it would otherwise get the hook from.
-  const auth = getAuth(initializeFirebase().firebaseApp);
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
     // Initiate sign-in if no user is present and we are not in the initial loading state.
     if (!user && !isUserLoading) {
-      initiateAnonymousSignIn(auth);
+      // getAuth() is safe to call here because we are inside the FirebaseProvider
+      initiateAnonymousSignIn(getAuth(initializeFirebase().firebaseApp));
     }
-  }, [user, isUserLoading, auth]);
+  }, [user, isUserLoading]);
 
   // While the initial user state is being determined OR if there's no user yet (because sign-in is in progress),
   // show a loading screen. This is the main gate that prevents child components from rendering prematurely.

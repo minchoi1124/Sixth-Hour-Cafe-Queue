@@ -8,6 +8,7 @@ import localFont from 'next/font/local';
 export const metadata: Metadata = {
   title: 'Sixth Hour Cafe Queue',
   description: 'Order your favorite drinks and see the queue.',
+  manifest: '/site.webmanifest',
 };
 
 const providenceSans = localFont({

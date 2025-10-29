@@ -20,16 +20,15 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    // Initiate sign-in if no user is present.
-    // The onAuthStateChanged listener in FirebaseProvider will handle the resulting user state.
+    // Initiate sign-in if no user is present and we are not in the initial loading state.
     if (!user && !isUserLoading) {
       initiateAnonymousSignIn(auth);
     }
   }, [user, isUserLoading, auth]);
 
-  // While the initial user state is being determined, show a full-page loading screen.
-  // This prevents any child components from attempting to fetch data before auth is ready.
-  if (isUserLoading) {
+  // While the initial user state is being determined OR if there's no user yet, show a loading screen.
+  // This is the main gate that prevents child components from rendering and fetching data prematurely.
+  if (isUserLoading || !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
         <Logo className="w-24 h-24 mb-4 animate-pulse" />
@@ -38,19 +37,8 @@ function AuthHandler({ children }: { children: ReactNode }) {
     );
   }
 
-  // Once loading is complete, if there's a user, render the application.
-  if (user) {
-    return <>{children}</>;
-  }
-
-  // If there's no user and we are not loading, it means sign-in is in progress
-  // or has failed. We continue to show a loading/connecting state.
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
-      <Logo className="w-24 h-24 mb-4 animate-pulse" />
-      <h1 className="text-4xl font-bold">Connecting...</h1>
-    </div>
-  );
+  // Once loading is complete AND we have a user, render the application.
+  return <>{children}</>;
 }
 
 

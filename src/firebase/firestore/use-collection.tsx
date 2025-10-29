@@ -68,7 +68,8 @@ export function useCollection<T = any>(
     // We must wait until authentication is no longer loading AND we have a user.
     // If there's no query provided, we also don't do anything.
     if (isUserLoading || !user || !memoizedTargetRefOrQuery) {
-      setIsLoading(isUserLoading); // Reflect the auth loading state.
+      // Reflect the auth loading state. If there's no query, we are not "loading" data.
+      setIsLoading(isUserLoading || !!memoizedTargetRefOrQuery); 
       setData(null);
       setError(null);
       return;

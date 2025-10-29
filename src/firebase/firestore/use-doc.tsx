@@ -50,18 +50,20 @@ export function useDoc<T = any>(
   const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    // Wait for user to be authenticated and for the doc ref to be available
-    if (isUserLoading || !memoizedDocRef || !user) {
-      setIsLoading(isUserLoading);
-      if (!user && !isUserLoading) {
-        setIsLoading(false);
-      }
+    // The query should only run when auth is no longer loading AND we have a user.
+    if (isUserLoading || !user) {
+      setIsLoading(true); // Keep loading until we have an authenticated user.
+      return;
+    }
+    
+    // The query should also only run if the ref itself is ready.
+    if (!memoizedDocRef) {
+      setIsLoading(false); // Not loading if there's no ref to fetch.
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    // Optional: setData(null); // Clear previous data instantly
 
     const unsubscribe = onSnapshot(
       memoizedDocRef,

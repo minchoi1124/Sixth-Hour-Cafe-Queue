@@ -2,6 +2,7 @@
 'use server';
 
 import { completeOrder, getCompletedOrders, clearCompletedOrders as clearHistoryData } from './data';
+import { revalidatePath } from 'next/cache';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { Order } from './definitions';
 

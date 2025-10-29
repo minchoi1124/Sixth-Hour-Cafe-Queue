@@ -22,6 +22,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 function OrderQueueSkeleton() {
     return (
@@ -42,23 +44,38 @@ function OrderQueueSkeleton() {
 }
 
 export default function StaffPageClient({ initialCompletedOrders }: { initialCompletedOrders: Order[] }) {
-  const [completedOrders, setCompletedOrders] = useState(initialCompletedOrders);
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState('queue');
+  const firestore = useFirestore();
+
+  const completedOrdersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+        collection(firestore, 'orders'),
+        where('status', '==', 'completed'),
+        orderBy('createdAt', 'desc')
+    );
+  }, [firestore]);
+
+  const { data: completedOrders, isLoading: isLoadingCompleted } = useCollection<Order>(completedOrdersQuery);
+  const [localCompletedOrders, setLocalCompletedOrders] = useState(initialCompletedOrders);
 
   useEffect(() => {
-    setCompletedOrders(initialCompletedOrders);
-  }, [initialCompletedOrders]);
+      if (completedOrders) {
+          setLocalCompletedOrders(completedOrders);
+      }
+  }, [completedOrders]);
+
 
   const completedDrinksCount = useMemo(() => {
-    return completedOrders.reduce((total, order) => total + order.items.length, 0);
+    return (completedOrders || []).reduce((total, order) => total + order.items.length, 0);
   }, [completedOrders]);
   
   const handleClearHistory = () => {
     startTransition(async () => {
       try {
         await clearCompletedOrders();
-        setCompletedOrders([]); // Optimistically update the UI
+        // The real-time listener will automatically update the UI to an empty list.
         toast({
           title: "History Cleared",
           description: "All completed orders have been removed.",
@@ -73,6 +90,8 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     });
   }
 
+  const displayOrders = completedOrders ?? localCompletedOrders;
+
   return (
     <div className="container mx-auto p-4 sm:p-8">
         <Tabs defaultValue="queue" onValueChange={setActiveTab}>
@@ -84,13 +103,13 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  {completedOrders.length > 0 && (
+                  {displayOrders.length > 0 && (
                     <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg">
                       <Coffee className="w-6 h-6" />
                       <span>{completedDrinksCount} Drinks Made</span>
                     </div>
                   )}
-                  {activeTab === 'history' && completedOrders.length > 0 && (
+                  {activeTab === 'history' && displayOrders.length > 0 && (
                       <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="destructive" disabled={isPending}>
@@ -102,7 +121,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete all {completedOrders.length} completed orders. This action cannot be undone.
+                                This will permanently delete all {displayOrders.length} completed orders. This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -128,7 +147,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
             </TabsContent>
             <TabsContent value="history">
                 <Suspense fallback={<OrderQueueSkeleton />}>
-                    <OrderHistory orders={completedOrders} />
+                    <OrderHistory orders={displayOrders} />
                 </Suspense>
             </TabsContent>
         </Tabs>

@@ -8,17 +8,23 @@ export type MenuItem = {
   order: number;
 };
 
+export type OrderItem = {
+    id: string;
+    name: string;
+    oatMilk: boolean;
+}
+
 export type Order = {
   id: string; // Firestore document ID
   customerName: string;
-  items: Pick<MenuItem, 'id' | 'name'>[];
+  items: OrderItem[];
   createdAt: string; // ISO string for client
   status: 'pending' | 'completed';
 };
 
 export type NewOrder = {
   customerName: string;
-  items: Pick<MenuItem, 'id' | 'name'>[];
+  items: OrderItem[];
 }
 
 export type FirestoreOrder = Omit<Order, 'id' | 'createdAt'> & {

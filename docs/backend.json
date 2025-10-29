@@ -20,9 +20,12 @@
               },
               "name": {
                 "type": "string"
+              },
+              "oatMilk": {
+                "type": "boolean"
               }
             },
-            "required": ["id", "name"]
+            "required": ["id", "name", "oatMilk"]
           }
         },
         "createdAt": {

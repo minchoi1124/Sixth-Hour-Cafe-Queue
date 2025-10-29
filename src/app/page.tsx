@@ -14,7 +14,7 @@ export default async function CustomerPage() {
           Sixth Hour Cafe
         </h1>
         <p className="mt-4 text-2xl text-muted-foreground">
-          Place your order below.
+          A wellspring of refreshment for your daily journey.
         </p>
       </div>
 

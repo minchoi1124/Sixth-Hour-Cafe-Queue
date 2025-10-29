@@ -2,43 +2,13 @@
 'use client';
 
 import { useState } from 'react';
-import { getMenu } from '@/lib/data';
 import OrderForm from '@/components/customer/OrderForm';
 import { Logo } from '@/components/Logo';
 import type { MenuItem } from '@/lib/definitions';
-import { Button } from '@/components/ui/button';
-import { Maximize, Minimize } from 'lucide-react';
 
 export default function CustomerPageClient({ menu }: { menu: MenuItem[] }) {
-  const [isFullScreen, setIsFullScreen] = useState(false);
-
-  const handleToggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullScreen(true);
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-        setIsFullScreen(false);
-      }
-    }
-  };
-
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleToggleFullScreen}
-        className="absolute top-4 right-4 z-20 h-14 w-14 rounded-full shadow-lg"
-        aria-label={isFullScreen ? "Exit full screen" : "Enter full screen"}
-      >
-        {isFullScreen ? (
-          <Minimize className="w-8 h-8" />
-        ) : (
-          <Maximize className="w-8 h-8" />
-        )}
-      </Button>
       <main className="container mx-auto max-w-2xl p-4 sm:p-8">
         <div className="flex flex-col items-center text-center">
           <Logo className="w-24 h-24 mb-4" />

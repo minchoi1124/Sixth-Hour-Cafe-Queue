@@ -132,7 +132,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
 
                    <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" title="View all-time total drinks made">
+                      <Button variant="secondary" title="View all-time total drinks made">
                         <Sigma className="w-5 h-5" />
                       </Button>
                     </DialogTrigger>

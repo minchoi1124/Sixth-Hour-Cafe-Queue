@@ -150,21 +150,19 @@ export const clearCompletedOrders = async (): Promise<void> => {
   try {
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
-      return; // Nothing to delete
+      return; // Nothing to archive
     }
 
     const batch = writeBatch(firestore);
     querySnapshot.forEach(doc => {
-      batch.delete(doc.ref);
+      batch.update(doc.ref, { status: 'archived' });
     });
 
     await batch.commit();
   } catch (error) {
-    // This is a simplified path for the error, as we don't have a single docRef path.
-    // We could potentially list all deleted paths, but for a batch delete, a generic error is acceptable.
     throw new FirestorePermissionError({
         path: ordersRef.path,
-        operation: 'delete' // This is a simplification
+        operation: 'update' 
     });
   }
 };

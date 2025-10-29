@@ -19,7 +19,7 @@ export type Order = {
   customerName: string;
   items: OrderItem[];
   createdAt: string; // ISO string for client
-  status: 'pending' | 'completed';
+  status: 'pending' | 'completed' | 'archived';
 };
 
 export type NewOrder = {

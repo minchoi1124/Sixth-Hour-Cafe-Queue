@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, type ReactNode, useEffect } from 'react';
@@ -16,6 +17,8 @@ interface FirebaseClientProviderProps {
  * It initiates anonymous sign-in and only renders children when a user is authenticated.
  */
 function AuthHandler({ children }: { children: ReactNode }) {
+  // We cannot get auth from useAuth() here because this component is inside the provider it depends on.
+  // We get it from the initialized app instance directly. Note this is a safe, non-hook way to get auth.
   const auth = getAuth(initializeFirebase().firebaseApp);
   const { user, isUserLoading } = useUser();
 
@@ -43,6 +46,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
+  // useMemo ensures that Firebase is only initialized once per render cycle.
   const firebaseServices = useMemo(() => {
     return initializeFirebase();
   }, []); 

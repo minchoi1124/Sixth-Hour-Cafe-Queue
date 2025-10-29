@@ -31,8 +31,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 
 function OrderQueueSkeleton() {
     return (
@@ -75,17 +75,14 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     );
   }, [firestore]);
 
-  const archivedOrdersQuery = useMemoFirebase(() => {
+  const drinksCounterDoc = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(
-      collection(firestore, 'orders'),
-      where('status', '==', 'archived')
-    );
+    return doc(firestore, 'counters', 'drinks');
   }, [firestore]);
 
   const { data: pendingOrders } = useCollection<Order>(pendingOrdersQuery);
   const { data: completedOrders } = useCollection<Order>(completedOrdersQuery);
-  const { data: archivedOrders } = useCollection<Order>(archivedOrdersQuery);
+  const { data: drinksCounter } = useDoc<{total: number}>(drinksCounterDoc);
   
   const [localCompletedOrders, setLocalCompletedOrders] = useState(initialCompletedOrders);
 
@@ -100,10 +97,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     return (completedOrders || []).reduce((total, order) => total + order.items.length, 0);
   }, [completedOrders]);
 
-  const totalDrinksCount = useMemo(() => {
-    const archivedCount = (archivedOrders || []).reduce((total, order) => total + order.items.length, 0);
-    return completedDrinksCount + archivedCount;
-  }, [completedDrinksCount, archivedOrders]);
+  const totalDrinksCount = drinksCounter?.total ?? 0;
   
   const handleClearHistory = () => {
     startTransition(async () => {
@@ -151,7 +145,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
                       <DialogHeader>
                         <DialogTitle className="text-3xl">All-Time Drink Counter</DialogTitle>
                         <DialogDescription className="text-lg">
-                          This is the total number of drinks made, including all previously archived orders.
+                          This is the total number of drinks made since the beginning of time.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="py-4 text-center">

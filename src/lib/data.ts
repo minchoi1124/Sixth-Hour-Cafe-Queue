@@ -15,6 +15,9 @@ import {
   serverTimestamp,
   updateDoc,
   Timestamp,
+  runTransaction,
+  increment,
+  getDoc,
 } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -33,6 +36,7 @@ const getDb = () => {
 const MENU_COLLECTION = 'drinks';
 const ORDERS_COLLECTION = 'orders';
 const CATEGORIES_COLLECTION = 'categories';
+const COUNTERS_COLLECTION = 'counters';
 
 export const getCategories = async (): Promise<Category[]> => {
     const firestore = getDb();
@@ -129,15 +133,29 @@ export const addOrder = async (order: NewOrder): Promise<void> => {
 
 export const completeOrder = async (orderId: string): Promise<void> => {
   const firestore = getDb();
-  const docRef = doc(firestore, ORDERS_COLLECTION, orderId);
-  const data = { status: 'completed' };
+  const orderRef = doc(firestore, ORDERS_COLLECTION, orderId);
+  const counterRef = doc(firestore, COUNTERS_COLLECTION, 'drinks');
+
   try {
-    await updateDoc(docRef, data);
+    await runTransaction(firestore, async (transaction) => {
+      const orderDoc = await transaction.get(orderRef);
+      if (!orderDoc.exists()) {
+        throw new Error("Order document does not exist!");
+      }
+
+      const numDrinks = orderDoc.data().items.length;
+
+      // 1. Update the order status
+      transaction.update(orderRef, { status: 'completed' });
+
+      // 2. Increment the drinks counter
+      transaction.update(counterRef, { total: increment(numDrinks) });
+    });
   } catch (error) {
-    throw new FirestorePermissionError({
-        path: docRef.path,
+     throw new FirestorePermissionError({
+        path: orderRef.path,
         operation: 'update',
-        requestResourceData: data
+        requestResourceData: { status: 'completed' }
     });
   }
 };

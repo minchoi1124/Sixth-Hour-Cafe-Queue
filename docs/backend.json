@@ -95,6 +95,18 @@
         }
       },
       "required": ["name"]
+    },
+    "GlobalCounter": {
+        "title": "Global Counter",
+        "type": "object",
+        "description": "A document for storing global counters.",
+        "properties": {
+            "total": {
+                "type": "number",
+                "description": "The total count."
+            }
+        },
+        "required": ["total"]
     }
   },
   "auth": {
@@ -120,6 +132,12 @@
             "$ref": "#/entities/Category"
         },
         "description": "Stores drink categories."
+    },
+    "/counters/drinks": {
+        "schema": {
+            "$ref": "#/entities/GlobalCounter"
+        },
+        "description": "Stores the total number of drinks ever made."
     }
   }
 }

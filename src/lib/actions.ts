@@ -1,7 +1,7 @@
 
 'use server';
 
-import { completeOrder, getCompletedOrders, clearCompletedOrders as clearHistoryData, archiveSingleOrder } from './data';
+import { completeOrder, getCompletedOrders, clearCompletedOrders as clearHistoryData, archiveSingleOrder, deleteOrder as deleteOrderFromDb } from './data';
 import { revalidatePath } from 'next/cache';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { Order } from './definitions';
@@ -50,6 +50,14 @@ export async function clearCompletedOrders() {
 export async function archiveOrder(orderId: string) {
   try {
     await archiveSingleOrder(orderId);
+  } catch (e) {
+    handlePermissionError(e);
+  }
+}
+
+export async function deleteOrder(orderId: string) {
+  try {
+    await deleteOrderFromDb(orderId);
   } catch (e) {
     handlePermissionError(e);
   }

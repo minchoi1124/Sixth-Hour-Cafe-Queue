@@ -181,3 +181,16 @@ export const clearCompletedOrders = async (): Promise<void> => {
     });
   }
 };
+
+export const deleteOrder = async (orderId: string): Promise<void> => {
+  const firestore = getDb();
+  const docRef = doc(firestore, ORDERS_COLLECTION, orderId);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    throw new FirestorePermissionError({
+      path: docRef.path,
+      operation: 'delete',
+    });
+  }
+};

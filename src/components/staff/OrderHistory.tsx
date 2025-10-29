@@ -1,16 +1,29 @@
 
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coffee, Tag, History, Archive } from 'lucide-react';
+import { Coffee, Tag, History, Archive, Trash2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Timestamp } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { archiveOrder } from '@/lib/actions';
+import { archiveOrder, deleteOrder } from '@/lib/actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 
 function HistoryCard({ order }: { order: Order }) {
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const getDisplayDate = (createdAt: string | Timestamp | undefined): string => {
@@ -46,6 +59,27 @@ function HistoryCard({ order }: { order: Order }) {
     }
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+        await deleteOrder(order.id);
+        toast({
+            title: "Order Deleted",
+            description: `Order for ${order.customerName} has been permanently deleted.`
+        });
+    } catch (error) {
+        console.error("Failed to delete order:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not delete the order. You may not have permission.",
+        });
+        // We don't need to setIsDeleting(false) on failure
+        // because the component will be gone on success anyway.
+        // If it fails, we want the button to remain disabled to prevent retries.
+    }
+  }
+
   const date = getDisplayDate(order.createdAt as any);
 
   return (
@@ -76,16 +110,43 @@ function HistoryCard({ order }: { order: Order }) {
           ))}
         </ul>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="grid grid-cols-2 gap-2">
         <Button 
           variant="outline" 
           className="w-full text-xl py-6"
           onClick={handleArchive}
-          disabled={isArchiving}
+          disabled={isArchiving || isDeleting}
         >
           <Archive className="w-6 h-6 mr-2"/>
           {isArchiving ? 'Archiving...' : 'Archive'}
         </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              variant="destructive" 
+              className="w-full text-xl py-6"
+              disabled={isDeleting || isArchiving}
+            >
+              <Trash2 className="w-6 h-6 mr-2"/>
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the order for "{order.customerName}".
+                This action cannot be undone and the data will be lost forever.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} variant="destructive">
+                Yes, permanently delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardFooter>
     </Card>
   );

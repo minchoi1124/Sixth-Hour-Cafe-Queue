@@ -1,7 +1,7 @@
 
 'use server';
 
-import { completeOrder, getCompletedOrders, clearCompletedOrders as clearHistoryData } from './data';
+import { completeOrder, getCompletedOrders, clearCompletedOrders as clearHistoryData, archiveSingleOrder } from './data';
 import { revalidatePath } from 'next/cache';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { Order } from './definitions';
@@ -42,6 +42,14 @@ export async function fetchCompletedOrders(): Promise<Order[]> {
 export async function clearCompletedOrders() {
   try {
     await clearHistoryData();
+  } catch (e) {
+    handlePermissionError(e);
+  }
+}
+
+export async function archiveOrder(orderId: string) {
+  try {
+    await archiveSingleOrder(orderId);
   } catch (e) {
     handlePermissionError(e);
   }

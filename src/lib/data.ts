@@ -142,6 +142,21 @@ export const completeOrder = async (orderId: string): Promise<void> => {
   }
 };
 
+export const archiveSingleOrder = async (orderId: string): Promise<void> => {
+  const firestore = getDb();
+  const docRef = doc(firestore, ORDERS_COLLECTION, orderId);
+  const data = { status: 'archived' };
+  try {
+    await updateDoc(docRef, data);
+  } catch (error) {
+    throw new FirestorePermissionError({
+      path: docRef.path,
+      operation: 'update',
+      requestResourceData: data
+    });
+  }
+};
+
 export const clearCompletedOrders = async (): Promise<void> => {
   const firestore = getDb();
   const ordersRef = collection(firestore, ORDERS_COLLECTION);

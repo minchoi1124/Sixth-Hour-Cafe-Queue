@@ -1,29 +1,49 @@
 
 import type { Order } from '@/lib/definitions';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coffee, Tag, History } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Coffee, Tag, History, Archive } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Timestamp } from 'firebase/firestore';
+import { Button } from '../ui/button';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { archiveOrder } from '@/lib/actions';
 
 function HistoryCard({ order }: { order: Order }) {
-  // The 'createdAt' field can be either an ISO string (from server-side rendering)
-  // or a Firestore Timestamp object (from the real-time client-side listener).
-  // We need to handle both cases to prevent an "Invalid Date" error.
+  const [isArchiving, setIsArchiving] = useState(false);
+  const { toast } = useToast();
+
   const getDisplayDate = (createdAt: string | Timestamp | undefined): string => {
     if (!createdAt) return 'Date not available';
 
     if (typeof createdAt === 'string') {
-      // It's already an ISO string from the server.
       return new Date(createdAt).toLocaleString();
     } 
     
     if (createdAt instanceof Timestamp) {
-      // It's a Timestamp object from the client-side listener.
       return createdAt.toDate().toLocaleString();
     }
     
-    // Fallback for any other unexpected type
     return 'Invalid Date';
+  };
+
+  const handleArchive = async () => {
+    setIsArchiving(true);
+    try {
+        await archiveOrder(order.id);
+        toast({
+            title: "Order Archived",
+            description: `Order for ${order.customerName} has been archived.`
+        });
+    } catch (error) {
+        console.error("Failed to archive order:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not archive the order. You may not have permission.",
+        });
+        setIsArchiving(false);
+    }
   };
 
   const date = getDisplayDate(order.createdAt as any);
@@ -56,6 +76,17 @@ function HistoryCard({ order }: { order: Order }) {
           ))}
         </ul>
       </CardContent>
+      <CardFooter>
+        <Button 
+          variant="outline" 
+          className="w-full text-xl py-6"
+          onClick={handleArchive}
+          disabled={isArchiving}
+        >
+          <Archive className="w-6 h-6 mr-2"/>
+          {isArchiving ? 'Archiving...' : 'Archive'}
+        </Button>
+      </CardFooter>
     </Card>
   );
 };

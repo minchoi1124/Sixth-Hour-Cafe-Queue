@@ -52,11 +52,11 @@ function DrinkOption({ item }: { item: MenuItem }) {
           'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
         )}
       >
-        <div className="flex items-center gap-4 w-full">
-            {Icon && <div className="h-14 w-14 flex-shrink-0"><Icon /></div>}
+        <div className="flex items-start gap-4 w-full">
+            {Icon && <div className="h-14 w-14 flex-shrink-0 mt-1"><Icon /></div>}
             <div className="text-left flex-1">
-                <span className="text-2xl font-medium">{item.name}</span>
-                <p className="text-lg opacity-80">{item.description}</p>
+                <span className="block text-2xl font-medium">{item.name}</span>
+                <p className="text-lg opacity-80 mt-1">{item.description}</p>
             </div>
         </div>
       </Label>

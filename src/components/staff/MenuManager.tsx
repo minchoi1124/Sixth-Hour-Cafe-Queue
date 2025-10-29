@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Textarea } from '../ui/textarea';
 
 export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
   const firestore = useFirestore();
@@ -34,7 +35,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     setLocalMenu(menu.sort((a, b) => a.order - b.order));
   }, [menu]);
 
-  const handleInputChange = (id: string, field: 'name' | 'category', value: string) => {
+  const handleInputChange = (id: string, field: 'name' | 'category' | 'description', value: string) => {
     setLocalMenu(currentMenu => 
       currentMenu.map(item => item.id === id ? { ...item, [field]: value } : item)
     );
@@ -123,83 +124,95 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           <div className="divide-y divide-border">
             {localMenu.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4 py-6 px-4 sm:px-0">
-                <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor={`item-${item.id}-name`} className="text-lg text-muted-foreground">Name</Label>
-                    <Input
-                        id={`item-${item.id}-name`}
-                        name={`item-${item.id}-name`}
-                        value={item.name}
-                        onChange={(e) => handleInputChange(item.id, 'name', e.target.value)}
-                        className="text-2xl h-14"
-                        required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`item-${item.id}-category`} className="text-lg text-muted-foreground">Category</Label>
-                    <Select 
-                      name={`item-${item.id}-category`} 
-                      value={item.category}
-                      onValueChange={(value) => handleInputChange(item.id, 'category', value)}
-                    >
-                      <SelectTrigger className="text-2xl h-14" id={`item-${item.id}-category`}>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.name} className="text-xl">
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-self-end gap-4 pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
-                    <Label htmlFor={`item-${item.id}-instock`} className="text-2xl">
-                        In Stock
-                    </Label>
-                    <Switch
-                        id={`item-${item.id}-instock`}
-                        name={`item-${item.id}-instock`}
-                        checked={item.inStock}
-                        onCheckedChange={(checked) => handleSwitchChange(item.id, checked)}
-                        className="data-[state=checked]:bg-green-500 scale-125"
-                    />
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                    <Button variant="outline" size="icon" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
-                        <ArrowUp className="h-6 w-6"/>
-                        <span className="sr-only">Move Up</span>
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => handleMove(index, 'down')} disabled={index === localMenu.length - 1}>
-                        <ArrowDown className="h-6 w-6"/>
-                        <span className="sr-only">Move Down</span>
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon">
-                            <Trash2 className="h-6 w-6"/>
-                            <span className="sr-only">Delete</span>
+              <div key={item.id} className="grid grid-cols-1 gap-6 py-6 px-4 sm:px-0">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-start">
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor={`item-${item.id}-name`} className="text-lg text-muted-foreground">Name</Label>
+                        <Input
+                            id={`item-${item.id}-name`}
+                            name={`item-${item.id}-name`}
+                            value={item.name}
+                            onChange={(e) => handleInputChange(item.id, 'name', e.target.value)}
+                            className="text-2xl h-14"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor={`item-${item.id}-category`} className="text-lg text-muted-foreground">Category</Label>
+                        <Select 
+                        name={`item-${item.id}-category`} 
+                        value={item.category}
+                        onValueChange={(value) => handleInputChange(item.id, 'category', value)}
+                        >
+                        <SelectTrigger className="text-2xl h-14" id={`item-${item.id}-category`}>
+                            <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.name} className="text-xl">
+                                {cat.name}
+                            </SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-self-end gap-4 pt-4 sm:pt-9">
+                        <Label htmlFor={`item-${item.id}-instock`} className="text-2xl">
+                            In Stock
+                        </Label>
+                        <Switch
+                            id={`item-${item.id}-instock`}
+                            name={`item-${item.id}-instock`}
+                            checked={item.inStock}
+                            onCheckedChange={(checked) => handleSwitchChange(item.id, checked)}
+                            className="data-[state=checked]:bg-green-500 scale-125"
+                        />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 sm:pt-9">
+                        <Button variant="outline" size="icon" onClick={() => handleMove(index, 'up')} disabled={index === 0}>
+                            <ArrowUp className="h-6 w-6"/>
+                            <span className="sr-only">Move Up</span>
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete the drink "{item.name}" from the menu.
-                            This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(item.id, item.name)} variant="destructive">
-                            Yes, delete drink
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                        <Button variant="outline" size="icon" onClick={() => handleMove(index, 'down')} disabled={index === localMenu.length - 1}>
+                            <ArrowDown className="h-6 w-6"/>
+                            <span className="sr-only">Move Down</span>
+                        </Button>
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon">
+                                <Trash2 className="h-6 w-6"/>
+                                <span className="sr-only">Delete</span>
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete the drink "{item.name}" from the menu.
+                                This action cannot be undone.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(item.id, item.name)} variant="destructive">
+                                Yes, delete drink
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </div>
+                <div>
+                  <Label htmlFor={`item-${item.id}-description`} className="text-lg text-muted-foreground">Description</Label>
+                  <Textarea
+                    id={`item-${item.id}-description`}
+                    value={item.description}
+                    onChange={(e) => handleInputChange(item.id, 'description', e.target.value)}
+                    className="text-xl min-h-[80px]"
+                    placeholder="Enter a short description..."
+                  />
                 </div>
               </div>
             ))}

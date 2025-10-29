@@ -54,6 +54,10 @@
           "type": "string",
           "description": "The name of the drink (e.g., Maple Matcha Latte)."
         },
+        "description": {
+          "type": "string",
+          "description": "A short description of the drink."
+        },
         "category": {
           "type": "string",
           "description": "The category of the drink (e.g., Lattes)."
@@ -69,6 +73,7 @@
       },
       "required": [
         "name",
+        "description",
         "category",
         "inStock",
         "order"

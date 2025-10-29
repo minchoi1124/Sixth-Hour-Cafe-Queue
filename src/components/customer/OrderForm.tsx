@@ -46,14 +46,19 @@ function DrinkOption({ item }: { item: MenuItem }) {
         htmlFor={`item-${item.id}`}
         id={`label-item-${item.id}`}
         className={cn(
-          'flex flex-col items-center justify-center p-6 text-center rounded-lg border-2 border-primary/20 cursor-pointer',
+          'flex flex-col items-center justify-between p-6 text-center rounded-lg border-2 border-primary/20 cursor-pointer',
           'transition-all duration-200 ease-in-out',
           'bg-background hover:bg-accent',
           'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
         )}
       >
-        {Icon && <div className="mb-3 h-14 w-14"><Icon /></div>}
-        <span className="text-2xl font-medium">{item.name}</span>
+        <div className="flex items-center gap-4 w-full">
+            {Icon && <div className="h-14 w-14 flex-shrink-0"><Icon /></div>}
+            <div className="text-left flex-1">
+                <span className="text-2xl font-medium">{item.name}</span>
+                <p className="text-lg opacity-80">{item.description}</p>
+            </div>
+        </div>
       </Label>
     </div>
   )

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Home } from 'lucide-react';
+import { StaffPageWrapper } from './page';
 
 const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => {
   const pathname = usePathname();
@@ -30,6 +31,10 @@ export default function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
+
+  const pathname = usePathname();
+  const isStaffRoot = pathname === '/staff';
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b">
@@ -50,7 +55,7 @@ export default function StaffLayout({
         </div>
       </header>
       <main className="flex-1">
-        {children}
+        {isStaffRoot ? <StaffPageWrapper /> : children}
       </main>
     </div>
   );

@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderHistory from '@/components/staff/OrderHistory';
+import type { Order } from '@/lib/definitions';
 
 function OrderQueueSkeleton() {
     return (
@@ -25,7 +26,7 @@ function OrderQueueSkeleton() {
     )
 }
 
-export default function StaffQueuePage() {
+export default function StaffQueuePage({ completedOrders }: { completedOrders: Order[] }) {
   return (
     <div className="container mx-auto p-4 sm:p-8">
         <Tabs defaultValue="queue">
@@ -49,10 +50,26 @@ export default function StaffQueuePage() {
             </TabsContent>
             <TabsContent value="history">
                 <Suspense fallback={<OrderQueueSkeleton />}>
-                    <OrderHistory />
+                    <OrderHistory orders={completedOrders} />
                 </Suspense>
             </TabsContent>
         </Tabs>
     </div>
   );
+}
+
+// This is a new wrapper component that will fetch data on the server
+// and pass it to the client component.
+export function StaffPageWrapper() {
+    return (
+        <Suspense fallback={<div className="container mx-auto p-4 sm:p-8"><OrderQueueSkeleton /></div>}>
+            <StaffPageData />
+        </Suspense>
+    );
+}
+
+async function StaffPageData() {
+    const { fetchCompletedOrders } = await import('@/lib/actions');
+    const completedOrders = await fetchCompletedOrders();
+    return <StaffQueuePage completedOrders={completedOrders} />;
 }

@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 export const Logo = ({ className }: { className?: string }) => (
   <Image
-    src="/logo.png"
+    src="/logo.svg"
     alt="Sixth Hour Cafe Logo"
     width={100}
     height={100}

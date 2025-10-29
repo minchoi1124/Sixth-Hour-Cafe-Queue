@@ -1,7 +1,8 @@
 'use server';
 
-import { completeOrder } from './data';
+import { completeOrder, getCompletedOrders } from './data';
 import { FirestorePermissionError } from '@/firebase/errors';
+import type { Order } from './definitions';
 
 // Helper function to handle throwing permission errors in server actions
 function handlePermissionError(error: unknown) {
@@ -22,4 +23,16 @@ export async function markOrderAsCompleted(orderId: string) {
   } catch (e) {
     handlePermissionError(e);
   }
+}
+
+export async function fetchCompletedOrders(): Promise<Order[]> {
+    try {
+        const orders = await getCompletedOrders();
+        return orders;
+    } catch (e) {
+        // In a real app, you might want to log this error to a service
+        console.error("Failed to fetch completed orders:", e);
+        // Return an empty array or re-throw the error depending on how you want to handle it
+        return [];
+    }
 }

@@ -1,12 +1,22 @@
 
 'use client';
 
-import { useState } from 'react';
 import OrderForm from '@/components/customer/OrderForm';
 import { Logo } from '@/components/Logo';
 import type { MenuItem } from '@/lib/definitions';
 
-export default function CustomerPageClient({ menu }: { menu: MenuItem[] }) {
+// Define a type for the component's props
+type CustomerPageClientProps = {
+  children: React.ReactNode;
+};
+
+// Define a type for the Form sub-component's props
+type FormProps = {
+  menu: MenuItem[];
+}
+
+// Main component
+function CustomerPageClient({ children }: CustomerPageClientProps) {
   return (
     <>
       <main className="container mx-auto max-w-2xl p-4 sm:p-8">
@@ -27,9 +37,16 @@ export default function CustomerPageClient({ menu }: { menu: MenuItem[] }) {
         </div>
 
         <div className="mt-12">
-          <OrderForm menu={menu} />
+          {children}
         </div>
       </main>
     </>
   );
 }
+
+// Attach the Form sub-component to the main component
+CustomerPageClient.Form = function CustomerPageClientForm({ menu }: FormProps) {
+    return <OrderForm menu={menu} />;
+}
+
+export default CustomerPageClient;

@@ -85,7 +85,7 @@ export function useCollection<T = any>(
     // If we have a user but no query, we are done loading and there's no data.
     if (!memoizedTargetRefOrQuery) {
         setIsLoading(false);
-        setData(null);
+        setData([]); // Return empty array instead of null for consistency
         setError(null);
         return;
     }

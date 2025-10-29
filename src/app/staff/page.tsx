@@ -1,4 +1,3 @@
-
 'use client';
 
 import { OrderQueue } from '@/components/staff/OrderQueue';
@@ -7,6 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderHistory from '@/components/staff/OrderHistory';
 import type { Order } from '@/lib/definitions';
+import { useState, useEffect } from 'react';
+import { fetchCompletedOrders } from '@/lib/actions';
 
 function OrderQueueSkeleton() {
     return (
@@ -26,7 +27,15 @@ function OrderQueueSkeleton() {
     )
 }
 
-export default function StaffQueuePage({ completedOrders }: { completedOrders: Order[] }) {
+function StaffQueuePage({ initialCompletedOrders }: { initialCompletedOrders: Order[] }) {
+  const [completedOrders, setCompletedOrders] = useState(initialCompletedOrders);
+
+  // This effect can be used to periodically re-fetch if needed,
+  // but for now it just sets the initial state.
+  useEffect(() => {
+    setCompletedOrders(initialCompletedOrders);
+  }, [initialCompletedOrders]);
+  
   return (
     <div className="container mx-auto p-4 sm:p-8">
         <Tabs defaultValue="queue">
@@ -58,9 +67,9 @@ export default function StaffQueuePage({ completedOrders }: { completedOrders: O
   );
 }
 
-// This is a new wrapper component that will fetch data on the server
-// and pass it to the client component.
-export function StaffPageWrapper() {
+// This is the new root component for the page.
+// It's a Server Component that fetches data and passes it to the client component.
+export default function StaffPage() {
     return (
         <Suspense fallback={<div className="container mx-auto p-4 sm:p-8"><OrderQueueSkeleton /></div>}>
             <StaffPageData />
@@ -69,7 +78,6 @@ export function StaffPageWrapper() {
 }
 
 async function StaffPageData() {
-    const { fetchCompletedOrders } = await import('@/lib/actions');
     const completedOrders = await fetchCompletedOrders();
-    return <StaffQueuePage completedOrders={completedOrders} />;
+    return <StaffQueuePage initialCompletedOrders={completedOrders} />;
 }

@@ -65,6 +65,22 @@ service cloud.firestore {
         allow update: if isSignedIn() && resource != null;
         allow delete: if isSignedIn() && resource != null;
     }
+
+    /**
+     * @description Grants public read access to global counters and restricts write access to authenticated users.
+     * @path /counters/{counterId}
+     * @allow (get, list): Any user can read counter information.
+     * @allow (create, update, delete): Only authenticated users can create, update, or delete counters.
+     * @deny (create, update, delete): Unauthenticated users cannot modify counter information.
+     * @principle Allows public read access for prototyping while restricting writes to authenticated users.
+     */
+    match /counters/{counterId} {
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && resource != null;
+        allow delete: if isSignedIn() && resource != null;
+    }
   }
 
   // Helper function to determine if a user is signed in.

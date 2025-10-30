@@ -12,7 +12,6 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useUser } from '../provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -62,27 +61,9 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
-  const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    // This is the primary guard clause.
-    // We must wait until authentication is no longer loading AND we have a user.
-    if (isUserLoading) {
-      // Reflect the auth loading state. Keep loading until auth is resolved.
-      setIsLoading(true);
-      setData(null);
-      setError(null);
-      return;
-    }
-
-    if (!user) {
-        setIsLoading(false);
-        setData(null);
-        setError(new Error("User not authenticated. Cannot fetch collection."));
-        return;
-    }
-
-    // If we have a user but no query, we are done loading and there's no data.
+    // If no query provided, we are done loading and there's no data.
     if (!memoizedTargetRefOrQuery) {
         setIsLoading(false);
         setData([]); // Return empty array instead of null for consistency
@@ -93,71 +74,38 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    // Track if we should retry on permission errors (for handling auth token propagation race condition)
-    let hasRetried = false;
-    let unsubscribe: (() => void) | null = null;
-    let retryTimeout: NodeJS.Timeout | null = null;
-
-    const setupListener = () => {
-      unsubscribe = onSnapshot(
-        memoizedTargetRefOrQuery,
-        (snapshot: QuerySnapshot<DocumentData>) => {
-          const results: ResultItemType[] = [];
-          for (const doc of snapshot.docs) {
-            results.push({ ...(doc.data() as T), id: doc.id });
-          }
-          setData(results);
-          setError(null);
-          setIsLoading(false);
-        },
-        (error: FirestoreError) => {
-          const path: string =
-            memoizedTargetRefOrQuery.type === 'collection'
-              ? (memoizedTargetRefOrQuery as CollectionReference).path
-              : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
-
-          // If this is a permission error and we haven't retried yet, it might be a race condition
-          // where the auth token hasn't propagated to Firestore yet. Retry once after a short delay.
-          if (error.code === 'permission-denied' && !hasRetried) {
-            hasRetried = true;
-            console.log('Permission denied on first attempt, retrying after auth token propagation...');
-
-            retryTimeout = setTimeout(() => {
-              if (unsubscribe) {
-                unsubscribe();
-              }
-              setupListener();
-            }, 500); // Wait 500ms for auth token to propagate
-
-            return;
-          }
-
-          // If we've already retried or it's not a permission error, emit the error
-          const contextualError = new FirestorePermissionError({
-            operation: 'list',
-            path,
-          })
-
-          setError(contextualError)
-          setData(null)
-          setIsLoading(false)
-
-          errorEmitter.emit('permission-error', contextualError);
+    const unsubscribe = onSnapshot(
+      memoizedTargetRefOrQuery,
+      (snapshot: QuerySnapshot<DocumentData>) => {
+        const results: ResultItemType[] = [];
+        for (const doc of snapshot.docs) {
+          results.push({ ...(doc.data() as T), id: doc.id });
         }
-      );
-    };
+        setData(results);
+        setError(null);
+        setIsLoading(false);
+      },
+      (error: FirestoreError) => {
+        const path: string =
+          memoizedTargetRefOrQuery.type === 'collection'
+            ? (memoizedTargetRefOrQuery as CollectionReference).path
+            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
 
-    setupListener();
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path,
+        })
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
+        setError(contextualError)
+        setData(null)
+        setIsLoading(false)
+
+        errorEmitter.emit('permission-error', contextualError);
       }
-      if (retryTimeout) {
-        clearTimeout(retryTimeout);
-      }
-    };
-  }, [memoizedTargetRefOrQuery, isUserLoading, user]);
+    );
+
+    return () => unsubscribe();
+  }, [memoizedTargetRefOrQuery]);
   
   if (memoizedTargetRefOrQuery && (memoizedTargetRefOrQuery as any).__memo !== true) {
     console.warn('The query or reference passed to useCollection was not created with useMemoFirebase. This can lead to infinite loops and performance issues.', memoizedTargetRefOrQuery);

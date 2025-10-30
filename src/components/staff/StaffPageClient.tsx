@@ -31,7 +31,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 
 function OrderQueueSkeleton() {
@@ -56,33 +56,29 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState('queue');
   const firestore = useFirestore();
-  const { user } = useUser();
 
   const pendingOrdersQuery = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(
       collection(firestore, 'orders'),
       where('status', '==', 'pending'),
       orderBy('createdAt', 'asc')
     );
-  }, [firestore, user]);
+  }, [firestore]);
 
   const completedOrdersQuery = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(
         collection(firestore, 'orders'),
         where('status', '==', 'completed'),
         orderBy('createdAt', 'desc')
     );
-  }, [firestore, user]);
+  }, [firestore]);
 
   const drinksCounterDoc = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return doc(firestore, 'counters', 'drinks');
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: pendingOrders } = useCollection<Order>(pendingOrdersQuery);
   const { data: completedOrders } = useCollection<Order>(completedOrdersQuery);

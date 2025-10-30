@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import type { MenuItem } from '@/lib/definitions';
 import CustomerPageClient from '@/components/customer/CustomerPageClient';
@@ -25,22 +25,20 @@ function MenuSkeleton() {
 
 export default function CustomerPage() {
   const firestore = useFirestore();
-  const { isUserLoading, user } = useUser();
 
   const menuQuery = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(
       collection(firestore, 'drinks'),
       where('inStock', '==', true),
       orderBy('order', 'asc')
     );
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: menu, isLoading: isLoadingMenu } = useCollection<MenuItem>(menuQuery);
-  
-  // Show skeleton if the user is authenticating OR the menu is loading
-  const showSkeleton = isUserLoading || (user && isLoadingMenu);
+
+  // Show skeleton while the menu is loading
+  const showSkeleton = isLoadingMenu;
 
   return (
     <CustomerPageClient>

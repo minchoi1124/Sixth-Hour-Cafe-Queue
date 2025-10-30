@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { z } from 'zod';
@@ -217,7 +217,6 @@ function CategoryEditRow({ category }: { category: Category }) {
 
 export default function CategoryManager({ initialCategories }: { initialCategories: Category[] }) {
   const firestore = useFirestore();
-  const { user } = useUser();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -225,10 +224,9 @@ export default function CategoryManager({ initialCategories }: { initialCategori
   }, []);
 
   const categoriesQuery = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
 

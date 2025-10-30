@@ -10,7 +10,6 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useUser } from '../provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 type WithId<T> = T & { id: string };
@@ -47,16 +46,9 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
-  const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    // The query should only run when auth is no longer loading AND we have a user.
-    if (isUserLoading || !user) {
-      setIsLoading(true); // Keep loading until we have an authenticated user.
-      return;
-    }
-
-    // The query should also only run if the ref itself is ready.
+    // If no ref provided, we are done loading.
     if (!memoizedDocRef) {
       setIsLoading(false); // Not loading if there's no ref to fetch.
       return;
@@ -65,68 +57,35 @@ export function useDoc<T = any>(
     setIsLoading(true);
     setError(null);
 
-    // Track if we should retry on permission errors (for handling auth token propagation race condition)
-    let hasRetried = false;
-    let unsubscribe: (() => void) | null = null;
-    let retryTimeout: NodeJS.Timeout | null = null;
-
-    const setupListener = () => {
-      unsubscribe = onSnapshot(
-        memoizedDocRef,
-        (snapshot: DocumentSnapshot<DocumentData>) => {
-          if (snapshot.exists()) {
-            setData({ ...(snapshot.data() as T), id: snapshot.id });
-          } else {
-            // Document does not exist
-            setData(null);
-          }
-          setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
-          setIsLoading(false);
-        },
-        (error: FirestoreError) => {
-          // If this is a permission error and we haven't retried yet, it might be a race condition
-          // where the auth token hasn't propagated to Firestore yet. Retry once after a short delay.
-          if (error.code === 'permission-denied' && !hasRetried) {
-            hasRetried = true;
-            console.log('Permission denied on first attempt, retrying after auth token propagation...');
-
-            retryTimeout = setTimeout(() => {
-              if (unsubscribe) {
-                unsubscribe();
-              }
-              setupListener();
-            }, 500); // Wait 500ms for auth token to propagate
-
-            return;
-          }
-
-          // If we've already retried or it's not a permission error, emit the error
-          const contextualError = new FirestorePermissionError({
-            operation: 'get',
-            path: memoizedDocRef.path,
-          })
-
-          setError(contextualError)
-          setData(null)
-          setIsLoading(false)
-
-          // trigger global error propagation
-          errorEmitter.emit('permission-error', contextualError);
+    const unsubscribe = onSnapshot(
+      memoizedDocRef,
+      (snapshot: DocumentSnapshot<DocumentData>) => {
+        if (snapshot.exists()) {
+          setData({ ...(snapshot.data() as T), id: snapshot.id });
+        } else {
+          // Document does not exist
+          setData(null);
         }
-      );
-    };
+        setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
+        setIsLoading(false);
+      },
+      (error: FirestoreError) => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'get',
+          path: memoizedDocRef.path,
+        })
 
-    setupListener();
+        setError(contextualError)
+        setData(null)
+        setIsLoading(false)
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
+        // trigger global error propagation
+        errorEmitter.emit('permission-error', contextualError);
       }
-      if (retryTimeout) {
-        clearTimeout(retryTimeout);
-      }
-    };
-  }, [memoizedDocRef, isUserLoading, user]); // Re-run if the memoizedDocRef or user state changes.
+    );
+
+    return () => unsubscribe();
+  }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
 
   return { data, isLoading, error };
 }

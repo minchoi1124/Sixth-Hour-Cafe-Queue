@@ -1,6 +1,6 @@
 'use client';
 
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { MenuItem, Category } from '@/lib/definitions';
 import MenuManager from '@/components/staff/MenuManager';
@@ -33,19 +33,16 @@ function MenuPageSkeleton() {
 
 export default function MenuManagementPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
 
   const menuQuery = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'drinks'), orderBy('order', 'asc'));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const categoriesQuery = useMemoFirebase(() => {
-    // We must wait for an authenticated user before we can query.
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: menu, isLoading: isLoadingMenu } = useCollection<MenuItem>(menuQuery);
   const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);

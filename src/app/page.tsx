@@ -2,8 +2,8 @@
 import { getMenu } from '@/lib/data';
 import CustomerPageClient from '@/components/customer/CustomerPageClient';
 
-// Revalidate every 30 seconds to ensure menu updates are reflected on the published site
-export const revalidate = 30;
+// Force dynamic rendering to ensure menu data is always fresh from Firestore
+export const dynamic = 'force-dynamic';
 
 export default async function CustomerPage() {
   const menu = await getMenu();

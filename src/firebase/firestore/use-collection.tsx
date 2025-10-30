@@ -69,7 +69,7 @@ export function useCollection<T = any>(
     // We must wait until authentication is no longer loading AND we have a user.
     if (isUserLoading) {
       // Reflect the auth loading state. Keep loading until auth is resolved.
-      setIsLoading(true); 
+      setIsLoading(true);
       setData(null);
       setError(null);
       return;
@@ -81,7 +81,7 @@ export function useCollection<T = any>(
         setError(new Error("User not authenticated. Cannot fetch collection."));
         return;
     }
-    
+
     // If we have a user but no query, we are done loading and there's no data.
     if (!memoizedTargetRefOrQuery) {
         setIsLoading(false);
@@ -93,37 +93,70 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
+    // Track if we should retry on permission errors (for handling auth token propagation race condition)
+    let hasRetried = false;
+    let unsubscribe: (() => void) | null = null;
+    let retryTimeout: NodeJS.Timeout | null = null;
+
+    const setupListener = () => {
+      unsubscribe = onSnapshot(
+        memoizedTargetRefOrQuery,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+          const results: ResultItemType[] = [];
+          for (const doc of snapshot.docs) {
+            results.push({ ...(doc.data() as T), id: doc.id });
+          }
+          setData(results);
+          setError(null);
+          setIsLoading(false);
+        },
+        (error: FirestoreError) => {
+          const path: string =
+            memoizedTargetRefOrQuery.type === 'collection'
+              ? (memoizedTargetRefOrQuery as CollectionReference).path
+              : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+
+          // If this is a permission error and we haven't retried yet, it might be a race condition
+          // where the auth token hasn't propagated to Firestore yet. Retry once after a short delay.
+          if (error.code === 'permission-denied' && !hasRetried) {
+            hasRetried = true;
+            console.log('Permission denied on first attempt, retrying after auth token propagation...');
+
+            retryTimeout = setTimeout(() => {
+              if (unsubscribe) {
+                unsubscribe();
+              }
+              setupListener();
+            }, 500); // Wait 500ms for auth token to propagate
+
+            return;
+          }
+
+          // If we've already retried or it's not a permission error, emit the error
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path,
+          })
+
+          setError(contextualError)
+          setData(null)
+          setIsLoading(false)
+
+          errorEmitter.emit('permission-error', contextualError);
         }
-        setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
+      );
+    };
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        })
+    setupListener();
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        errorEmitter.emit('permission-error', contextualError);
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
-    );
-
-    return () => unsubscribe();
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
   }, [memoizedTargetRefOrQuery, isUserLoading, user]);
   
   if (memoizedTargetRefOrQuery && (memoizedTargetRefOrQuery as any).__memo !== true) {

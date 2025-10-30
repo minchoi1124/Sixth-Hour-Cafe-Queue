@@ -55,7 +55,7 @@ export function useDoc<T = any>(
       setIsLoading(true); // Keep loading until we have an authenticated user.
       return;
     }
-    
+
     // The query should also only run if the ref itself is ready.
     if (!memoizedDocRef) {
       setIsLoading(false); // Not loading if there's no ref to fetch.
@@ -65,34 +65,67 @@ export function useDoc<T = any>(
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      memoizedDocRef,
-      (snapshot: DocumentSnapshot<DocumentData>) => {
-        if (snapshot.exists()) {
-          setData({ ...(snapshot.data() as T), id: snapshot.id });
-        } else {
-          // Document does not exist
-          setData(null);
+    // Track if we should retry on permission errors (for handling auth token propagation race condition)
+    let hasRetried = false;
+    let unsubscribe: (() => void) | null = null;
+    let retryTimeout: NodeJS.Timeout | null = null;
+
+    const setupListener = () => {
+      unsubscribe = onSnapshot(
+        memoizedDocRef,
+        (snapshot: DocumentSnapshot<DocumentData>) => {
+          if (snapshot.exists()) {
+            setData({ ...(snapshot.data() as T), id: snapshot.id });
+          } else {
+            // Document does not exist
+            setData(null);
+          }
+          setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
+          setIsLoading(false);
+        },
+        (error: FirestoreError) => {
+          // If this is a permission error and we haven't retried yet, it might be a race condition
+          // where the auth token hasn't propagated to Firestore yet. Retry once after a short delay.
+          if (error.code === 'permission-denied' && !hasRetried) {
+            hasRetried = true;
+            console.log('Permission denied on first attempt, retrying after auth token propagation...');
+
+            retryTimeout = setTimeout(() => {
+              if (unsubscribe) {
+                unsubscribe();
+              }
+              setupListener();
+            }, 500); // Wait 500ms for auth token to propagate
+
+            return;
+          }
+
+          // If we've already retried or it's not a permission error, emit the error
+          const contextualError = new FirestorePermissionError({
+            operation: 'get',
+            path: memoizedDocRef.path,
+          })
+
+          setError(contextualError)
+          setData(null)
+          setIsLoading(false)
+
+          // trigger global error propagation
+          errorEmitter.emit('permission-error', contextualError);
         }
-        setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
-        setIsLoading(false);
-      },
-      (error: FirestoreError) => {
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: memoizedDocRef.path,
-        })
+      );
+    };
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
+    setupListener();
 
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
-    );
-
-    return () => unsubscribe();
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
   }, [memoizedDocRef, isUserLoading, user]); // Re-run if the memoizedDocRef or user state changes.
 
   return { data, isLoading, error };

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -88,6 +88,16 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
     setErrors(null);
     formRef.current?.reset();
   };
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isSuccess) {
+      timer = setTimeout(() => {
+        resetForm();
+      }, 30000); // 30 seconds
+    }
+    return () => clearTimeout(timer);
+  }, [isSuccess]);
 
   const selectedItem = menu.find(item => item.id === selectedItemId);
   const showOatMilkOption = selectedItem?.oatMilkAvailable ?? false;

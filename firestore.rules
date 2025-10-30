@@ -1,74 +1,24 @@
-/**
- * @fileoverview Firestore Security Rules for the Coffee Ordering App.
- *
- * Core Philosophy:
- * This ruleset prioritizes security while allowing for flexible data shapes during prototyping.
- * It focuses on securing write access and assumes public read access where appropriate.
- *
- * Data Structure:
- * - /drinks/{drinkId}: Stores drink menu items. Publicly readable, writeable only by authenticated users.
- * - /orders/{orderId}: Stores customer orders. Publicly readable, writeable only by authenticated users.
- * - /categories/{categoryId}: Stores drink categories. Publicly readable, writeable only by authenticated users.
- *
- * Key Security Decisions:
- * - Public read access is enabled for all collections to allow easy data exploration during prototyping.
- * - Write access to all collections requires authentication but does not enforce strict schema validation.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Grants public read access to drink menu items and restricts write access to authenticated users.
-     * @path /drinks/{drinkId}
-     * @allow (get, list): Any user can read drink information.
-     * @allow (create, update, delete): Only authenticated users can create, update, or delete drinks.
-     * @deny (create, update, delete): Unauthenticated users cannot modify drink information.
-     * @principle Allows public read access for prototyping while restricting writes to authenticated users.
-     */
     match /drinks/{drinkId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && resource != null;
-      allow delete: if isSignedIn() && resource != null;
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
-
-    /**
-     * @description Grants public read access to customer orders and restricts write access to authenticated users.
-     * @path /orders/{orderId}
-     * @allow (get, list): Any user can read order information.
-     * @allow (create, update, delete): Only authenticated users can create, update, or delete orders.
-     * @deny (create, update, delete): Unauthenticated users cannot modify order information.
-     * @principle Allows public read access for prototyping while restricting writes to authenticated users.
-     */
+    
     match /orders/{orderId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && resource != null;
-      allow delete: if isSignedIn() && resource != null;
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
-
-     /**
-      * @description Grants public read access to drink categories and restricts write access to authenticated users.
-      * @path /categories/{categoryId}
-      * @allow (get, list): Any user can read category information.
-      * @allow (create, update, delete): Only authenticated users can create, update, or delete categories.
-      * @deny (create, update, delete): Unauthenticated users cannot modify category information.
-      * @principle Allows public read access for prototyping while restricting writes to authenticated users.
-      */
+    
     match /categories/{categoryId} {
-        allow get: if true;
-        allow list: if true;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && resource != null;
-        allow delete: if isSignedIn() && resource != null;
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
-  }
-
-  // Helper function to determine if a user is signed in.
-  function isSignedIn() {
-    return request.auth != null;
+    
+    match /counters/{counterId} {
+      allow get, list: if true;
+      allow create, update, delete: if true;
+    }
   }
 }

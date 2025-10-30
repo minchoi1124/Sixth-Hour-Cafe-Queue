@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo, type ReactNode, useEffect } from 'react';
+import React, { useMemo, type ReactNode, useEffect, useState, useRef } from 'react';
 import { FirebaseProvider, useUser } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from './non-blocking-login';
@@ -18,18 +18,27 @@ interface FirebaseClientProviderProps {
  */
 function AuthHandler({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const hasInitiatedSignIn = useRef(false);
 
   useEffect(() => {
     // Initiate sign-in if no user is present and we are not in the initial loading state.
-    if (!user && !isUserLoading) {
+    if (!user && !isUserLoading && !hasInitiatedSignIn.current) {
+      hasInitiatedSignIn.current = true;
+      setIsSigningIn(true);
       // getAuth() is safe to call here because we are inside the FirebaseProvider
       initiateAnonymousSignIn(getAuth(initializeFirebase().firebaseApp));
+    }
+
+    // Once we have a user, sign-in is complete
+    if (user) {
+      setIsSigningIn(false);
     }
   }, [user, isUserLoading]);
 
   // While the initial user state is being determined OR if there's no user yet (because sign-in is in progress),
   // show a loading screen. This is the main gate that prevents child components from rendering prematurely.
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || isSigningIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
         <Logo className="w-24 h-24 mb-4 animate-pulse" />

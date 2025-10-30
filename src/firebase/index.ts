@@ -16,6 +16,7 @@ export function initializeFirebase() {
     try {
       // Attempt to initialize via Firebase App Hosting environment variables
       firebaseApp = initializeApp();
+      console.log('🔥 Firebase initialized automatically. Project:', firebaseApp.options.projectId);
     } catch (e) {
       // Only warn in production because it's normal to use the firebaseConfig to initialize
       // during development
@@ -23,13 +24,16 @@ export function initializeFirebase() {
         console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
       }
       firebaseApp = initializeApp(firebaseConfig);
+      console.log('🔥 Firebase initialized with config. Project:', firebaseApp.options.projectId);
     }
 
     return getSdks(firebaseApp);
   }
 
   // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  const app = getApp();
+  console.log('🔥 Using existing Firebase app. Project:', app.options.projectId);
+  return getSdks(app);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {

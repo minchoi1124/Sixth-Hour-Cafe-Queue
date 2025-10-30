@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Firestore Rules Test</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <h1>Firestore Rules Test</h1>
+  <div id="status">Testing...</div>
+  <pre id="results"></pre>
+
+  <script>
+    const firebaseConfig = {
+      projectId: "studio-2882078798-8b293",
+      apiKey: "AIzaSyDnTFAlKlSTDCzPlATH0P7N-9BP0W9ZkOg",
+      authDomain: "studio-2882078798-8b293.firebaseapp.com",
+      storageBucket: "studio-2882078798-8b293.appspot.com",
+      messagingSenderId: "2882078798",
+      appId: "1:2882078798:web:placeholder"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const results = document.getElementById('results');
+    const status = document.getElementById('status');
+
+    async function testRules() {
+      try {
+        status.textContent = '🔍 Testing unauthenticated read...';
+        results.textContent = 'Attempting to read /drinks collection WITHOUT authentication...\n\n';
+
+        // Try to read drinks collection without authentication
+        const snapshot = await db.collection('drinks').limit(1).get();
+
+        results.textContent += '✅ SUCCESS! Read worked without authentication.\n';
+        results.textContent += `Found ${snapshot.size} document(s).\n\n`;
+        results.textContent += '🎉 Your Firestore rules are working correctly!\n';
+        results.textContent += 'Public reads are enabled as expected.\n';
+
+        status.textContent = '✅ Test Passed';
+        status.style.color = 'green';
+
+      } catch (error) {
+        results.textContent += '❌ FAILED! Permission denied.\n\n';
+        results.textContent += 'Error: ' + error.message + '\n\n';
+        results.textContent += '🔴 This means your Firestore rules are NOT allowing public reads.\n';
+        results.textContent += 'The rules need to be deployed correctly.\n\n';
+        results.textContent += 'Full error:\n' + JSON.stringify(error, null, 2);
+
+        status.textContent = '❌ Test Failed - Rules Not Deployed';
+        status.style.color = 'red';
+      }
+    }
+
+    testRules();
+  </script>
+</body>
+</html>

@@ -4,8 +4,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fetchCompletedOrders } from '@/lib/actions';
 import StaffPageClient from '@/components/staff/StaffPageClient';
 
-// Revalidate every 30 seconds to ensure initial data is fresh
-export const revalidate = 30;
+// Force dynamic rendering to ensure data is always fresh
+export const dynamic = 'force-dynamic';
 
 function OrderQueueSkeleton() {
     return (

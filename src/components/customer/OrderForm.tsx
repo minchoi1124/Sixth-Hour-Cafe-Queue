@@ -22,7 +22,7 @@ import Image from 'next/image';
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
   itemId: z.string().min(1, 'Please select a drink'),
-  oatMilk: z.boolean(),
+  modifications: z.array(z.string()),
 });
 
 const drinkIcons: { [key: string]: React.FC<{ className?: string }> } = {
@@ -100,7 +100,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
   }, [isSuccess]);
 
   const selectedItem = menu.find(item => item.id === selectedItemId);
-  const showOatMilkOption = selectedItem?.oatMilkAvailable ?? false;
+  const availableModifications = selectedItem?.modifications ?? [];
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -114,12 +114,14 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
     }
 
     const formData = new FormData(event.currentTarget);
-    const oatMilkValue = showOatMilkOption ? formData.get('oatMilk') === 'on' : false;
+    const selectedModifications = availableModifications
+        .filter(mod => formData.get(`mod-${mod.id}`) === 'on')
+        .map(mod => mod.name);
     
     const validatedFields = OrderSchema.safeParse({
       customerName: formData.get('customerName'),
       itemId: formData.get('itemId'),
-      oatMilk: oatMilkValue,
+      modifications: selectedModifications,
     });
 
     if (!validatedFields.success) {
@@ -142,7 +144,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
         items: [{ 
             id: foundSelectedItem.id, 
             name: foundSelectedItem.name,
-            oatMilk: validatedFields.data.oatMilk
+            modifications: validatedFields.data.modifications,
         }],
         createdAt: serverTimestamp(),
         status: 'pending',
@@ -243,27 +245,31 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
         </CardContent>
       </Card>
 
-      {selectedItemId && showOatMilkOption && (
+      {selectedItemId && availableModifications.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-4xl">3. Any modifications?</CardTitle>
             <CardDescription className="text-xl">Optional add-ons for your drink.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
-              <Checkbox id="oatMilk" name="oatMilk" className="w-7 h-7 mt-1 border-2" />
-              <div className="grid gap-1.5 leading-none">
-                <label
-                  htmlFor="oatMilk"
-                  className="text-2xl font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Make it with Oat Milk
-                </label>
-                <p className="text-lg text-muted-foreground">
-                  Substitute regular milk with creamy oat milk.
-                </p>
+          <CardContent className="space-y-4">
+            {availableModifications.map(mod => (
+              <div key={mod.id} className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
+                  <Checkbox 
+                    id={`mod-${mod.id}`} 
+                    name={`mod-${mod.id}`}
+                    defaultChecked={mod.default}
+                    className="w-7 h-7 mt-1 border-2" 
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                      <label
+                          htmlFor={`mod-${mod.id}`}
+                          className="text-2xl font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                          {mod.name}
+                      </label>
+                  </div>
               </div>
-            </div>
+            ))}
           </CardContent>
         </Card>
       )}

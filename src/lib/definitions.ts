@@ -1,19 +1,25 @@
 import { FieldValue } from "firebase/firestore";
 
+export type Modification = {
+  id: string;
+  name: string;
+  default: boolean;
+};
+
 export type MenuItem = {
   id: string; // Firestore document ID
   name: string;
   description: string;
   inStock: boolean;
-  oatMilkAvailable: boolean;
   category: string;
   order: number;
+  modifications: Modification[];
 };
 
 export type OrderItem = {
-    id: string;
+    id: string; // ID of the base menu item
     name: string;
-    oatMilk: boolean;
+    modifications: string[]; // Names of selected modifications
 }
 
 export type Order = {

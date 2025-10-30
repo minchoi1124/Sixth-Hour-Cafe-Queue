@@ -95,14 +95,20 @@ function HistoryCard({ order }: { order: Order }) {
       </CardHeader>
       <CardContent className="flex-1">
         <ul className="space-y-3">
-          {order.items.map((item) => (
-            <li key={item.id} className="text-2xl">
+          {order.items.map((item, index) => (
+            <li key={`${item.id}-${index}`} className="text-2xl">
               <div className="flex items-start gap-3">
                 <Coffee className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
                 <div className="flex-1">
                   <span>{item.name}</span>
-                  {item.oatMilk && (
-                    <Badge variant="secondary" className="ml-2 text-base">Oat Milk</Badge>
+                  {item.modifications && item.modifications.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                          {item.modifications.map(mod => (
+                              <Badge key={mod} variant="secondary" className="text-base">
+                                  {mod}
+                              </Badge>
+                          ))}
+                      </div>
                   )}
                 </div>
               </div>

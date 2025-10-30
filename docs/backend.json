@@ -13,19 +13,7 @@
           "type": "array",
           "description": "An array of items in the order.",
           "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "oatMilk": {
-                "type": "boolean"
-              }
-            },
-            "required": ["id", "name", "oatMilk"]
+            "$ref": "#/entities/OrderItem"
           }
         },
         "createdAt": {
@@ -34,8 +22,12 @@
           "format": "date-time"
         },
         "status": {
-            "type": "string",
-            "enum": ["pending", "completed", "archived"]
+          "type": "string",
+          "enum": [
+            "pending",
+            "completed",
+            "archived"
+          ]
         }
       },
       "required": [
@@ -43,6 +35,33 @@
         "items",
         "createdAt",
         "status"
+      ]
+    },
+    "OrderItem": {
+      "title": "Order Item",
+      "type": "object",
+      "description": "Represents a single item within an order, including selected modifications.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the base drink from the menu."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the drink."
+        },
+        "modifications": {
+          "type": "array",
+          "description": "An array of selected modification names for this item.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "modifications"
       ]
     },
     "Drink": {
@@ -66,13 +85,16 @@
           "type": "boolean",
           "description": "Indicates whether the drink is currently in stock."
         },
-        "oatMilkAvailable": {
-          "type": "boolean",
-          "description": "Indicates whether oat milk is an available modification for this drink."
-        },
         "order": {
           "type": "number",
           "description": "The display order of the drink."
+        },
+        "modifications": {
+          "type": "array",
+          "description": "An array of available modification options for this drink.",
+          "items": {
+            "$ref": "#/entities/Modification"
+          }
         }
       },
       "required": [
@@ -80,8 +102,32 @@
         "description",
         "category",
         "inStock",
-        "oatMilkAvailable",
-        "order"
+        "order",
+        "modifications"
+      ]
+    },
+    "Modification": {
+      "title": "Modification",
+      "type": "object",
+      "description": "Represents a single modification option for a drink.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "A unique identifier for the modification."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the modification (e.g., Oat Milk)."
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Indicates if the modification should be enabled by default."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "default"
       ]
     },
     "Category": {
@@ -94,7 +140,9 @@
           "description": "The name of the category (e.g., Lattes)."
         }
       },
-      "required": ["name"]
+      "required": [
+        "name"
+      ]
     }
   },
   "auth": {
@@ -116,10 +164,10 @@
       "description": "Stores customer orders submitted through the app."
     },
     "/categories/{categoryId}": {
-        "schema": {
-            "$ref": "#/entities/Category"
-        },
-        "description": "Stores drink categories."
+      "schema": {
+        "$ref": "#/entities/Category"
+      },
+      "description": "Stores drink categories."
     }
   }
 }

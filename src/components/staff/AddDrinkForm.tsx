@@ -32,12 +32,13 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
   const [isPending, setIsPending] = useState(false);
   const [errors, setErrors] = useState<any>(null);
   const [isClient, setIsClient] = useState(false);
-  const [modifications, setModifications] = useState<Modification[]>([
-    { id: crypto.randomUUID(), name: 'Oat Milk', default: false },
-  ]);
+  const [modifications, setModifications] = useState<Modification[]>([]);
 
   useEffect(() => {
     setIsClient(true);
+    setModifications([
+      { id: crypto.randomUUID(), name: 'Oat Milk', default: false },
+    ]);
   }, []);
 
   const handleAddModification = () => {

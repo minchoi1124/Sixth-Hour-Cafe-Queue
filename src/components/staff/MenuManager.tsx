@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { MenuItem, Category, Modification } from '@/lib/definitions';
@@ -26,24 +27,25 @@ import {
 import { Textarea } from '../ui/textarea';
 
 function ModificationEditor({ modifications, onModificationChange }: { modifications: Modification[], onModificationChange: (newMods: Modification[]) => void }) {
+  const safeModifications = modifications ?? [];
   
   const handleAdd = () => {
-    onModificationChange([...modifications, { id: crypto.randomUUID(), name: '', default: false }]);
+    onModificationChange([...safeModifications, { id: crypto.randomUUID(), name: '', default: false }]);
   };
 
   const handleRemove = (id: string) => {
-    onModificationChange(modifications.filter(mod => mod.id !== id));
+    onModificationChange(safeModifications.filter(mod => mod.id !== id));
   };
 
   const handleChange = (id: string, field: 'name' | 'default', value: string | boolean) => {
-    onModificationChange(modifications.map(mod => mod.id === id ? { ...mod, [field]: value } : mod));
+    onModificationChange(safeModifications.map(mod => mod.id === id ? { ...mod, [field]: value } : mod));
   };
 
   return (
     <div className="space-y-4">
       <Label className="text-lg text-muted-foreground">Modifications</Label>
       <div className="space-y-3 rounded-md border p-4">
-        {modifications.map(mod => (
+        {safeModifications.map(mod => (
           <div key={mod.id} className="flex items-center gap-4">
             <Input
               value={mod.name}

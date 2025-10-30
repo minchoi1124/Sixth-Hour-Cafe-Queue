@@ -1,53 +1,41 @@
 
 'use client';
 
-import React, { useMemo, type ReactNode, useEffect, useState, useRef } from 'react';
+import React, { useMemo, type ReactNode, useEffect, useRef } from 'react';
 import { FirebaseProvider, useUser } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
-import { initiateAnonymousSignIn } from './non-blocking-login';
-import { getAuth } from 'firebase/auth';
-import { Logo } from '@/components/Logo';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
 }
 
 /**
- * This internal component handles the app's rendering logic based on auth state.
- * It initiates anonymous sign-in and only renders children when a user is authenticated.
+ * This internal component handles anonymous sign-in in the background.
+ * Unlike before, it does NOT block rendering - the app works immediately with public reads.
+ * Authentication is only needed for write operations, which is enforced by Firestore security rules.
  */
 function AuthHandler({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
-  const [isSigningIn, setIsSigningIn] = useState(false);
   const hasInitiatedSignIn = useRef(false);
 
   useEffect(() => {
-    // Initiate sign-in if no user is present and we are not in the initial loading state.
+    // Initiate anonymous sign-in in the background (non-blocking)
+    // This allows writes to work, but reads work immediately without auth
     if (!user && !isUserLoading && !hasInitiatedSignIn.current) {
       hasInitiatedSignIn.current = true;
-      setIsSigningIn(true);
-      // getAuth() is safe to call here because we are inside the FirebaseProvider
-      initiateAnonymousSignIn(getAuth(initializeFirebase().firebaseApp));
-    }
+      const auth = getAuth(initializeFirebase().firebaseApp);
 
-    // Once we have a user, sign-in is complete
-    if (user) {
-      setIsSigningIn(false);
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in failed:", error);
+        // Don't block the app - reads will still work via public security rules
+        // Writes will fail, but that's okay for a read-only experience
+      });
     }
   }, [user, isUserLoading]);
 
-  // While the initial user state is being determined OR if there's no user yet (because sign-in is in progress),
-  // show a loading screen. This is the main gate that prevents child components from rendering prematurely.
-  if (isUserLoading || !user || isSigningIn) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
-        <Logo className="w-24 h-24 mb-4 animate-pulse" />
-        <h1 className="text-4xl font-bold">Connecting...</h1>
-      </div>
-    );
-  }
-
-  // Once loading is complete AND we have a user, render the application.
+  // Render immediately - don't wait for auth!
+  // Public reads work without authentication thanks to Firestore security rules
   return <>{children}</>;
 }
 

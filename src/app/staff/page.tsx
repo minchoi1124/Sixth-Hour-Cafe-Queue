@@ -4,6 +4,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fetchCompletedOrders } from '@/lib/actions';
 import StaffPageClient from '@/components/staff/StaffPageClient';
 
+// Revalidate every 30 seconds to ensure initial data is fresh
+export const revalidate = 30;
+
 function OrderQueueSkeleton() {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">

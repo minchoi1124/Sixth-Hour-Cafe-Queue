@@ -57,3 +57,34 @@ export class FirestorePermissionError extends Error {
     this.request = requestObject;
   }
 }
+
+/**
+ * Custom error class for Firestore rate limit errors.
+ */
+export class FirestoreRateLimitError extends Error {
+  constructor(public readonly path: string, public readonly operation: string) {
+    super(`Rate limit exceeded for ${operation} operation on ${path}. Please try again later.`);
+    this.name = 'FirestoreRateLimitError';
+  }
+}
+
+/**
+ * Type guard to check if an error is a Firestore error with a code property.
+ */
+export function isFirestoreError(error: any): error is { code: string; message: string } {
+  return error && typeof error === 'object' && 'code' in error;
+}
+
+/**
+ * Checks if the error is a rate limit error from Firestore.
+ */
+export function isRateLimitError(error: any): boolean {
+  return isFirestoreError(error) && error.code === 'resource-exhausted';
+}
+
+/**
+ * Checks if the error is a permission denied error from Firestore.
+ */
+export function isPermissionError(error: any): boolean {
+  return isFirestoreError(error) && (error.code === 'permission-denied' || error.code === 'unauthenticated');
+}

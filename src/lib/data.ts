@@ -19,7 +19,7 @@ import {
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type { Order, MenuItem, NewOrder, Category } from './definitions';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, FirestoreRateLimitError, isRateLimitError, isPermissionError } from '@/firebase/errors';
 
 // --- Firebase Server SDK Initialization (Singleton Pattern) ---
 const getDb = () => {
@@ -34,28 +34,95 @@ const MENU_COLLECTION = 'drinks';
 const ORDERS_COLLECTION = 'orders';
 const CATEGORIES_COLLECTION = 'categories';
 
+// --- Retry Utility with Exponential Backoff ---
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 1000
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      // Only retry on rate limit errors
+      if (!isRateLimitError(error)) {
+        throw error;
+      }
+
+      // Don't wait after the last attempt
+      if (attempt < maxRetries) {
+        const delay = initialDelay * Math.pow(2, attempt);
+        console.log(`Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+// --- End of Retry Utility ---
+
 export const getCategories = async (): Promise<Category[]> => {
-    const firestore = getDb();
-    const snapshot = await getDocs(query(collection(firestore, CATEGORIES_COLLECTION), orderBy('name')));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  const firestore = getDb();
+  const q = query(collection(firestore, CATEGORIES_COLLECTION), orderBy('name'));
+
+  try {
+    return await retryWithBackoff(async () => {
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+    });
+  } catch (error) {
+    // Handle rate limit errors specifically
+    if (isRateLimitError(error)) {
+      throw new FirestoreRateLimitError(CATEGORIES_COLLECTION, 'list');
+    }
+
+    // Handle permission errors
+    if (isPermissionError(error)) {
+      throw new FirestorePermissionError({
+        path: CATEGORIES_COLLECTION,
+        operation: 'list',
+      });
+    }
+
+    // Re-throw other errors as-is
+    throw error;
+  }
 };
 
 export const getMenu = async (): Promise<MenuItem[]> => {
   const firestore = getDb();
   const q = query(collection(firestore, MENU_COLLECTION), orderBy('order', 'asc'));
+
   try {
-    const menuSnapshot = await getDocs(q);
-    const menu: MenuItem[] = [];
-    menuSnapshot.forEach((doc) => {
-      menu.push({ id: doc.id, ...doc.data() } as MenuItem);
+    return await retryWithBackoff(async () => {
+      const menuSnapshot = await getDocs(q);
+      const menu: MenuItem[] = [];
+      menuSnapshot.forEach((doc) => {
+        menu.push({ id: doc.id, ...doc.data() } as MenuItem);
+      });
+      return menu;
     });
-    return menu;
   } catch (error) {
-    // Re-throw permission errors with more context for debugging.
-    throw new FirestorePermissionError({
-      path: MENU_COLLECTION,
-      operation: 'list',
-    });
+    // Handle rate limit errors specifically
+    if (isRateLimitError(error)) {
+      throw new FirestoreRateLimitError(MENU_COLLECTION, 'list');
+    }
+
+    // Handle permission errors
+    if (isPermissionError(error)) {
+      throw new FirestorePermissionError({
+        path: MENU_COLLECTION,
+        operation: 'list',
+      });
+    }
+
+    // Re-throw other errors as-is
+    throw error;
   }
 };
 

@@ -196,7 +196,7 @@ function CategoryEditRow({ category }: { category: Category }) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will delete the category "{category.name}". This action cannot be undone. 
+                    This will delete the category &quot;{category.name}&quot;. This action cannot be undone.
                     Any drinks in this category will need to be re-categorized.
                   </AlertDialogDescription>
                 </AlertDialogHeader>

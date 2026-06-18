@@ -257,7 +257,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                               <AlertDialogHeader>
                               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                  This will permanently delete the drink "{item.name}" from the menu.
+                                  This will permanently delete the drink &quot;{item.name}&quot; from the menu.
                                   This action cannot be undone.
                               </AlertDialogDescription>
                               </AlertDialogHeader>

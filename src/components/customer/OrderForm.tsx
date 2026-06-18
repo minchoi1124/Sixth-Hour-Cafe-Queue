@@ -196,8 +196,8 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-12">
       <Card>
         <CardHeader>
-          <CardTitle className="text-4xl">1. What's your name?</CardTitle>
-          <CardDescription className="text-xl">So we know who to call when it's ready.</CardDescription>
+          <CardTitle className="text-4xl">1. What&apos;s your name?</CardTitle>
+          <CardDescription className="text-xl">So we know who to call when it&apos;s ready.</CardDescription>
         </CardHeader>
         <CardContent>
           <Label htmlFor="customerName" className="sr-only">Your Name</Label>

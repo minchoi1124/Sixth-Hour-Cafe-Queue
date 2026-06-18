@@ -141,7 +141,7 @@ function HistoryCard({ order }: { order: Order }) {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the order for "{order.customerName}".
+                This will permanently delete the order for &quot;{order.customerName}&quot;.
                 This action cannot be undone and the data will be lost forever.
               </AlertDialogDescription>
             </AlertDialogHeader>

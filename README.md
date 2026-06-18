@@ -71,9 +71,25 @@ npm run lint
 
 ## Firebase notes
 
-The app initializes Firebase in a way that supports both local development and Firebase App Hosting. The client provider handles anonymous sign-in so the app can use Firestore once the browser loads.
+The app initializes Firebase in a way that supports both local development and deployment environments where the Firebase config is supplied explicitly. The client provider handles anonymous sign-in so the app can use Firestore once the browser loads.
 
 The Firestore rules in [firestore.rules](firestore.rules) are currently permissive for development/demo use. For production, review and tighten these rules before deployment.
+
+## Vercel deployment notes
+
+To move the app off Firebase Studio/App Hosting and onto Vercel:
+
+1. Set the following environment variables in Vercel:
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+2. Keep the Firebase project and Firestore database configured as usual.
+3. Deploy the repo from Vercel and use the same Firebase credentials the app already expects.
+
+If you want to test locally, you can copy the same values into a `.env.local` file.
 
 ## Running the staff tools
 

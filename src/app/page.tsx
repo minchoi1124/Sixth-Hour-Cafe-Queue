@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 
 export default async function CustomerPage() {
   const menu = await getMenu();
-  const availableMenu = menu.filter(item => item.inStock);
 
-  return <CustomerPageClient menu={availableMenu} />;
+  return <CustomerPageClient menu={menu} />;
 }

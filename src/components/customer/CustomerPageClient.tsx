@@ -5,8 +5,22 @@ import { useState } from 'react';
 import OrderForm from '@/components/customer/OrderForm';
 import { Logo } from '@/components/Logo';
 import type { MenuItem } from '@/lib/definitions';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 
-export default function CustomerPageClient({ menu }: { menu: MenuItem[] }) {
+export default function CustomerPageClient({ menu: initialMenu }: { menu: MenuItem[] }) {
+  const firestore = useFirestore();
+
+  const menuQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'drinks'), orderBy('order', 'asc'));
+  }, [firestore]);
+
+  const { data: realTimeMenu } = useCollection<MenuItem>(menuQuery);
+
+  const displayMenu = realTimeMenu ?? initialMenu;
+  const availableMenu = displayMenu.filter(item => item.inStock);
+
   return (
     <>
       <main className="container mx-auto max-w-2xl p-4 sm:p-8">
@@ -27,7 +41,7 @@ export default function CustomerPageClient({ menu }: { menu: MenuItem[] }) {
         </div>
 
         <div className="mt-12">
-          <OrderForm menu={menu} />
+          <OrderForm menu={availableMenu} />
         </div>
       </main>
     </>

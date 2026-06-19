@@ -1,105 +1,118 @@
 # Sixth Hour Cafe Queue
 
-Sixth Hour Cafe Queue is a Next.js + Firebase web app for managing cafe drink orders from a customer-facing screen and a staff dashboard. Customers can place orders for available drinks, and staff can view the queue, mark orders complete, archive history, and manage the menu.
+A real-time cafe order management system built with Next.js and Firebase — designed for a two-screen workflow where customers place orders on one iPad and staff manage the live queue on another.
 
-## What this app does
+Originally built for **Sixth Hour Cafe**, an Anchor Christian Fellowship at MSU pop-up cafe. This project was developed end-to-end as a personal project to solve a real operational problem: tracking handwritten drink orders is error-prone and slows down service during busy rushes.
 
-- Lets customers select a drink, enter their name, and optionally choose custom modifications.
-- Shows the current pending order queue for staff.
-- Lets staff mark orders as complete and review history.
-- Supports menu and category management so staff can update drink availability, descriptions, ordering, and modifiers.
-- Uses real-time Firebase Firestore updates so the queue stays current.
+---
+
+## What it does
+
+**Customer screen (`/`)** — Customers tap their name, select one or more drinks, choose any modifications, and submit. The order appears on the staff screen in real time.
+
+**Staff queue (`/staff`)** — Staff see all pending orders as cards, with animated transitions when orders arrive or are completed. Completed orders move to an archived history.
+
+**Menu management (`/staff/menu`)** — Staff can add/remove drinks, update descriptions and pricing, mark items out-of-stock, reorder categories, and manage drink modifiers — all with auto-save and real-time sync.
+
+---
+
+## Technical highlights
+
+- **Real-time sync** — Firestore `onSnapshot` listeners push order and menu updates to every connected screen instantly, with no polling.
+- **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
+- **Type-safe data layer** — All Firestore reads and writes go through typed helpers in `src/lib/data.ts`, keeping components decoupled from the database shape.
+- **Server actions** — Order submission uses Next.js Server Actions to keep mutation logic off the client bundle.
+- **Environment-variable-validated config** — Firebase credentials are validated at startup so misconfigured deployments fail fast with a clear error rather than silently at runtime.
+- **Animated order cards** — Framer Motion drives entrance, exit, and state-transition animations on order cards for a polished staff-facing UX.
+
+---
 
 ## Tech stack
 
-- Next.js 16
-- React 18
-- TypeScript
-- Firebase (Firestore + Authentication)
-- Tailwind CSS + shadcn-style UI components
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Language | TypeScript |
+| Database | Firebase Firestore |
+| Auth | Firebase Authentication |
+| Styling | Tailwind CSS + Radix UI primitives |
+| Animation | Framer Motion |
+| Forms | React Hook Form + Zod |
+| Deployment | Vercel + Firebase App Hosting |
 
-## Project layout
+---
 
-- [src/app](src/app) — route-level pages and layouts
-  - `/` — customer ordering screen
-  - `/staff` — staff queue dashboard
-  - `/staff/menu` — menu/category management
-- [src/components](src/components) — UI components for customer and staff flows
-- [src/lib](src/lib) — shared types, server actions, and data access helpers
-- [src/firebase](src/firebase) — Firebase initialization and provider logic
-- [docs](docs) — project planning notes and blueprint documentation
+## Project structure
 
-## Core data model
+```
+src/
+  app/
+    /               — Customer ordering screen
+    /staff          — Staff queue dashboard
+    /staff/menu     — Menu and category management
+  components/       — UI components for customer and staff flows
+  lib/
+    data.ts         — Firestore read/write helpers
+    actions.ts      — Next.js Server Actions for order mutation
+    types.ts        — Shared TypeScript types
+  firebase/         — Firebase initialization and React context provider
+```
 
-The app works with three main collections in Firestore:
-
-- `drinks` — menu items, descriptions, stock status, category, display order, and modifiers
-- `orders` — customer orders with name, selected items, timestamps, and status (`pending`, `completed`, `archived`)
-- `categories` — drink categories used to group menu items
+---
 
 ## Local setup
 
 ### Prerequisites
 
-- Node.js 18 or newer
-- npm
-- A Firebase project (for Firestore and Authentication)
-- A Vercel account (for deployment)
+- Node.js 18+
+- A Firebase project with Firestore and Authentication enabled
 
-### Install dependencies
+### Install
 
 ```bash
 npm install
 ```
 
-### Configure environment variables
-
-Copy [.env.example](.env.example) to `.env.local` and fill in your Firebase values:
+### Configure environment
 
 ```bash
 cp .env.example .env.local
+# Fill in your Firebase project credentials
 ```
 
-### Run the development server
+### Run
 
 ```bash
-npm run dev
+npm run dev        # Starts at http://localhost:9002
+npm run build      # Production build
+npm run typecheck  # Type check without emitting
+npm run lint       # ESLint
 ```
 
-The app will start at the configured local port (default: 9002 in this repo).
+---
 
-### Useful scripts
+## Firestore data model
 
-```bash
-npm run build
-npm run start
-npm run typecheck
-npm run lint
-```
+| Collection | Fields |
+|---|---|
+| `orders` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived`), `createdAt` |
+| `drinks` | `name`, `description`, `category`, `inStock`, `displayOrder`, `modifiers[]` |
+| `categories` | `name`, `displayOrder`, `iconName` |
 
-## Firebase notes
+---
 
-The app uses Firebase client SDKs for Firestore and authentication. The Firebase config is loaded from environment variables so the app can run in local development and on Vercel.
+## Deployment
 
-The Firestore rules in [firestore.rules](firestore.rules) are currently permissive for development/demo use. For production, review and tighten these rules before deployment.
+The app is deployed on Vercel with Firebase as the backend. To deploy your own instance:
 
-## Vercel deployment notes
+1. Create a Firebase project and enable Firestore + Authentication.
+2. Add the variables from `.env.example` to your Vercel project settings.
+3. Push the repo — Vercel builds and deploys automatically.
 
-To deploy this app on Vercel:
+For production, review and tighten the Firestore security rules in [`firestore.rules`](firestore.rules) before going live.
 
-1. Add the environment variables from [.env.example](.env.example) in Vercel.
-2. Use your Firebase project's web config values for the variables above.
-3. Deploy the repo from Vercel and make sure the Firebase project and Firestore database are already configured.
+---
 
-If you want to test locally, copy the same values into `.env.local`.
+## Background
 
-## Running the staff tools
-
-- Visit `/staff` to manage the live queue and completed order history.
-- Visit `/staff/menu` to edit drink details, stock availability, menu order, and categories.
-
-## Notes for contributors
-
-- UI styling is designed for a clean, large-screen cafe workflow.
-- Order cards use real-time updates and animated transitions.
-- Most business logic for order and menu updates lives in [src/lib/data.ts](src/lib/data.ts) and [src/lib/actions.ts](src/lib/actions.ts).
+This project started as a practical tool for a real cafe and grew into a full-stack exercise in building a production-quality real-time web app from scratch — including data modeling, UI/UX decisions for touch screens, deployment configuration, and iterative feature development based on actual use.

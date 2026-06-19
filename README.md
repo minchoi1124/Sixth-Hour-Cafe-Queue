@@ -12,12 +12,11 @@ Sixth Hour Cafe Queue is a Next.js + Firebase web app for managing cafe drink or
 
 ## Tech stack
 
-- Next.js 15
+- Next.js 16
 - React 18
 - TypeScript
 - Firebase (Firestore + Authentication)
 - Tailwind CSS + shadcn-style UI components
-- Genkit (for AI-related setup hooks)
 
 ## Project layout
 
@@ -44,12 +43,21 @@ The app works with three main collections in Firestore:
 
 - Node.js 18 or newer
 - npm
-- A Firebase project (for Firestore and App Hosting support)
+- A Firebase project (for Firestore and Authentication)
+- A Vercel account (for deployment)
 
 ### Install dependencies
 
 ```bash
 npm install
+```
+
+### Configure environment variables
+
+Copy [.env.example](.env.example) to `.env.local` and fill in your Firebase values:
+
+```bash
+cp .env.example .env.local
 ```
 
 ### Run the development server
@@ -71,25 +79,19 @@ npm run lint
 
 ## Firebase notes
 
-The app initializes Firebase in a way that supports both local development and deployment environments where the Firebase config is supplied explicitly. The client provider handles anonymous sign-in so the app can use Firestore once the browser loads.
+The app uses Firebase client SDKs for Firestore and authentication. The Firebase config is loaded from environment variables so the app can run in local development and on Vercel.
 
 The Firestore rules in [firestore.rules](firestore.rules) are currently permissive for development/demo use. For production, review and tighten these rules before deployment.
 
 ## Vercel deployment notes
 
-To move the app off Firebase Studio/App Hosting and onto Vercel:
+To deploy this app on Vercel:
 
-1. Set the following environment variables in Vercel:
-   - `NEXT_PUBLIC_FIREBASE_API_KEY`
-   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-   - `NEXT_PUBLIC_FIREBASE_APP_ID`
-   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-   - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
-2. Keep the Firebase project and Firestore database configured as usual.
-3. Deploy the repo from Vercel and use the same Firebase credentials the app already expects.
+1. Add the environment variables from [.env.example](.env.example) in Vercel.
+2. Use your Firebase project's web config values for the variables above.
+3. Deploy the repo from Vercel and make sure the Firebase project and Firestore database are already configured.
 
-If you want to test locally, you can copy the same values into a `.env.local` file.
+If you want to test locally, copy the same values into `.env.local`.
 
 ## Running the staff tools
 

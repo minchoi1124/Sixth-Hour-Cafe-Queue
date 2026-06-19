@@ -79,7 +79,6 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
@@ -87,7 +86,20 @@ export function useCollection<T = any>(
         for (const doc of snapshot.docs) {
           results.push({ ...(doc.data() as T), id: doc.id });
         }
-        setData(results);
+
+        setData((previous) => {
+          if (
+            previous &&
+            previous.length === results.length &&
+            previous.every((item, index) =>
+              item.id === results[index]?.id &&
+              JSON.stringify(item) === JSON.stringify(results[index])
+            )
+          ) {
+            return previous;
+          }
+          return results;
+        });
         setError(null);
         setIsLoading(false);
       },
@@ -113,7 +125,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, isUserLoading, user]); // Re-run if the target query/reference or user state changes.
+  }, [memoizedTargetRefOrQuery, isUserLoading, user?.uid]); // Re-run if the target query/reference or user state changes.
   
   if (memoizedTargetRefOrQuery && (memoizedTargetRefOrQuery as any).__memo !== true) {
     console.warn('The query or reference passed to useCollection was not created with useMemoFirebase. This can lead to infinite loops and performance issues.', memoizedTargetRefOrQuery);

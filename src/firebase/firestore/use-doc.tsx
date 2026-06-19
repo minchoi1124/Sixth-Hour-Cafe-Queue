@@ -50,9 +50,9 @@ export function useDoc<T = any>(
   const { isUserLoading, user } = useUser();
 
   useEffect(() => {
-    // The query should only run when auth is no longer loading AND we have a user.
-    if (isUserLoading || !user) {
-      setIsLoading(true); // Keep loading until we have an authenticated user.
+    // The query should only run when auth is no longer loading.
+    if (isUserLoading) {
+      setIsLoading(true); // Keep loading until auth is resolved.
       return;
     }
     

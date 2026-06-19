@@ -7,12 +7,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useFirestore } from '@/firebase';
-import { doc, writeBatch, deleteDoc } from 'firebase/firestore';
-import { ArrowDown, ArrowUp, PlusCircle, Trash2 } from 'lucide-react';
+import { doc, writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
+import { ArrowDown, ArrowUp, PlusCircle, Trash2, Cloud, Check, Loader2, AlertCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,42 +77,136 @@ function ModificationEditor({ modifications, onModificationChange }: { modificat
 
 export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
   const firestore = useFirestore();
-  const [isPending, startTransition] = useTransition();
   const [localMenu, setLocalMenu] = useState<MenuItem[]>([]);
+  const [pendingSaveIds, setPendingSaveIds] = useState<Set<string>>(new Set());
+  const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  
+  const saveTimeoutRefs = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   useEffect(() => {
-    setLocalMenu(menu.sort((a, b) => a.order - b.order));
-  }, [menu]);
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      Object.values(saveTimeoutRefs.current).forEach(clearTimeout);
+    };
+  }, []);
 
-  const handleInputChange = (id: string, field: 'name' | 'category' | 'description' | 'modifications', value: any) => {
-    setLocalMenu(currentMenu => 
-      currentMenu.map(item => item.id === id ? { ...item, [field]: value } : item)
-    );
+  useEffect(() => {
+    setLocalMenu(currentMenu => {
+      const localMap = new Map(currentMenu.map(item => [item.id, item]));
+      const mergedMenu = menu.map(item => {
+        if (pendingSaveIds.has(item.id)) {
+          return localMap.get(item.id) || item;
+        }
+        return item;
+      });
+      return mergedMenu.sort((a, b) => a.order - b.order);
+    });
+  }, [menu, pendingSaveIds]);
+
+  const triggerAutoSave = (item: MenuItem) => {
+    setPendingSaveIds(prev => {
+      const next = new Set(prev);
+      next.add(item.id);
+      return next;
+    });
+    setSavingStatus('saving');
+
+    if (saveTimeoutRefs.current[item.id]) {
+      clearTimeout(saveTimeoutRefs.current[item.id]);
+    }
+
+    saveTimeoutRefs.current[item.id] = setTimeout(async () => {
+      if (!firestore) return;
+      try {
+        const docRef = doc(firestore, 'drinks', item.id);
+        const { id, ...data } = item;
+        await updateDoc(docRef, data);
+        
+        setPendingSaveIds(prev => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+
+        delete saveTimeoutRefs.current[item.id];
+        if (Object.keys(saveTimeoutRefs.current).length === 0) {
+          setSavingStatus('saved');
+        }
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+        setSavingStatus('error');
+        toast({
+          variant: 'destructive',
+          title: 'Auto-save Failed',
+          description: `Could not save changes to "${item.name}".`,
+        });
+      }
+    }, 1000);
   };
 
-  const handleSwitchChange = (id: string, field: 'inStock', checked: boolean) => {
+  const handleInputChange = (id: string, field: 'name' | 'category' | 'description' | 'modifications', value: any) => {
+    setLocalMenu(currentMenu => {
+      return currentMenu.map(item => {
+        if (item.id === id) {
+          const updatedItem = { ...item, [field]: value };
+          triggerAutoSave(updatedItem);
+          return updatedItem;
+        }
+        return item;
+      });
+    });
+  };
+
+  const handleSwitchChange = async (id: string, field: 'inStock', checked: boolean) => {
     setLocalMenu(currentMenu => 
       currentMenu.map(item => item.id === id ? { ...item, [field]: checked } : item)
     );
+
+    if (!firestore) return;
+    setSavingStatus('saving');
+    try {
+      await updateDoc(doc(firestore, 'drinks', id), { [field]: checked });
+      setSavingStatus('saved');
+    } catch (e) {
+      console.error("Failed to update stock status:", e);
+      setSavingStatus('error');
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update stock status.' });
+    }
   };
 
-  const handleMove = (index: number, direction: 'up' | 'down') => {
-    setLocalMenu(currentMenu => {
-      const newMenu = [...currentMenu];
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
+    if (!firestore) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
-      if (targetIndex < 0 || targetIndex >= newMenu.length) {
-        return newMenu;
-      }
-      
-      const item1 = newMenu[index];
-      const item2 = newMenu[targetIndex];
-      const tempOrder = item1.order;
-      item1.order = item2.order;
-      item2.order = tempOrder;
-      
-      return newMenu.sort((a, b) => a.order - b.order);
-    });
+    if (targetIndex < 0 || targetIndex >= localMenu.length) {
+      return;
+    }
+    
+    setSavingStatus('saving');
+
+    const newMenu = [...localMenu];
+    const item1 = { ...newMenu[index] };
+    const item2 = { ...newMenu[targetIndex] };
+
+    const tempOrder = item1.order;
+    item1.order = item2.order;
+    item2.order = tempOrder;
+
+    newMenu[index] = item2;
+    newMenu[targetIndex] = item1;
+    setLocalMenu(newMenu.sort((a, b) => a.order - b.order));
+
+    try {
+      const batch = writeBatch(firestore);
+      batch.update(doc(firestore, 'drinks', item1.id), { order: item1.order });
+      batch.update(doc(firestore, 'drinks', item2.id), { order: item2.order });
+      await batch.commit();
+      setSavingStatus('saved');
+    } catch (e) {
+      console.error("Failed to reorder menu items:", e);
+      setSavingStatus('error');
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save reordered items.' });
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -132,37 +226,36 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     }
   };
 
-
-  const handleSaveChanges = () => {
-    startTransition(async () => {
-      if (!firestore) {
-        toast({ variant: "destructive", title: "Error", description: "Database not available." });
-        return;
-      }
-      
-      const batch = writeBatch(firestore);
-      localMenu.forEach((item, index) => {
-        const docRef = doc(firestore, 'drinks', item.id);
-        const { id, ...data } = item;
-        batch.set(docRef, { ...data, order: index });
-      });
-
-      try {
-        await batch.commit();
-        toast({ title: "Menu Updated", description: "The menu has been successfully updated." });
-      } catch (e: any) {
-        console.error("Failed to save menu:", e);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Could not save menu. You may not have permission."
-        });
-      }
-    });
-  };
-
   return (
     <div>
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3 text-lg font-medium text-muted-foreground">
+          {savingStatus === 'saving' && (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span>Saving changes...</span>
+            </>
+          )}
+          {savingStatus === 'saved' && (
+            <>
+              <Check className="h-5 w-5 text-green-500" />
+              <span className="text-green-600 dark:text-green-400 font-semibold">All changes saved</span>
+            </>
+          )}
+          {savingStatus === 'error' && (
+            <>
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <span className="text-destructive font-semibold">Failed to save. Check connection</span>
+            </>
+          )}
+          {savingStatus === 'idle' && (
+            <>
+              <Cloud className="h-5 w-5 text-muted-foreground/60" />
+              <span>Changes autosave to cloud</span>
+            </>
+          )}
+        </div>
+      </div>
       <Card>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           <div className="divide-y divide-border">
@@ -277,11 +370,6 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
           </div>
         </CardContent>
       </Card>
-      <div className="mt-8 flex justify-end">
-        <Button onClick={handleSaveChanges} disabled={isPending} className="w-full text-2xl py-7 sm:w-auto sm:px-10">
-          {isPending ? 'Saving...' : 'Save All Changes'}
-        </Button>
-      </div>
     </div>
   );
 }

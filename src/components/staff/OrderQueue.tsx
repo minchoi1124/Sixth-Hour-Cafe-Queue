@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Timestamp, updateDoc, deleteDoc } from 'firebase/firestore';
+import { Timestamp, updateDoc } from 'firebase/firestore';
 import { useFirestore, useCafeId } from '@/firebase';
 import { orderDoc } from '@/lib/cafe-paths';
 import type { Order } from '@/lib/definitions';
@@ -11,19 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Check, Coffee, Tag, History, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'completed' }) => {
   const [isCompleting, setIsCompleting] = useState(false);
@@ -53,7 +43,18 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
     if (!firestore || !cafeId) return;
     setIsDeleting(true);
     try {
-        await deleteDoc(orderDoc(firestore, cafeId, order.id));
+        // Soft delete: drop it from the queue but keep the doc so it can be
+        // restored. Cancelled orders aren't counted in completed/archived totals.
+        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'cancelled' });
+        toast({
+            title: 'Order deleted',
+            description: `${order.customerName}'s order was removed from the queue.`,
+            action: (
+                <ToastAction altText="Undo" onClick={handleUndo}>
+                    Undo
+                </ToastAction>
+            ),
+        });
         // Real-time listener removes the card on success.
     } catch (error) {
         console.error("Failed to delete order:", error);
@@ -63,6 +64,20 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
             description: "Could not delete the order. You may not have permission.",
         });
         setIsDeleting(false);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!firestore || !cafeId) return;
+    try {
+        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'pending' });
+    } catch (error) {
+        console.error("Failed to restore order:", error);
+        toast({
+            variant: "destructive",
+            title: "Could not undo",
+            description: "The order could not be restored. Please refresh.",
+        });
     }
   };
 
@@ -77,33 +92,16 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
             <Tag className="w-8 h-8 text-primary/70" />
             {order.customerName}
           </CardTitle>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex-shrink-0 text-muted-foreground hover:text-destructive"
-                disabled={isDeleting}
-                aria-label="Delete order"
-              >
-                <Trash2 className="w-6 h-6" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this order?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes {order.customerName}&apos;s order from the queue. This can&apos;t be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} variant="destructive">
-                  Yes, delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            aria-label="Delete order"
+          >
+            <Trash2 className="w-6 h-6" />
+          </Button>
         </div>
         <CardDescription className="text-lg">
           {date}

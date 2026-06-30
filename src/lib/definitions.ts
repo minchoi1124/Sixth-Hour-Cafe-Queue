@@ -27,7 +27,7 @@ export type Order = {
   customerName: string;
   items: OrderItem[];
   createdAt: string; // ISO string for client
-  status: 'pending' | 'completed' | 'archived';
+  status: 'pending' | 'completed' | 'archived' | 'cancelled';
 };
 
 export type NewOrder = {

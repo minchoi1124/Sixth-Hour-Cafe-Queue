@@ -140,8 +140,10 @@ The app is deployed on Vercel with Firebase as the backend. To deploy your own i
    ```
 4. Generate a service account key (**Project Settings → Service accounts → Generate new private key**) and set it as `FIREBASE_SERVICE_ACCOUNT` (the full JSON on one line). This powers the server-side reads and the order API route.
 5. (Recommended) Enable **App Check** with reCAPTCHA v3 and set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`. Leave Firestore enforcement **off (monitoring)** — the order route verifies App Check itself, and unenforced reads keep real-time listeners instant.
-6. Add the variables from `.env.example` to your Vercel project settings (for **all** environments you deploy, including Preview).
+6. Add the variables from `.env.example` to your Vercel project settings (for **all** environments you deploy, including Preview). Set `CRON_SECRET` to any random string so the cleanup cron is authenticated.
 7. Push the repo — Vercel builds and deploys automatically.
+
+A **Vercel Cron** job (see [`vercel.json`](vercel.json)) calls `/api/cron/cleanup` daily to purge soft-deleted (`cancelled`) orders older than a week.
 
 ### Migrating existing single-cafe data
 

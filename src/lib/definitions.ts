@@ -51,6 +51,4 @@ export type Cafe = {
   location: string;
   slug: string;
   createdAt?: string;
-  /** @deprecated legacy field, read as a fallback for `location`. */
-  name?: string;
 };

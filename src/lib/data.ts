@@ -14,13 +14,7 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
     const cafeSnap = await adminDb.doc(`cafes/${cafeId}`).get();
     if (!cafeSnap.exists) return null;
 
-    const data = cafeSnap.data() as Omit<Cafe, 'id'>;
-    return {
-      id: cafeSnap.id,
-      ...data,
-      // Fall back to the legacy `name` field for cafes created before the rename.
-      location: data.location ?? data.name ?? '',
-    };
+    return { id: cafeSnap.id, ...(cafeSnap.data() as Omit<Cafe, 'id'>) };
   } catch (error) {
     console.error(`Failed to resolve cafe for slug "${slug}":`, error);
     return null;

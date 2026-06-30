@@ -134,8 +134,8 @@ export default function StaffLayout({
             <Logo className="w-12 h-12" />
             <h1 className="text-3xl hidden sm:block">
               Sixth Hour Cafe
-              {(cafe.location ?? cafe.name) && (
-                <span className="text-muted-foreground"> — {cafe.location ?? cafe.name}</span>
+              {cafe.location && (
+                <span className="text-muted-foreground"> — {cafe.location}</span>
               )}
             </h1>
           </div>

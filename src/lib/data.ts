@@ -1,11 +1,12 @@
 'use server';
 
-import { adminDb } from './firebase-admin';
+import { getAdminDb } from './firebase-admin';
 import type { MenuItem, Cafe } from './definitions';
 
 /** Resolve a public cafe slug to its cafe record, or null if it doesn't exist. */
 export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
   try {
+    const adminDb = getAdminDb();
     const slugSnap = await adminDb.doc(`slugs/${slug}`).get();
     if (!slugSnap.exists) return null;
     const cafeId = slugSnap.data()!.cafeId as string;
@@ -22,7 +23,7 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
 
 export const getMenuForCafe = async (cafeId: string): Promise<MenuItem[]> => {
   try {
-    const snapshot = await adminDb
+    const snapshot = await getAdminDb()
       .collection(`cafes/${cafeId}/drinks`)
       .orderBy('order', 'asc')
       .get();

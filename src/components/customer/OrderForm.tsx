@@ -12,9 +12,7 @@ import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { z } from 'zod';
-import { useFirestore } from '@/firebase';
-import { addDoc, serverTimestamp } from 'firebase/firestore';
-import { ordersCol } from '@/lib/cafe-paths';
+import { getAppCheckToken } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
 import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
 import { Checkbox } from '../ui/checkbox';
@@ -66,7 +64,6 @@ function DrinkOption({ item }: { item: MenuItem }) {
 }
 
 export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: MenuItem[] }) {
-  const firestore = useFirestore();
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -108,12 +105,6 @@ export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: Menu
     setIsPending(true);
     setErrors(null);
 
-    if (!firestore) {
-      toast({ variant: "destructive", title: "Error", description: "Could not connect to database." });
-      setIsPending(false);
-      return;
-    }
-
     const formData = new FormData(event.currentTarget);
     const selectedModifications = availableModifications
         .filter(mod => formData.get(`mod-${mod.id}`) === 'on')
@@ -139,17 +130,28 @@ export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: Menu
     }
 
     try {
-      await addDoc(ordersCol(firestore, cafeId), {
-        customerName: validatedFields.data.customerName,
-        items: [{ 
-            id: foundSelectedItem.id, 
+      const appCheckToken = await getAppCheckToken();
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+        },
+        body: JSON.stringify({
+          cafeId,
+          customerName: validatedFields.data.customerName,
+          items: [{
+            id: foundSelectedItem.id,
             name: foundSelectedItem.name,
             modifications: validatedFields.data.modifications,
-        }],
-        createdAt: serverTimestamp(),
-        status: 'pending',
+          }],
+        }),
       });
-      
+
+      if (!response.ok) {
+        throw new Error(`Order request failed with status ${response.status}`);
+      }
+
       setCustomerName(validatedFields.data.customerName);
       setIsSuccess(true);
 

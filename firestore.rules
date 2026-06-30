@@ -7,21 +7,6 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == cafeId;
     }
 
-    // Validates a customer-submitted order. Customers are anonymous, so this is
-    // the only place the order shape is enforced. App Check guards against bots.
-    function isValidNewOrder() {
-      let data = request.resource.data;
-      return data.keys().hasOnly(['customerName', 'items', 'createdAt', 'status'])
-        && data.status == 'pending'
-        && data.customerName is string
-        && data.customerName.size() >= 1
-        && data.customerName.size() <= 60
-        && data.items is list
-        && data.items.size() >= 1
-        && data.items.size() <= 25
-        && data.createdAt == request.time;
-    }
-
     match /cafes/{cafeId} {
       // Menu/cafe info is public so customers can view it without an account.
       allow read: if true;
@@ -43,8 +28,10 @@ service cloud.firestore {
       }
 
       match /orders/{orderId} {
-        // Anyone may place an order, but only the owner may read or manage them.
-        allow create: if isValidNewOrder();
+        // Orders are created only by the server (Admin SDK via /api/orders, which
+        // verifies an App Check token). Client-side creates are denied; the owner
+        // reads and manages their own orders.
+        allow create: if false;
         allow read, update, delete: if isOwner(cafeId);
       }
     }

@@ -4,7 +4,24 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, getToken, type AppCheck } from 'firebase/app-check';
+
+let appCheckInstance: AppCheck | null = null;
+
+/**
+ * Returns a fresh App Check token for attaching to server requests (e.g. the
+ * order API route), or null if App Check isn't configured (local dev without a
+ * site key). Uses the cached token when available for speed.
+ */
+export async function getAppCheckToken(): Promise<string | null> {
+  if (!appCheckInstance) return null;
+  try {
+    const { token } = await getToken(appCheckInstance, /* forceRefresh */ false);
+    return token;
+  } catch {
+    return null;
+  }
+}
 
 // App Check (reCAPTCHA v3) protects the public order-creation endpoint from
 // bots/abuse. It only initializes in the browser when a site key is configured,
@@ -20,7 +37,7 @@ function initializeAppCheckOnce(firebaseApp: FirebaseApp) {
   const w = window as unknown as { __appCheckInitialized?: boolean };
   if (w.__appCheckInitialized) return;
   try {
-    initializeAppCheck(firebaseApp, {
+    appCheckInstance = initializeAppCheck(firebaseApp, {
       provider: new ReCaptchaV3Provider(siteKey),
       isTokenAutoRefreshEnabled: true,
     });

@@ -10,15 +10,15 @@ Originally built for **Sixth Hour Cafe**, an Anchor Christian Fellowship at MSU 
 
 ## What it does
 
-It's **multi-tenant**: anyone can sign up, get their own isolated cafe, and share a public ordering link with their customers.
+It's **multi-tenant**: anyone can sign up and get their own isolated cafe. The intended setup is a **two-screen kiosk** — a customer-facing tablet running the order page, and a staff tablet running the live queue — though the customer page can also be shared as a link or QR.
 
 **Landing (`/`)** — Product intro with links to sign up / log in.
 
 **Sign in (`/login`)** — Owners create an account or sign in with email/password or Google. New owners complete a quick setup (`/onboarding`) choosing a cafe name and a unique public link slug.
 
-**Customer screen (`/order/[slug]`)** — Customers open a cafe's public link (or scan its QR), tap their name, select drinks and modifications, and submit. No login required. The order appears on that cafe's staff screen in real time.
+**Customer screen (`/order/[slug]`)** — A cafe's public order page, typically opened on a customer-facing tablet (or reached via a shared link/QR). Customers tap their name, select drinks and modifications, and submit. No login required. The order appears on that cafe's staff screen in real time.
 
-**Staff queue (`/staff`)** — The signed-in owner sees their own pending orders as cards, with animated transitions when orders arrive or are completed. Completed orders move to an archived history. A "Customer link" button copies the shareable ordering URL.
+**Staff queue (`/staff`)** — The signed-in owner sees their own pending orders as cards, with animated transitions when orders arrive or are completed. Completed orders move to an archived history. A "Customer screen" button copies the order-page URL to open on the customer-facing device.
 
 **Menu management (`/staff/menu`)** — Owners add/remove drinks, update descriptions, mark items out-of-stock, reorder items, and manage categories and modifiers — all scoped to their own cafe, with auto-save and real-time sync.
 
@@ -29,8 +29,10 @@ It's **multi-tenant**: anyone can sign up, get their own isolated cafe, and shar
 - **Multi-tenant data isolation** — Every cafe's data lives under `cafes/{cafeId}/…` where `cafeId` is the owner's Auth uid. Firestore Security Rules enforce that owners can only read/write their own cafe, while menus stay publicly readable for customers.
 - **Real-time sync** — Firestore `onSnapshot` listeners push order and menu updates to every connected screen instantly, with no polling.
 - **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
-- **Authenticated client writes** — Owner mutations run client-side as the authenticated owner; Security Rules (not server code) are the trust boundary. Customers order via an anonymous session.
-- **Abuse protection** — Firebase App Check (reCAPTCHA v3) guards the public order-creation endpoint, and Security Rules validate the order shape and size.
+- **Authenticated client writes** — Owner mutations run client-side as the authenticated owner; Security Rules (not server code) are the trust boundary for owner data.
+- **Server-side order creation** — Customers place orders through a Next.js API route (`/api/orders`) that writes via the Firebase Admin SDK. Security Rules deny client-side order creates entirely, so the route is the only path in. This keeps the customer screen login-free and lets App Check stay off Firestore reads so real-time updates stay instant.
+- **Abuse protection** — The order route verifies a Firebase App Check (reCAPTCHA v3) token before writing — validated directly with `jose` to avoid the firebase-admin app-check ESM/serverless issue — and validates the order's shape and size.
+- **Public reads via Admin SDK** — Server components resolve slug → cafe and load the initial menu with the Admin SDK, so public pages render without exposing client credentials or depending on App Check.
 - **Environment-variable-validated config** — Firebase credentials are validated at startup so misconfigured deployments fail fast with a clear error rather than silently at runtime.
 - **Animated order cards** — Framer Motion drives entrance, exit, and state-transition animations on order cards for a polished staff-facing UX.
 
@@ -44,6 +46,8 @@ It's **multi-tenant**: anyone can sign up, get their own isolated cafe, and shar
 | Language | TypeScript |
 | Database | Firebase Firestore |
 | Auth | Firebase Authentication |
+| Server | Next.js API route + Firebase Admin SDK (order writes, public reads) |
+| Abuse protection | Firebase App Check (reCAPTCHA v3), verified with `jose` |
 | Styling | Tailwind CSS + Radix UI primitives |
 | Animation | Framer Motion |
 | Forms | React Hook Form + Zod |
@@ -60,14 +64,16 @@ src/
     /login          — Owner sign in / sign up (email + Google)
     /onboarding     — First-time cafe setup (name + public slug)
     /order/[slug]   — Public customer ordering screen (per cafe)
+    /api/orders     — Server route that verifies App Check + writes orders (Admin SDK)
     /staff          — Owner queue dashboard (auth-gated)
     /staff/menu     — Menu and category management (auth-gated)
   components/       — UI components for customer and staff flows
   lib/
-    data.ts         — Server-side public reads (slug → cafe, menu)
+    data.ts         — Server-side public reads (slug → cafe, menu) via Admin SDK
+    firebase-admin.ts — Lazy Firebase Admin SDK init (server-only)
     cafe-paths.ts   — Cafe-scoped Firestore path helpers + slug validation
     definitions.ts  — Shared TypeScript types
-  firebase/         — Firebase init, App Check, auth helpers, React provider
+  firebase/         — Firebase client init, App Check, auth helpers, React provider
 scripts/
   migrate.ts        — One-time legacy → multi-tenant data migration (Admin SDK)
 ```
@@ -118,7 +124,7 @@ Each cafe owns an isolated subtree under `cafes/{cafeId}`, where `cafeId === the
 | `cafes/{cafeId}/counters/{id}` | all-time drink totals |
 | `slugs/{slug}` | `cafeId` |
 
-Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; orders can be **created** by anyone (validated shape) but only **read/managed** by the owner; all writes to a cafe require `request.auth.uid == cafeId`.
+Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK), and can be **read/managed** only by the owner; all other writes to a cafe require `request.auth.uid == cafeId`.
 
 ---
 
@@ -132,9 +138,10 @@ The app is deployed on Vercel with Firebase as the backend. To deploy your own i
    ```bash
    firebase deploy --only firestore:rules,firestore:indexes
    ```
-4. (Recommended) Enable **App Check** with reCAPTCHA v3, enforce it on Firestore, and set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`.
-5. Add the variables from `.env.example` to your Vercel project settings.
-6. Push the repo — Vercel builds and deploys automatically.
+4. Generate a service account key (**Project Settings → Service accounts → Generate new private key**) and set it as `FIREBASE_SERVICE_ACCOUNT` (the full JSON on one line). This powers the server-side reads and the order API route.
+5. (Recommended) Enable **App Check** with reCAPTCHA v3 and set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`. Leave Firestore enforcement **off (monitoring)** — the order route verifies App Check itself, and unenforced reads keep real-time listeners instant.
+6. Add the variables from `.env.example` to your Vercel project settings (for **all** environments you deploy, including Preview).
+7. Push the repo — Vercel builds and deploys automatically.
 
 ### Migrating existing single-cafe data
 

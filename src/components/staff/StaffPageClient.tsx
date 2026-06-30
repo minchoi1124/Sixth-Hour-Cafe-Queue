@@ -2,13 +2,12 @@
 'use client';
 
 import { OrderQueue } from '@/components/staff/OrderQueue';
-import { Suspense, useState, useEffect, useTransition, useMemo } from 'react';
+import { Suspense, useState, useTransition, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import OrderHistory from '@/components/staff/OrderHistory';
 import type { Order } from '@/lib/definitions';
 import { Button } from '../ui/button';
-import { clearCompletedOrders } from '@/lib/actions';
 import { toast } from '@/hooks/use-toast';
 import { Coffee, History, Sigma } from 'lucide-react';
 import {
@@ -31,8 +30,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
+import { query, where, orderBy, getDocs, writeBatch } from 'firebase/firestore';
+import { ordersCol } from '@/lib/cafe-paths';
 
 function OrderQueueSkeleton() {
     return (
@@ -52,49 +52,41 @@ function OrderQueueSkeleton() {
     )
 }
 
-export default function StaffPageClient({ initialCompletedOrders }: { initialCompletedOrders: Order[] }) {
+export default function StaffPageClient() {
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState('queue');
   const firestore = useFirestore();
+  const cafeId = useCafeId();
 
   const pendingOrdersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !cafeId) return null;
     return query(
-      collection(firestore, 'orders'),
+      ordersCol(firestore, cafeId),
       where('status', '==', 'pending'),
       orderBy('createdAt', 'asc')
     );
-  }, [firestore]);
+  }, [firestore, cafeId]);
 
   const completedOrdersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !cafeId) return null;
     return query(
-        collection(firestore, 'orders'),
+        ordersCol(firestore, cafeId),
         where('status', '==', 'completed'),
         orderBy('createdAt', 'desc')
     );
-  }, [firestore]);
+  }, [firestore, cafeId]);
 
   const archivedOrdersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !cafeId) return null;
     return query(
-      collection(firestore, 'orders'),
+      ordersCol(firestore, cafeId),
       where('status', '==', 'archived')
     );
-  }, [firestore]);
+  }, [firestore, cafeId]);
 
   const { data: pendingOrders } = useCollection<Order>(pendingOrdersQuery);
   const { data: completedOrders } = useCollection<Order>(completedOrdersQuery);
   const { data: archivedOrders } = useCollection<Order>(archivedOrdersQuery);
-  
-  const [localCompletedOrders, setLocalCompletedOrders] = useState(initialCompletedOrders);
-
-  useEffect(() => {
-      if (completedOrders) {
-          setLocalCompletedOrders(completedOrders);
-      }
-  }, [completedOrders]);
-
 
   const completedDrinksCount = useMemo(() => {
     return (completedOrders || []).reduce((total, order) => total + order.items.length, 0);
@@ -106,9 +98,17 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
   }, [completedDrinksCount, archivedOrders]);
   
   const handleClearHistory = () => {
+    if (!firestore || !cafeId) return;
     startTransition(async () => {
       try {
-        await clearCompletedOrders();
+        const snapshot = await getDocs(
+          query(ordersCol(firestore, cafeId), where('status', '==', 'completed'))
+        );
+        if (!snapshot.empty) {
+          const batch = writeBatch(firestore);
+          snapshot.forEach((d) => batch.update(d.ref, { status: 'archived' }));
+          await batch.commit();
+        }
         toast({
           title: "History Cleared",
           description: "All completed orders have been archived.",
@@ -123,7 +123,7 @@ export default function StaffPageClient({ initialCompletedOrders }: { initialCom
     });
   }
 
-  const displayOrders = completedOrders ?? localCompletedOrders;
+  const displayOrders = completedOrders ?? [];
 
   return (
     <div className="container mx-auto p-4 sm:p-8">

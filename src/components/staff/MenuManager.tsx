@@ -10,8 +10,9 @@ import { toast } from '@/hooks/use-toast';
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { useFirestore } from '@/firebase';
-import { doc, writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCafeId } from '@/firebase';
+import { writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
+import { drinkDoc } from '@/lib/cafe-paths';
 import { ArrowDown, ArrowUp, PlusCircle, Trash2, Cloud, Check, Loader2, AlertCircle } from 'lucide-react';
 import {
   AlertDialog,
@@ -77,6 +78,7 @@ function ModificationEditor({ modifications, onModificationChange }: { modificat
 
 export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
   const firestore = useFirestore();
+  const cafeId = useCafeId();
   const [localMenu, setLocalMenu] = useState<MenuItem[]>([]);
   const [pendingSaveIds, setPendingSaveIds] = useState<Set<string>>(new Set());
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -116,9 +118,9 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     }
 
     saveTimeoutRefs.current[item.id] = setTimeout(async () => {
-      if (!firestore) return;
+      if (!firestore || !cafeId) return;
       try {
-        const docRef = doc(firestore, 'drinks', item.id);
+        const docRef = drinkDoc(firestore, cafeId, item.id);
         const { id, ...data } = item;
         await updateDoc(docRef, data);
         
@@ -162,10 +164,10 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
       currentMenu.map(item => item.id === id ? { ...item, [field]: checked } : item)
     );
 
-    if (!firestore) return;
+    if (!firestore || !cafeId) return;
     setSavingStatus('saving');
     try {
-      await updateDoc(doc(firestore, 'drinks', id), { [field]: checked });
+      await updateDoc(drinkDoc(firestore, cafeId, id), { [field]: checked });
       setSavingStatus('saved');
     } catch (e) {
       console.error("Failed to update stock status:", e);
@@ -175,7 +177,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
   };
 
   const handleMove = async (index: number, direction: 'up' | 'down') => {
-    if (!firestore) return;
+    if (!firestore || !cafeId) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
     if (targetIndex < 0 || targetIndex >= localMenu.length) {
@@ -198,8 +200,8 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
 
     try {
       const batch = writeBatch(firestore);
-      batch.update(doc(firestore, 'drinks', item1.id), { order: item1.order });
-      batch.update(doc(firestore, 'drinks', item2.id), { order: item2.order });
+      batch.update(drinkDoc(firestore, cafeId, item1.id), { order: item1.order });
+      batch.update(drinkDoc(firestore, cafeId, item2.id), { order: item2.order });
       await batch.commit();
       setSavingStatus('saved');
     } catch (e) {
@@ -210,15 +212,15 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!firestore) {
+    if (!firestore || !cafeId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
       return;
     }
-    
+
     setLocalMenu(currentMenu => currentMenu.filter(item => item.id !== id));
 
     try {
-      await deleteDoc(doc(firestore, 'drinks', id));
+      await deleteDoc(drinkDoc(firestore, cafeId, id));
       toast({ title: 'Drink Deleted', description: `"${name}" has been removed from the menu.` });
     } catch (e) {
       console.error(e);

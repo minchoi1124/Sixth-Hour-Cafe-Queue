@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useMemo, type ReactNode, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { FirebaseProvider, useAuth } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
 import { initiateAnonymousSignIn } from './non-blocking-login';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
@@ -13,18 +13,22 @@ interface FirebaseClientProviderProps {
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
   const firebaseServices = useMemo(() => {
     return initializeFirebase();
-  }, []); 
+  }, []);
 
-  // This new component handles the anonymous sign-in logic.
+  // Customers ordering at /order/* are signed in anonymously so they can place
+  // orders under Firestore rules. Owner areas (/login, /onboarding, /staff) use
+  // real email/Google accounts, so we must NOT auto-create an anonymous session
+  // there — that would mask the signed-in owner.
   const AuthHandler = () => {
     const auth = useAuth(); // Use the hook to get the auth instance.
+    const pathname = usePathname();
+    const isCustomerRoute = pathname?.startsWith('/order');
+
     useEffect(() => {
-        // When the component mounts, check if a user is signed in.
-        // If not, initiate the anonymous sign-in process.
-        if (auth && !auth.currentUser) {
+        if (isCustomerRoute && auth && !auth.currentUser) {
             initiateAnonymousSignIn(auth);
         }
-    }, [auth]); // Dependency on the auth instance.
+    }, [auth, isCustomerRoute]);
 
     return null; // This component doesn't render anything.
   };

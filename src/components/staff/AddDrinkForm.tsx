@@ -9,8 +9,9 @@ import { toast } from '@/hooks/use-toast';
 import { AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { Category, Modification } from '@/lib/definitions';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { useFirestore, useCafeId } from '@/firebase';
+import { addDoc, getDocs } from 'firebase/firestore';
+import { drinksCol } from '@/lib/cafe-paths';
 import { z } from 'zod';
 import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
@@ -28,6 +29,7 @@ const AddDrinkSchema = z.object({
 
 export function AddDrinkForm({ categories }: { categories: Category[] }) {
   const firestore = useFirestore();
+  const cafeId = useCafeId();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [errors, setErrors] = useState<any>(null);
@@ -58,7 +60,7 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
     setIsPending(true);
     setErrors(null);
     
-    if (!firestore) {
+    if (!firestore || !cafeId) {
       toast({ variant: "destructive", title: "Error", description: "Could not connect to database." });
       setIsPending(false);
       return;
@@ -79,11 +81,11 @@ export function AddDrinkForm({ categories }: { categories: Category[] }) {
     }
 
     try {
-      const drinksCol = collection(firestore, 'drinks');
-      const drinksSnapshot = await getDocs(drinksCol);
+      const drinks = drinksCol(firestore, cafeId);
+      const drinksSnapshot = await getDocs(drinks);
       const newOrder = drinksSnapshot.size;
 
-      await addDoc(drinksCol, { 
+      await addDoc(drinks, {
         name: validatedFields.data.name,
         description: validatedFields.data.description,
         category: validatedFields.data.category,

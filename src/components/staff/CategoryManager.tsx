@@ -19,8 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
+import { query, orderBy, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
+import { categoriesCol, categoryDoc, drinksCol } from '@/lib/cafe-paths';
 import { Skeleton } from '../ui/skeleton';
 import { z } from 'zod';
 
@@ -30,6 +31,7 @@ const CategorySchema = z.object({
 
 function AddCategoryForm() {
   const firestore = useFirestore();
+  const cafeId = useCafeId();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ function AddCategoryForm() {
     setIsPending(true);
     setError(null);
     
-    if (!firestore) {
+    if (!firestore || !cafeId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to database.' });
       setIsPending(false);
       return;
@@ -56,8 +58,7 @@ function AddCategoryForm() {
     }
 
     try {
-      const categoriesCol = collection(firestore, 'categories');
-      await addDoc(categoriesCol, { name: validation.data.name });
+      await addDoc(categoriesCol(firestore, cafeId), { name: validation.data.name });
       toast({ title: "Category Added!", description: `"${validation.data.name}" added.` });
       formRef.current?.reset();
     } catch (e: any) {
@@ -99,12 +100,13 @@ function AddCategoryForm() {
 
 function CategoryEditRow({ category }: { category: Category }) {
   const firestore = useFirestore();
+  const cafeId = useCafeId();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [name, setName] = useState(category.name);
 
   const handleUpdate = async () => {
-    if (!firestore) {
+    if (!firestore || !cafeId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
       return;
     }
@@ -123,11 +125,11 @@ function CategoryEditRow({ category }: { category: Category }) {
       const batch = writeBatch(firestore);
 
       // 1. Update the category document itself
-      const categoryRef = doc(firestore, 'categories', category.id);
+      const categoryRef = categoryDoc(firestore, cafeId, category.id);
       batch.update(categoryRef, { name: validation.data.name });
-      
+
       // 2. Find all drinks with the old category name and update them
-      const drinksRef = collection(firestore, 'drinks');
+      const drinksRef = drinksCol(firestore, cafeId);
       const q = query(drinksRef, where("category", "==", category.name));
       const drinksSnapshot = await getDocs(q);
 
@@ -149,12 +151,12 @@ function CategoryEditRow({ category }: { category: Category }) {
   };
 
   const handleDelete = async () => {
-     if (!firestore) {
+     if (!firestore || !cafeId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection failed.' });
       return;
     }
     try {
-      await deleteDoc(doc(firestore, 'categories', category.id));
+      await deleteDoc(categoryDoc(firestore, cafeId, category.id));
       toast({ title: 'Category Deleted', description: `"${category.name}" has been removed.` });
     } catch (e) {
        console.error(e);
@@ -217,6 +219,7 @@ function CategoryEditRow({ category }: { category: Category }) {
 
 export default function CategoryManager({ initialCategories }: { initialCategories: Category[] }) {
   const firestore = useFirestore();
+  const cafeId = useCafeId();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -224,9 +227,9 @@ export default function CategoryManager({ initialCategories }: { initialCategori
   }, []);
 
   const categoriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
-  }, [firestore]);
+    if (!firestore || !cafeId) return null;
+    return query(categoriesCol(firestore, cafeId), orderBy('name', 'asc'));
+  }, [firestore, cafeId]);
 
   const { data: categories, isLoading } = useCollection<Category>(categoriesQuery);
 

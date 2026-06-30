@@ -1,7 +1,8 @@
 'use client';
 
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
+import { query, orderBy } from 'firebase/firestore';
+import { drinksCol, categoriesCol } from '@/lib/cafe-paths';
 import type { MenuItem, Category } from '@/lib/definitions';
 import MenuManager from '@/components/staff/MenuManager';
 import { AddDrinkForm } from '@/components/staff/AddDrinkForm';
@@ -33,16 +34,17 @@ function MenuPageSkeleton() {
 
 export default function MenuManagementPage() {
   const firestore = useFirestore();
+  const cafeId = useCafeId();
 
   const menuQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'drinks'), orderBy('order', 'asc'));
-  }, [firestore]);
+    if (!firestore || !cafeId) return null;
+    return query(drinksCol(firestore, cafeId), orderBy('order', 'asc'));
+  }, [firestore, cafeId]);
 
   const categoriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'categories'), orderBy('name', 'asc'));
-  }, [firestore]);
+    if (!firestore || !cafeId) return null;
+    return query(categoriesCol(firestore, cafeId), orderBy('name', 'asc'));
+  }, [firestore, cafeId]);
 
   const { data: menu, isLoading: isLoadingMenu } = useCollection<MenuItem>(menuQuery);
   const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);

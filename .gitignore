@@ -43,3 +43,6 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+# service-account keys for the migration script — never commit these
+serviceAccount*.json
+*-service-account*.json

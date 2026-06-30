@@ -175,3 +175,13 @@ export const useUser = (): UserHookResult => { // Renamed from useAuthUser
   const { user, isUserLoading, userError } = useFirebase(); // Leverages the main hook
   return { user, isUserLoading, userError };
 };
+
+/**
+ * Hook for owner (staff) screens: the current owner's cafeId, which by design
+ * equals their Firebase Auth uid. Returns null for anonymous or signed-out
+ * users so callers can hold off on building Firestore queries.
+ */
+export const useCafeId = (): string | null => {
+  const { user } = useFirebase();
+  return user && !user.isAnonymous ? user.uid : null;
+};

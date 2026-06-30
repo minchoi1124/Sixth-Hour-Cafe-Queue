@@ -12,20 +12,27 @@ Originally built for **Sixth Hour Cafe**, an Anchor Christian Fellowship at MSU 
 
 ## What it does
 
-**Customer screen (`/`)** — Customers tap their name, select one or more drinks, choose any modifications, and submit. The order appears on the staff screen in real time.
+It's **multi-tenant**: anyone can sign up, get their own isolated cafe, and share a public ordering link with their customers.
 
-**Staff queue (`/staff`)** — Staff see all pending orders as cards, with animated transitions when orders arrive or are completed. Completed orders move to an archived history.
+**Landing (`/`)** — Product intro with links to sign up / log in.
 
-**Menu management (`/staff/menu`)** — Staff can add/remove drinks, update descriptions and pricing, mark items out-of-stock, reorder categories, and manage drink modifiers — all with auto-save and real-time sync.
+**Sign in (`/login`)** — Owners create an account or sign in with email/password or Google. New owners complete a quick setup (`/onboarding`) choosing a cafe name and a unique public link slug.
+
+**Customer screen (`/order/[slug]`)** — Customers open a cafe's public link (or scan its QR), tap their name, select drinks and modifications, and submit. No login required. The order appears on that cafe's staff screen in real time.
+
+**Staff queue (`/staff`)** — The signed-in owner sees their own pending orders as cards, with animated transitions when orders arrive or are completed. Completed orders move to an archived history. A "Customer link" button copies the shareable ordering URL.
+
+**Menu management (`/staff/menu`)** — Owners add/remove drinks, update descriptions, mark items out-of-stock, reorder items, and manage categories and modifiers — all scoped to their own cafe, with auto-save and real-time sync.
 
 ---
 
 ## Technical highlights
 
+- **Multi-tenant data isolation** — Every cafe's data lives under `cafes/{cafeId}/…` where `cafeId` is the owner's Auth uid. Firestore Security Rules enforce that owners can only read/write their own cafe, while menus stay publicly readable for customers.
 - **Real-time sync** — Firestore `onSnapshot` listeners push order and menu updates to every connected screen instantly, with no polling.
 - **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
-- **Type-safe data layer** — All Firestore reads and writes go through typed helpers in `src/lib/data.ts`, keeping components decoupled from the database shape.
-- **Server actions** — Order submission uses Next.js Server Actions to keep mutation logic off the client bundle.
+- **Authenticated client writes** — Owner mutations run client-side as the authenticated owner; Security Rules (not server code) are the trust boundary. Customers order via an anonymous session.
+- **Abuse protection** — Firebase App Check (reCAPTCHA v3) guards the public order-creation endpoint, and Security Rules validate the order shape and size.
 - **Environment-variable-validated config** — Firebase credentials are validated at startup so misconfigured deployments fail fast with a clear error rather than silently at runtime.
 - **Animated order cards** — Framer Motion drives entrance, exit, and state-transition animations on order cards for a polished staff-facing UX.
 
@@ -51,15 +58,20 @@ Originally built for **Sixth Hour Cafe**, an Anchor Christian Fellowship at MSU 
 ```
 src/
   app/
-    /               — Customer ordering screen
-    /staff          — Staff queue dashboard
-    /staff/menu     — Menu and category management
+    /               — Landing page
+    /login          — Owner sign in / sign up (email + Google)
+    /onboarding     — First-time cafe setup (name + public slug)
+    /order/[slug]   — Public customer ordering screen (per cafe)
+    /staff          — Owner queue dashboard (auth-gated)
+    /staff/menu     — Menu and category management (auth-gated)
   components/       — UI components for customer and staff flows
   lib/
-    data.ts         — Firestore read/write helpers
-    actions.ts      — Next.js Server Actions for order mutation
-    types.ts        — Shared TypeScript types
-  firebase/         — Firebase initialization and React context provider
+    data.ts         — Server-side public reads (slug → cafe, menu)
+    cafe-paths.ts   — Cafe-scoped Firestore path helpers + slug validation
+    definitions.ts  — Shared TypeScript types
+  firebase/         — Firebase init, App Check, auth helpers, React provider
+scripts/
+  migrate.ts        — One-time legacy → multi-tenant data migration (Admin SDK)
 ```
 
 ---
@@ -97,11 +109,18 @@ npm run lint       # ESLint
 
 ## Firestore data model
 
-| Collection | Fields |
+Each cafe owns an isolated subtree under `cafes/{cafeId}`, where `cafeId === the owner's Auth uid`. A top-level `slugs` collection maps public slugs to cafes for customer links.
+
+| Path | Fields |
 |---|---|
-| `orders` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived`), `createdAt` |
-| `drinks` | `name`, `description`, `category`, `inStock`, `displayOrder`, `modifiers[]` |
-| `categories` | `name`, `displayOrder`, `iconName` |
+| `cafes/{cafeId}` | `name`, `slug`, `createdAt` |
+| `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived`), `createdAt` |
+| `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
+| `cafes/{cafeId}/categories/{id}` | `name` |
+| `cafes/{cafeId}/counters/{id}` | all-time drink totals |
+| `slugs/{slug}` | `cafeId` |
+
+Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; orders can be **created** by anyone (validated shape) but only **read/managed** by the owner; all writes to a cafe require `request.auth.uid == cafeId`.
 
 ---
 
@@ -110,10 +129,18 @@ npm run lint       # ESLint
 The app is deployed on Vercel with Firebase as the backend. To deploy your own instance:
 
 1. Create a Firebase project and enable Firestore + Authentication.
-2. Add the variables from `.env.example` to your Vercel project settings.
-3. Push the repo — Vercel builds and deploys automatically.
+2. In **Authentication → Sign-in method**, enable **Email/Password** and **Google**, and add your domain under **Authorized domains**.
+3. Deploy the security rules and indexes:
+   ```bash
+   firebase deploy --only firestore:rules,firestore:indexes
+   ```
+4. (Recommended) Enable **App Check** with reCAPTCHA v3, enforce it on Firestore, and set `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`.
+5. Add the variables from `.env.example` to your Vercel project settings.
+6. Push the repo — Vercel builds and deploys automatically.
 
-For production, review and tighten the Firestore security rules in [`firestore.rules`](firestore.rules) before going live.
+### Migrating existing single-cafe data
+
+If you're upgrading from the original single-cafe version, run the one-time migration to move legacy top-level collections into your new account. See the instructions in [`scripts/migrate.ts`](scripts/migrate.ts).
 
 ---
 

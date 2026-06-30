@@ -13,7 +13,8 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { z } from 'zod';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, serverTimestamp } from 'firebase/firestore';
+import { ordersCol } from '@/lib/cafe-paths';
 import { toast } from '@/hooks/use-toast';
 import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
 import { Checkbox } from '../ui/checkbox';
@@ -64,7 +65,7 @@ function DrinkOption({ item }: { item: MenuItem }) {
   )
 }
 
-export default function OrderForm({ menu }: { menu: MenuItem[] }) {
+export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: MenuItem[] }) {
   const firestore = useFirestore();
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -138,8 +139,7 @@ export default function OrderForm({ menu }: { menu: MenuItem[] }) {
     }
 
     try {
-      const ordersCol = collection(firestore, 'orders');
-      await addDoc(ordersCol, {
+      await addDoc(ordersCol(firestore, cafeId), {
         customerName: validatedFields.data.customerName,
         items: [{ 
             id: foundSelectedItem.id, 

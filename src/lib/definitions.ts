@@ -43,3 +43,10 @@ export type Category = {
     id: string;
     name: string;
 }
+
+export type Cafe = {
+  id: string; // == owner uid == cafeId
+  name: string;
+  slug: string;
+  createdAt?: string;
+};

@@ -1,13 +1,15 @@
+'use client';
 
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Coffee, Tag, History, Archive, Trash2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { archiveOrder, deleteOrder } from '@/lib/actions';
+import { useFirestore, useCafeId } from '@/firebase';
+import { orderDoc } from '@/lib/cafe-paths';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +27,8 @@ function HistoryCard({ order }: { order: Order }) {
   const [isArchiving, setIsArchiving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const cafeId = useCafeId();
 
   const getDisplayDate = (createdAt: string | Timestamp | undefined): string => {
     if (!createdAt) return 'Date not available';
@@ -41,9 +45,10 @@ function HistoryCard({ order }: { order: Order }) {
   };
 
   const handleArchive = async () => {
+    if (!firestore || !cafeId) return;
     setIsArchiving(true);
     try {
-        await archiveOrder(order.id);
+        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'archived' });
         toast({
             title: "Order Archived",
             description: `Order for ${order.customerName} has been archived.`
@@ -60,9 +65,10 @@ function HistoryCard({ order }: { order: Order }) {
   };
 
   const handleDelete = async () => {
+    if (!firestore || !cafeId) return;
     setIsDeleting(true);
     try {
-        await deleteOrder(order.id);
+        await deleteDoc(orderDoc(firestore, cafeId, order.id));
         toast({
             title: "Order Deleted",
             description: `Order for ${order.customerName} has been permanently deleted.`

@@ -2,18 +2,12 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  Timestamp,
-} from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { Timestamp, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCafeId } from '@/firebase';
+import { orderDoc } from '@/lib/cafe-paths';
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { markOrderAsCompleted } from '@/lib/actions';
 import { Check, Coffee, Tag, History } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -23,11 +17,14 @@ import { Badge } from '../ui/badge';
 const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'completed' }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const cafeId = useCafeId();
 
   const handleComplete = async () => {
+    if (!firestore || !cafeId) return;
     setIsCompleting(true);
     try {
-        await markOrderAsCompleted(order.id);
+        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'completed' });
         // Optimistic update handled by real-time listener removing the card
     } catch (error) {
         console.error("Failed to complete order:", error);

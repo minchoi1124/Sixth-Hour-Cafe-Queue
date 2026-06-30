@@ -1,6 +1,10 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getAppCheck, AppCheck } from 'firebase-admin/app-check';
+
+// NOTE: Do not import 'firebase-admin/app-check' here. It pulls in jwks-rsa/jose
+// (ESM-only), which breaks the serverless require() path and crashes every page
+// that only needs Firestore (e.g. the public customer page). App Check tokens
+// are verified separately with `jose` directly in the order API route.
 
 // Initialization is lazy so importing this module (e.g. during `next build` page
 // data collection) doesn't throw when FIREBASE_SERVICE_ACCOUNT is absent. The
@@ -23,8 +27,4 @@ function getAdminApp(): App {
 
 export function getAdminDb(): Firestore {
   return getFirestore(getAdminApp());
-}
-
-export function getAdminAppCheck(): AppCheck {
-  return getAppCheck(getAdminApp());
 }

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb, getAdminAppCheck } from '@/lib/firebase-admin';
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 // Order creation runs server-side via the Admin SDK so the public real-time
 // listeners no longer need App Check enforcement on Firestore (which was adding
 // reCAPTCHA latency to every read). Bot protection is preserved here by verifying
 // the App Check token before writing. Firestore rules deny client-side order
 // creates entirely, so this route is the only path to place an order.
+//
+// We verify the App Check JWT with `jose` directly rather than the firebase-admin
+// app-check SDK: that SDK pulls in jwks-rsa/jose via require(), which breaks in
+// the serverless ESM runtime (ERR_REQUIRE_ESM).
 
 type IncomingItem = {
   id: unknown;
@@ -14,24 +19,35 @@ type IncomingItem = {
   modifications: unknown;
 };
 
+// Google's public keys for App Check tokens. createRemoteJWKSet caches them.
+const APP_CHECK_JWKS = createRemoteJWKSet(
+  new URL('https://firebaseappcheck.googleapis.com/v1/jwks')
+);
+
+// The Firebase project number is the same value as the messaging sender ID.
+const PROJECT_NUMBER = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
+
+async function isValidAppCheckToken(token: string): Promise<boolean> {
+  if (!PROJECT_NUMBER) return false;
+  try {
+    await jwtVerify(token, APP_CHECK_JWKS, {
+      issuer: `https://firebaseappcheck.googleapis.com/${PROJECT_NUMBER}`,
+      audience: `projects/${PROJECT_NUMBER}`,
+      algorithms: ['RS256'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   // --- App Check verification (bot protection) ---
-  const appCheckToken = req.headers.get('X-Firebase-AppCheck');
+  // Enforced in production only, so local dev works without a reCAPTCHA key.
   if (process.env.NODE_ENV === 'production') {
-    if (!appCheckToken) {
-      return NextResponse.json({ error: 'Missing App Check token' }, { status: 401 });
-    }
-    try {
-      await getAdminAppCheck().verifyToken(appCheckToken);
-    } catch {
+    const appCheckToken = req.headers.get('X-Firebase-AppCheck');
+    if (!appCheckToken || !(await isValidAppCheckToken(appCheckToken))) {
       return NextResponse.json({ error: 'Invalid App Check token' }, { status: 401 });
-    }
-  } else if (appCheckToken) {
-    // Best-effort in development; never block local testing on App Check.
-    try {
-      await getAdminAppCheck().verifyToken(appCheckToken);
-    } catch {
-      /* ignore in dev */
     }
   }
 

@@ -52,9 +52,9 @@ function CustomerLinkButton({ slug }: { slug: string }) {
   };
 
   return (
-    <Button variant="outline" onClick={handleCopy} className="gap-2" title="Copy your customer ordering link">
+    <Button variant="outline" onClick={handleCopy} className="gap-2" title="Copy the ordering page link to open on your customer-facing device">
       {copied ? <Check className="h-5 w-5 text-green-500" /> : <Link2 className="h-5 w-5" />}
-      <span className="hidden md:inline">Customer link</span>
+      <span className="hidden md:inline">Customer screen</span>
     </Button>
   );
 }

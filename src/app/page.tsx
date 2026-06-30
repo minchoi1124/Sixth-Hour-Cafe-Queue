@@ -11,8 +11,8 @@ export default function LandingPage() {
         Cafe Queue
       </h1>
       <p className="mt-4 max-w-xl text-xl text-muted-foreground">
-        A simple, real-time ordering queue for your cafe. Share a link, take
-        orders, and manage your menu — all from one screen.
+        A simple, real-time ordering queue for your cafe. Customers order on one
+        screen, you work the queue on another, and your menu stays in sync.
       </p>
 
       <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -27,8 +27,8 @@ export default function LandingPage() {
       <div className="mt-16 grid w-full grid-cols-1 gap-8 sm:grid-cols-3">
         <Feature
           icon={<QrCode className="h-10 w-10 text-primary" />}
-          title="Share a link"
-          body="Customers scan your QR or open your link to order — no app, no login."
+          title="Customer ordering screen"
+          body="Open the order page on a customer-facing tablet, or share a link/QR — no app, no login."
         />
         <Feature
           icon={<ListChecks className="h-10 w-10 text-primary" />}

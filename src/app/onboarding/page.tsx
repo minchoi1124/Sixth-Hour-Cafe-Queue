@@ -158,7 +158,8 @@ export default function OnboardingPage() {
                 />
               </div>
               <p className="text-sm text-muted-foreground">
-                This is the link/QR you share with customers.
+                Customers order from this link — open it on your customer-facing
+                device, or share it as a link/QR.
               </p>
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>

@@ -51,4 +51,8 @@ export type Cafe = {
   location: string;
   slug: string;
   createdAt?: string;
+  /** Instagram URL shown as a QR on the order-confirmation screen. */
+  instagramUrl?: string;
+  /** Whether to show the Instagram QR to customers. */
+  instagramEnabled?: boolean;
 };

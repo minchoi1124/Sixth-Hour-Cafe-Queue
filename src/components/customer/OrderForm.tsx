@@ -16,7 +16,7 @@ import { getAppCheckToken } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
 import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
 import { Checkbox } from '../ui/checkbox';
-import Image from 'next/image';
+import { QRCodeSVG } from 'qrcode.react';
 
 const OrderSchema = z.object({
   customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
@@ -63,7 +63,15 @@ function DrinkOption({ item }: { item: MenuItem }) {
   )
 }
 
-export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: MenuItem[] }) {
+export default function OrderForm({
+  cafeId,
+  menu,
+  instagramUrl,
+}: {
+  cafeId: string;
+  menu: MenuItem[];
+  instagramUrl: string | null;
+}) {
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -180,14 +188,16 @@ export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: Menu
           </AlertDescription>
         </Alert>
 
-        <Card className="text-center border-primary/50 bg-background shadow-none">
-            <CardHeader>
-                <CardTitle className="text-3xl">Follow us on Instagram for updates!</CardTitle>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-                <Image src="/instagramqrcode.svg" alt="Instagram QR Code" width={200} height={200} />
-            </CardContent>
-        </Card>
+        {instagramUrl && (
+          <Card className="text-center border-primary/50 bg-background shadow-none">
+              <CardHeader>
+                  <CardTitle className="text-3xl">Follow us on Instagram for updates!</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                  <QRCodeSVG value={instagramUrl} size={200} />
+              </CardContent>
+          </Card>
+        )}
 
         <Button onClick={resetForm} className="text-2xl py-6">
             New Order

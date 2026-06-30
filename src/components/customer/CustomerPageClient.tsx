@@ -12,10 +12,12 @@ export default function CustomerPageClient({
   cafeId,
   location,
   menu: initialMenu,
+  instagramUrl,
 }: {
   cafeId: string;
   location: string;
   menu: MenuItem[];
+  instagramUrl: string | null;
 }) {
   const firestore = useFirestore();
 
@@ -46,7 +48,7 @@ export default function CustomerPageClient({
         </div>
 
         <div className="mt-12">
-          <OrderForm cafeId={cafeId} menu={availableMenu} />
+          <OrderForm cafeId={cafeId} menu={availableMenu} instagramUrl={instagramUrl} />
         </div>
       </main>
     </>

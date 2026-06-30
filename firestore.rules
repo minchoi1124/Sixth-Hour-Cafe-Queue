@@ -36,14 +36,17 @@ service cloud.firestore {
       }
     }
 
-    // Public slug -> cafe lookup. A signed-in owner may claim a slug for their
-    // own cafe exactly once; slugs are never reassigned (no update/delete).
+    // Public slug -> cafe lookup. A signed-in owner may claim a slug pointing to
+    // their own cafe, and may release a slug they own (used when changing links).
+    // Slugs are never edited in place — to change a link, delete + create.
     match /slugs/{slug} {
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['cafeId'])
         && request.resource.data.cafeId == request.auth.uid;
-      allow update, delete: if false;
+      allow delete: if request.auth != null
+        && resource.data.cafeId == request.auth.uid;
+      allow update: if false;
     }
 
     // Everything else is denied by default.

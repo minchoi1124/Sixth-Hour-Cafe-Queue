@@ -20,5 +20,15 @@ export default async function CustomerOrderPage({
 
   const menu = await getMenuForCafe(cafe.id);
 
-  return <CustomerPageClient cafeId={cafe.id} location={cafe.location} menu={menu} />;
+  const instagramUrl =
+    cafe.instagramEnabled && cafe.instagramUrl ? cafe.instagramUrl : null;
+
+  return (
+    <CustomerPageClient
+      cafeId={cafe.id}
+      location={cafe.location}
+      menu={menu}
+      instagramUrl={instagramUrl}
+    />
+  );
 }

@@ -117,7 +117,7 @@ Each location owns an isolated subtree under `cafes/{cafeId}`, where `cafeId ===
 
 | Path | Fields |
 |---|---|
-| `cafes/{cafeId}` | `location`, `slug`, `createdAt` |
+| `cafes/{cafeId}` | `location`, `slug`, `createdAt`, `instagramEnabled?`, `instagramUrl?` |
 | `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived`), `createdAt` |
 | `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
 | `cafes/{cafeId}/categories/{id}` | `name` |

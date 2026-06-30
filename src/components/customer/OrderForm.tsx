@@ -149,7 +149,9 @@ export default function OrderForm({ cafeId, menu }: { cafeId: string; menu: Menu
       });
 
       if (!response.ok) {
-        throw new Error(`Order request failed with status ${response.status}`);
+        const detail = await response.json().catch(() => ({}));
+        console.error('Order request failed', response.status, detail);
+        throw new Error(`Order request failed with status ${response.status}: ${detail?.error ?? ''}`);
       }
 
       setCustomerName(validatedFields.data.customerName);

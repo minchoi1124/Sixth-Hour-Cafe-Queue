@@ -28,7 +28,10 @@ const APP_CHECK_JWKS = createRemoteJWKSet(
 const PROJECT_NUMBER = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
 
 async function isValidAppCheckToken(token: string): Promise<boolean> {
-  if (!PROJECT_NUMBER) return false;
+  if (!PROJECT_NUMBER) {
+    console.error('[orders] App Check skipped: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID (project number) is not set');
+    return false;
+  }
   try {
     await jwtVerify(token, APP_CHECK_JWKS, {
       issuer: `https://firebaseappcheck.googleapis.com/${PROJECT_NUMBER}`,
@@ -36,7 +39,8 @@ async function isValidAppCheckToken(token: string): Promise<boolean> {
       algorithms: ['RS256'],
     });
     return true;
-  } catch {
+  } catch (e) {
+    console.error('[orders] App Check token verification failed:', (e as Error)?.message);
     return false;
   }
 }
@@ -46,7 +50,11 @@ export async function POST(req: NextRequest) {
   // Enforced in production only, so local dev works without a reCAPTCHA key.
   if (process.env.NODE_ENV === 'production') {
     const appCheckToken = req.headers.get('X-Firebase-AppCheck');
-    if (!appCheckToken || !(await isValidAppCheckToken(appCheckToken))) {
+    if (!appCheckToken) {
+      console.error('[orders] Missing X-Firebase-AppCheck header');
+      return NextResponse.json({ error: 'Missing App Check token' }, { status: 401 });
+    }
+    if (!(await isValidAppCheckToken(appCheckToken))) {
       return NextResponse.json({ error: 'Invalid App Check token' }, { status: 401 });
     }
   }

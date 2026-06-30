@@ -18,7 +18,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { user, isUserLoading } = useUser();
 
-  const [name, setName] = useState('');
+  const [location, setLocation] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -44,8 +44,8 @@ export default function OnboardingPage() {
   }, [user, isUserLoading, firestore, router]);
 
   const effectiveSlug = useMemo(
-    () => (slugTouched ? slug : slugify(name)),
-    [slug, slugTouched, name],
+    () => (slugTouched ? slug : slugify(location)),
+    [slug, slugTouched, location],
   );
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -58,11 +58,11 @@ export default function OnboardingPage() {
       router.replace('/login');
       return;
     }
-    const cafeName = name.trim();
+    const locationName = location.trim();
     const finalSlug = effectiveSlug;
 
-    if (cafeName.length < 2) {
-      setError('Please enter a cafe name (at least 2 characters).');
+    if (locationName.length < 2) {
+      setError('Please enter a location name (at least 2 characters).');
       return;
     }
     if (!isValidSlug(finalSlug)) {
@@ -82,7 +82,7 @@ export default function OnboardingPage() {
         }
         tx.set(slugRef, { cafeId: user.uid });
         tx.set(cafeDoc(firestore, user.uid), {
-          name: cafeName,
+          location: locationName,
           slug: finalSlug,
           createdAt: serverTimestamp(),
         });
@@ -93,7 +93,7 @@ export default function OnboardingPage() {
         setError('That link is already taken. Please choose another.');
       } else {
         console.error('Onboarding failed:', e);
-        setError('Could not create your cafe. Please try again.');
+        setError('Could not create your location. Please try again.');
       }
       setIsPending(false);
     }
@@ -111,15 +111,17 @@ export default function OnboardingPage() {
     <main className="container mx-auto flex min-h-screen max-w-md flex-col items-center justify-center p-4">
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo className="mb-4 h-20 w-20" />
-        <h1 className="text-4xl font-bold tracking-tight">Set up your cafe</h1>
+        <h1 className="text-4xl font-bold tracking-tight">
+          Set up your Sixth Hour Cafe location
+        </h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          Choose a name and a public link customers will use to order.
+          Name your location and choose a public link customers will use to order.
         </p>
       </div>
 
       <Card className="w-full">
         <CardHeader>
-          <CardTitle className="text-2xl">Cafe details</CardTitle>
+          <CardTitle className="text-2xl">Location details</CardTitle>
           <CardDescription>You can change these later.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,12 +133,12 @@ export default function OnboardingPage() {
           )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="cafe-name">Cafe name</Label>
+              <Label htmlFor="cafe-location">Location name</Label>
               <Input
-                id="cafe-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Sixth Hour Cafe"
+                id="cafe-location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. MSU Campus"
                 required
               />
             </div>
@@ -153,7 +155,7 @@ export default function OnboardingPage() {
                     setSlugTouched(true);
                     setSlug(slugify(e.target.value));
                   }}
-                  placeholder="sixth-hour"
+                  placeholder="msu"
                   required
                 />
               </div>
@@ -163,7 +165,7 @@ export default function OnboardingPage() {
               </p>
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create my cafe'}
+              {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create my location'}
             </Button>
           </form>
         </CardContent>

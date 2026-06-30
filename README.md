@@ -10,11 +10,11 @@ Originally built for **Sixth Hour Cafe**, an Anchor Christian Fellowship at MSU 
 
 ## What it does
 
-It's **multi-tenant**: anyone can sign up and get their own isolated cafe. The intended setup is a **two-screen kiosk** — a customer-facing tablet running the order page, and a staff tablet running the live queue — though the customer page can also be shared as a link or QR.
+It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is a different **location** (and the people running it) that the brand owner lets onboard their own isolated queue. The intended setup is a **two-screen kiosk** — a customer-facing tablet running the order page, and a staff tablet running the live queue — though the customer page can also be shared as a link or QR.
 
 **Landing (`/`)** — Product intro with links to sign up / log in.
 
-**Sign in (`/login`)** — Owners create an account or sign in with email/password or Google. New owners complete a quick setup (`/onboarding`) choosing a cafe name and a unique public link slug.
+**Sign in (`/login`)** — Operators create an account or sign in with email/password or Google. New operators complete a quick setup (`/onboarding`) naming their location and choosing a unique public link slug.
 
 **Customer screen (`/order/[slug]`)** — A cafe's public order page, typically opened on a customer-facing tablet (or reached via a shared link/QR). Customers tap their name, select drinks and modifications, and submit. No login required. The order appears on that cafe's staff screen in real time.
 
@@ -113,11 +113,11 @@ npm run lint       # ESLint
 
 ## Firestore data model
 
-Each cafe owns an isolated subtree under `cafes/{cafeId}`, where `cafeId === the owner's Auth uid`. A top-level `slugs` collection maps public slugs to cafes for customer links.
+Each location owns an isolated subtree under `cafes/{cafeId}`, where `cafeId === the operator's Auth uid`. The `location` field is the branch label (e.g. "MSU Campus"); the brand ("Sixth Hour Cafe") is fixed in the UI. A top-level `slugs` collection maps public slugs to locations for customer links.
 
 | Path | Fields |
 |---|---|
-| `cafes/{cafeId}` | `name`, `slug`, `createdAt` |
+| `cafes/{cafeId}` | `location`, `slug`, `createdAt` |
 | `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived`), `createdAt` |
 | `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
 | `cafes/{cafeId}/categories/{id}` | `name` |

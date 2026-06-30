@@ -8,11 +8,12 @@ export default function LandingPage() {
     <main className="container mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-6 text-center">
       <Logo className="mb-6 h-24 w-24" />
       <h1 className="text-5xl font-bold tracking-tighter md:text-6xl">
-        Cafe Queue
+        Sixth Hour Cafe
       </h1>
       <p className="mt-4 max-w-xl text-xl text-muted-foreground">
-        A simple, real-time ordering queue for your cafe. Customers order on one
-        screen, you work the queue on another, and your menu stays in sync.
+        The real-time ordering queue for every Sixth Hour Cafe location. Customers
+        order on one screen, you work the queue on another, and your menu stays in
+        sync.
       </p>
 
       <div className="mt-8 flex flex-col gap-4 sm:flex-row">

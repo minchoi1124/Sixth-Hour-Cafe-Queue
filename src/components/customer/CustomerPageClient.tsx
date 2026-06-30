@@ -10,11 +10,11 @@ import { drinksCol } from '@/lib/cafe-paths';
 
 export default function CustomerPageClient({
   cafeId,
-  cafeName,
+  location,
   menu: initialMenu,
 }: {
   cafeId: string;
-  cafeName: string;
+  location: string;
   menu: MenuItem[];
 }) {
   const firestore = useFirestore();
@@ -35,8 +35,11 @@ export default function CustomerPageClient({
         <div className="flex flex-col items-center text-center">
           <Logo className="w-24 h-24 mb-4" />
           <h1 className="text-5xl md:text-6xl font-bold tracking-tighter">
-            {cafeName}
+            Sixth Hour Cafe
           </h1>
+          {location && (
+            <p className="mt-2 text-2xl font-medium text-primary">{location}</p>
+          )}
           <p className="mt-4 text-xl text-muted-foreground">
             Place your order below.
           </p>

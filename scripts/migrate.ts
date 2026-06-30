@@ -20,7 +20,7 @@
  * 4. Run (it does a dry run unless you pass --commit):
  *      GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccount.json \
  *        npx tsx scripts/migrate.ts --uid=<YOUR_UID> --slug=<your-slug> \
- *        --name="Sixth Hour Cafe" --commit
+ *        --location="MSU Campus" --commit
  * 5. Verify the data at /staff and /order/<your-slug>, then delete the legacy
  *    top-level collections from the Firebase console once you're happy.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -40,12 +40,13 @@ const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/;
 async function main() {
   const uid = arg('uid');
   const slug = arg('slug');
-  const name = arg('name') ?? 'My Cafe';
+  // Every cafe is a Sixth Hour Cafe; `location` is the branch/operator label.
+  const location = arg('location') ?? arg('name') ?? 'Main';
   const commit = hasFlag('commit');
 
   if (!uid || !slug) {
     console.error('Missing required args. Example:\n' +
-      '  npx tsx scripts/migrate.ts --uid=ABC123 --slug=sixth-hour --name="Sixth Hour Cafe" --commit');
+      '  npx tsx scripts/migrate.ts --uid=ABC123 --slug=msu --location="MSU Campus" --commit');
     process.exit(1);
   }
   if (!SLUG_REGEX.test(slug)) {
@@ -69,7 +70,7 @@ async function main() {
 
   if (commit) {
     await db.doc(`cafes/${uid}`).set(
-      { name, slug, createdAt: FieldValue.serverTimestamp() },
+      { location, slug, createdAt: FieldValue.serverTimestamp() },
       { merge: true },
     );
     await db.doc(`slugs/${slug}`).set({ cafeId: uid });

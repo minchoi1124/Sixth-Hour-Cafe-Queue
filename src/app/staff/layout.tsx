@@ -132,7 +132,12 @@ export default function StaffLayout({
         <div className="container mx-auto flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <Logo className="w-12 h-12" />
-            <h1 className="text-3xl hidden sm:block">{cafe.name}</h1>
+            <h1 className="text-3xl hidden sm:block">
+              Sixth Hour Cafe
+              {(cafe.location ?? cafe.name) && (
+                <span className="text-muted-foreground"> — {cafe.location ?? cafe.name}</span>
+              )}
+            </h1>
           </div>
           <nav className="flex items-center gap-2 sm:gap-4 p-1 bg-secondary rounded-lg">
             <NavLink href="/staff">Queue</NavLink>

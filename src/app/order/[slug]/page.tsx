@@ -20,5 +20,5 @@ export default async function CustomerOrderPage({
 
   const menu = await getMenuForCafe(cafe.id);
 
-  return <CustomerPageClient cafeId={cafe.id} cafeName={cafe.name} menu={menu} />;
+  return <CustomerPageClient cafeId={cafe.id} location={cafe.location} menu={menu} />;
 }

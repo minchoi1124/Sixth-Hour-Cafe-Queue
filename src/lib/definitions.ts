@@ -44,9 +44,13 @@ export type Category = {
     name: string;
 }
 
+// Every cafe is a Sixth Hour Cafe; `location` is the branch/operator label
+// (e.g. "MSU Campus") that distinguishes one account from another.
 export type Cafe = {
   id: string; // == owner uid == cafeId
-  name: string;
+  location: string;
   slug: string;
   createdAt?: string;
+  /** @deprecated legacy field, read as a fallback for `location`. */
+  name?: string;
 };

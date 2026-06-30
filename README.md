@@ -4,8 +4,6 @@
 
 A real-time cafe order management system built with Next.js and Firebase — designed for a two-screen workflow where customers place orders on one iPad and staff manage the live queue on another.
 
-![Demo: customer places an order, staff queue updates instantly](docs/screenshots/demo.gif)
-
 Originally built for **Sixth Hour Cafe**, an Anchor Christian Fellowship at MSU pop-up cafe. This project was developed end-to-end as a personal project to solve a real operational problem: tracking handwritten drink orders is error-prone and slows down service during busy rushes.
 
 ---

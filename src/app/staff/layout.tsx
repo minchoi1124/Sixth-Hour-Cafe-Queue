@@ -14,6 +14,8 @@ import {
   useDoc,
   useFirestore,
   useMemoFirebase,
+  useResolveCafe,
+  CafeProvider,
 } from '@/firebase';
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
@@ -68,16 +70,17 @@ export default function StaffLayout({
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const { cafeId, role, loading: isResolving } = useResolveCafe();
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const cafeRef = useMemoFirebase(() => {
-    if (!firestore || !user || user.isAnonymous) return null;
-    return cafeDoc(firestore, user.uid);
-  }, [firestore, user]);
+    if (!firestore || !cafeId) return null;
+    return cafeDoc(firestore, cafeId);
+  }, [firestore, cafeId]);
 
-  const { data: cafe, isLoading: isCafeLoading } = useDoc<Cafe>(cafeRef);
+  const { data: cafe } = useDoc<Cafe>(cafeRef);
 
-  // Auth gate: only real (non-anonymous) owners may stay here.
+  // Auth gate: only signed-in users may stay here.
   useEffect(() => {
     if (isUserLoading) return;
     if (!user || user.isAnonymous) {
@@ -85,21 +88,21 @@ export default function StaffLayout({
     }
   }, [user, isUserLoading, router]);
 
-  // Onboarding gate: a signed-in owner with no cafe doc must finish setup.
+  // A signed-in user who is neither an owner nor staff must onboard or join.
   useEffect(() => {
-    if (isUserLoading || isCafeLoading) return;
-    if (user && !user.isAnonymous && cafeRef && cafe === null) {
+    if (isUserLoading || isResolving) return;
+    if (user && !user.isAnonymous && role === null) {
       router.replace('/onboarding');
     }
-  }, [user, isUserLoading, isCafeLoading, cafe, cafeRef, router]);
+  }, [user, isUserLoading, isResolving, role, router]);
 
   const handleSignOut = async () => {
     await signOut(auth);
     router.replace('/login');
   };
 
-  // Block rendering of owner content until we've confirmed a valid owner + cafe.
-  if (isUserLoading || isCafeLoading || !user || user.isAnonymous || !cafe) {
+  // Block rendering until we've confirmed a valid member with a loaded cafe.
+  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -107,8 +110,11 @@ export default function StaffLayout({
     );
   }
 
+  const isOwner = role === 'owner';
+
   if (isFullScreen) {
     return (
+      <CafeProvider cafeId={cafeId} role={role}>
         <div className="relative">
             <Button
                 variant="secondary"
@@ -123,10 +129,12 @@ export default function StaffLayout({
                 {children}
             </main>
         </div>
+      </CafeProvider>
     );
   }
 
   return (
+    <CafeProvider cafeId={cafeId} role={role}>
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b">
         <div className="container mx-auto flex items-center justify-between p-4">
@@ -142,7 +150,7 @@ export default function StaffLayout({
           <nav className="flex items-center gap-2 sm:gap-4 p-1 bg-secondary rounded-lg">
             <NavLink href="/staff">Queue</NavLink>
             <NavLink href="/staff/menu">Menu</NavLink>
-            <NavLink href="/staff/settings">Settings</NavLink>
+            {isOwner && <NavLink href="/staff/settings">Settings</NavLink>}
           </nav>
           <div className="flex items-center gap-2">
             <CustomerLinkButton slug={cafe.slug} />
@@ -164,5 +172,6 @@ export default function StaffLayout({
         {children}
       </main>
     </div>
+    </CafeProvider>
   );
 }

@@ -39,6 +39,31 @@ export const countersCol = (db: Firestore, cafeId: string) =>
 export const slugDoc = (db: Firestore, slug: string) =>
   doc(db, 'slugs', slug);
 
+// --- Staff membership ---
+// A staff member's membership lives at userCafes/{uid}; owners have no such doc
+// (they're resolved by `cafes/{uid}` existing). Invite codes map a shared code
+// to a cafe so staff can join. The owner's current code is kept in a private
+// subdoc that only the owner can read.
+export const userCafeDoc = (db: Firestore, uid: string) =>
+  doc(db, 'userCafes', uid);
+export const userCafesCol = (db: Firestore) =>
+  collection(db, 'userCafes');
+export const inviteCodeDoc = (db: Firestore, code: string) =>
+  doc(db, 'inviteCodes', code);
+export const cafeInviteDoc = (db: Firestore, cafeId: string) =>
+  doc(db, 'cafes', cafeId, 'private', 'invite');
+
+/** Generate a random, unambiguous invite code (e.g. "7K2PQX9R"). */
+export function generateInviteCode(length = 8): string {
+  // No 0/O/1/I to avoid confusion when read aloud or typed.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  const values = new Uint32Array(length);
+  crypto.getRandomValues(values);
+  for (let i = 0; i < length; i++) code += alphabet[values[i] % alphabet.length];
+  return code;
+}
+
 // --- Slug validation ---
 
 /** Lowercase letters, digits and hyphens; 3-30 chars; no leading/trailing hyphen. */
@@ -54,6 +79,7 @@ export const RESERVED_SLUGS = new Set([
   'order',
   'orders',
   'onboarding',
+  'join',
   'admin',
   'api',
   'app',

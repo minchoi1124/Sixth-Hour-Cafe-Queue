@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -168,6 +169,10 @@ export default function OnboardingPage() {
               {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create my location'}
             </Button>
           </form>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Joining an existing location?{' '}
+            <Link href="/join" className="underline">Enter an invite code</Link>
+          </p>
         </CardContent>
       </Card>
     </main>

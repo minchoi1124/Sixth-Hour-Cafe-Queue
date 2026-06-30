@@ -22,6 +22,8 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 
 **Menu management (`/staff/menu`)** — Owners add/remove drinks, update descriptions, mark items out-of-stock, reorder items, and manage categories and modifiers — all scoped to their own cafe, with auto-save and real-time sync.
 
+**Staff invites** — From Settings, an owner generates an invite code/link. Anyone who signs up and redeems it at `/join` becomes staff for that location, with access to the **queue and menu** (location settings, link, Instagram, and staff management stay owner-only).
+
 ---
 
 ## Technical highlights
@@ -122,9 +124,12 @@ Each location owns an isolated subtree under `cafes/{cafeId}`, where `cafeId ===
 | `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
 | `cafes/{cafeId}/categories/{id}` | `name` |
 | `cafes/{cafeId}/counters/{id}` | all-time drink totals |
+| `cafes/{cafeId}/private/invite` | `code` (owner-only; current invite code) |
 | `slugs/{slug}` | `cafeId` |
+| `inviteCodes/{code}` | `cafeId` (staff join lookup) |
+| `userCafes/{uid}` | `cafeId`, `role`, `email`, `code` (staff membership) |
 
-Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK), and can be **read/managed** only by the owner; all other writes to a cafe require `request.auth.uid == cafeId`.
+Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners (`request.auth.uid == cafeId`) and **staff** (a `userCafes/{uid}` doc pointing at the cafe) may manage drinks, categories, and orders; cafe settings, invite codes, and the staff roster are **owner-only**.
 
 ---
 

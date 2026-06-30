@@ -176,12 +176,5 @@ export const useUser = (): UserHookResult => { // Renamed from useAuthUser
   return { user, isUserLoading, userError };
 };
 
-/**
- * Hook for owner (staff) screens: the current owner's cafeId, which by design
- * equals their Firebase Auth uid. Returns null for anonymous or signed-out
- * users so callers can hold off on building Firestore queries.
- */
-export const useCafeId = (): string | null => {
-  const { user } = useFirebase();
-  return user && !user.isAnonymous ? user.uid : null;
-};
+// useCafeId / useCafeRole now live in cafe-provider.tsx: a user's cafe is
+// resolved (owner vs staff membership) rather than assumed to equal their uid.

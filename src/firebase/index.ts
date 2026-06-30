@@ -71,6 +71,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
 }
 
 export * from './provider';
+export * from './cafe-provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';

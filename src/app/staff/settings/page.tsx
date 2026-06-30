@@ -1,10 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { updateDoc, runTransaction } from 'firebase/firestore';
+import { updateDoc, runTransaction, writeBatch, deleteDoc, query, where } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
-import { useDoc, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
-import { cafeDoc, slugDoc, isValidSlug, slugify } from '@/lib/cafe-paths';
+import {
+  useDoc,
+  useCollection,
+  useFirestore,
+  useMemoFirebase,
+  useCafeId,
+  useCafeRole,
+} from '@/firebase';
+import {
+  cafeDoc,
+  slugDoc,
+  isValidSlug,
+  slugify,
+  cafeInviteDoc,
+  inviteCodeDoc,
+  userCafesCol,
+  userCafeDoc,
+  generateInviteCode,
+} from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Copy, RefreshCw, Trash2, UserPlus } from 'lucide-react';
 
 /** Prefix a bare domain with https:// so QR codes resolve correctly. */
 function normalizeUrl(input: string): string {
@@ -22,9 +39,133 @@ function normalizeUrl(input: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+type Membership = { cafeId: string; role: string; email: string; code: string };
+
+function StaffManager({ cafeId }: { cafeId: string }) {
+  const firestore = useFirestore();
+  const [isWorking, setIsWorking] = useState(false);
+
+  const inviteRef = useMemoFirebase(() => cafeInviteDoc(firestore, cafeId), [firestore, cafeId]);
+  const { data: invite } = useDoc<{ code: string }>(inviteRef);
+
+  const staffQuery = useMemoFirebase(
+    () => query(userCafesCol(firestore), where('cafeId', '==', cafeId)),
+    [firestore, cafeId],
+  );
+  const { data: staff } = useCollection<Membership>(staffQuery);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const code = invite?.code ?? null;
+  const joinLink = code ? `${origin}/join?code=${code}` : '';
+
+  const handleGenerate = async () => {
+    setIsWorking(true);
+    try {
+      const newCode = generateInviteCode();
+      const batch = writeBatch(firestore);
+      if (invite?.code) batch.delete(inviteCodeDoc(firestore, invite.code));
+      batch.set(inviteCodeDoc(firestore, newCode), { cafeId });
+      batch.set(cafeInviteDoc(firestore, cafeId), { code: newCode });
+      await batch.commit();
+      toast({
+        title: code ? 'New code generated' : 'Invite code created',
+        description: code ? 'The old code no longer works for new staff.' : undefined,
+      });
+    } catch (e) {
+      console.error('Failed to generate invite code:', e);
+      toast({ variant: 'destructive', title: 'Could not generate code', description: 'Please try again.' });
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: 'Copied', description: text });
+    } catch {
+      toast({ variant: 'destructive', title: 'Could not copy' });
+    }
+  };
+
+  const handleRemove = async (uid: string, email: string) => {
+    try {
+      await deleteDoc(userCafeDoc(firestore, uid));
+      toast({ title: 'Staff removed', description: `${email} can no longer access this location.` });
+    } catch (e) {
+      console.error('Failed to remove staff:', e);
+      toast({ variant: 'destructive', title: 'Could not remove', description: 'Please try again.' });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-3xl">Staff</CardTitle>
+        <CardDescription className="text-lg">
+          Share the invite code so staff can sign up and access this location’s queue and menu.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <Label className="text-lg">Invite code</Label>
+          {code ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <code className="rounded-md bg-muted px-4 py-3 text-2xl font-bold tracking-widest">{code}</code>
+                <Button variant="outline" size="icon" onClick={() => handleCopy(code)} aria-label="Copy code">
+                  <Copy className="h-5 w-5" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={joinLink} className="text-base" />
+                <Button variant="outline" size="icon" onClick={() => handleCopy(joinLink)} aria-label="Copy join link">
+                  <Copy className="h-5 w-5" />
+                </Button>
+              </div>
+              <Button variant="ghost" onClick={handleGenerate} disabled={isWorking} className="text-base">
+                <RefreshCw className="mr-2 h-4 w-4" /> Generate a new code
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={handleGenerate} disabled={isWorking}>
+              {isWorking ? <Loader2 className="h-5 w-5 animate-spin" /> : (<><UserPlus className="mr-2 h-5 w-5" /> Create invite code</>)}
+            </Button>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-lg">Current staff</Label>
+          {!staff || staff.length === 0 ? (
+            <p className="text-muted-foreground">No staff have joined yet.</p>
+          ) : (
+            <ul className="divide-y rounded-md border">
+              {staff.map((member) => (
+                <li key={member.id} className="flex items-center justify-between gap-2 p-3">
+                  <span className="break-all text-lg">{member.email}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemove(member.id, member.email)}
+                    aria-label={`Remove ${member.email}`}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const firestore = useFirestore();
   const cafeId = useCafeId();
+  const role = useCafeRole();
 
   const cafeRef = useMemoFirebase(() => {
     if (!firestore || !cafeId) return null;
@@ -60,6 +201,18 @@ export default function SettingsPage() {
       <div className="container mx-auto max-w-2xl p-4 sm:p-8">
         <Skeleton className="h-14 w-1/2 mb-4" />
         <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  // Settings are owner-only; staff are routed away in the nav but may reach the URL.
+  if (role !== 'owner') {
+    return (
+      <div className="container mx-auto max-w-2xl p-4 sm:p-8">
+        <h1 className="text-4xl font-bold">Settings</h1>
+        <p className="mt-3 text-xl text-muted-foreground">
+          Only the location owner can change settings.
+        </p>
       </div>
     );
   }
@@ -268,6 +421,9 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Staff management */}
+      <StaffManager cafeId={cafe.id} />
 
       {/* Read-only current link reference */}
       <p className="text-center text-base text-muted-foreground break-all">

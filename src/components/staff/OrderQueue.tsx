@@ -2,20 +2,32 @@
 'use client';
 
 import { useState } from 'react';
-import { Timestamp, updateDoc } from 'firebase/firestore';
+import { Timestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useCafeId } from '@/firebase';
 import { orderDoc } from '@/lib/cafe-paths';
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, Coffee, Tag, History } from 'lucide-react';
+import { Check, Coffee, Tag, History, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'completed' }) => {
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const cafeId = useCafeId();
@@ -36,17 +48,63 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
         setIsCompleting(false); // Re-enable button on error
     }
   };
-  
+
+  const handleDelete = async () => {
+    if (!firestore || !cafeId) return;
+    setIsDeleting(true);
+    try {
+        await deleteDoc(orderDoc(firestore, cafeId, order.id));
+        // Real-time listener removes the card on success.
+    } catch (error) {
+        console.error("Failed to delete order:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not delete the order. You may not have permission.",
+        });
+        setIsDeleting(false);
+    }
+  };
+
   const createdAtTimestamp = order.createdAt as unknown as Timestamp;
   const date = createdAtTimestamp ? createdAtTimestamp.toDate().toLocaleString() : 'Processing...';
 
   return (
     <Card className="flex flex-col h-full overflow-hidden border-primary/20 shadow-lg hover:shadow-xl hover:border-primary/40 transition-all duration-300">
       <CardHeader className="pb-4">
-        <CardTitle className="text-4xl tracking-tight flex items-center gap-3">
-          <Tag className="w-8 h-8 text-primary/70" />
-          {order.customerName}
-        </CardTitle>
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-4xl tracking-tight flex items-center gap-3">
+            <Tag className="w-8 h-8 text-primary/70" />
+            {order.customerName}
+          </CardTitle>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                disabled={isDeleting}
+                aria-label="Delete order"
+              >
+                <Trash2 className="w-6 h-6" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this order?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes {order.customerName}&apos;s order from the queue. This can&apos;t be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} variant="destructive">
+                  Yes, delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
         <CardDescription className="text-lg">
           {date}
         </CardDescription>

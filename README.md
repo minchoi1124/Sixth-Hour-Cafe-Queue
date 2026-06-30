@@ -18,9 +18,11 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 
 **Customer screen (`/order/[slug]`)** — A cafe's public order page, typically opened on a customer-facing tablet (or reached via a shared link/QR). Customers tap their name, select drinks and modifications, and submit. No login required. The order appears on that cafe's staff screen in real time.
 
-**Staff queue (`/staff`)** — The signed-in owner sees their own pending orders as cards, with animated transitions when orders arrive or are completed. Completed orders move to an archived history. A "Customer screen" button copies the order-page URL to open on the customer-facing device.
+**Staff queue (`/staff`)** — The signed-in owner or staff member sees that location's pending orders as cards, with animated transitions when orders arrive or are completed. Each card can be marked done or deleted (with a one-tap **Undo**). Completed orders move to an archived history. A "Customer screen" button copies the order-page URL to open on the customer-facing device.
 
-**Menu management (`/staff/menu`)** — Owners add/remove drinks, update descriptions, mark items out-of-stock, reorder items, and manage categories and modifiers — all scoped to their own cafe, with auto-save and real-time sync.
+**Menu management (`/staff/menu`)** — Owners and staff add/remove drinks, update descriptions, mark items out-of-stock, reorder items, and manage categories and modifiers — all scoped to their own cafe, with auto-save and real-time sync.
+
+**Settings (`/staff/settings`, owner-only)** — Rename the location, change the customer link, toggle and configure an Instagram QR shown after ordering, and manage staff.
 
 **Staff invites** — From Settings, an owner generates an invite code/link. Anyone who signs up and redeems it at `/join` becomes staff for that location, with access to the **queue and menu** (location settings, link, Instagram, and staff management stay owner-only).
 
@@ -28,13 +30,15 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 
 ## Technical highlights
 
-- **Multi-tenant data isolation** — Every cafe's data lives under `cafes/{cafeId}/…` where `cafeId` is the owner's Auth uid. Firestore Security Rules enforce that owners can only read/write their own cafe, while menus stay publicly readable for customers.
+- **Multi-tenant data isolation** — Every location's data lives under `cafes/{cafeId}/…` where `cafeId` is the owner's Auth uid. Firestore Security Rules scope all access to a single cafe, while menus stay publicly readable for customers.
+- **Role-based staff access** — A user is resolved as **owner** (`cafes/{uid}`) or **staff** (a `userCafes/{uid}` membership created by redeeming an invite code). Owners and staff share queue + menu access; settings and the staff roster are owner-only — all enforced in the rules.
 - **Real-time sync** — Firestore `onSnapshot` listeners push order and menu updates to every connected screen instantly, with no polling.
 - **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
-- **Authenticated client writes** — Owner mutations run client-side as the authenticated owner; Security Rules (not server code) are the trust boundary for owner data.
+- **Reversible deletes** — Deleting a queued order is a soft delete (`status: 'cancelled'`) with an Undo toast; a daily Vercel Cron job purges cancelled orders older than a week.
 - **Server-side order creation** — Customers place orders through a Next.js API route (`/api/orders`) that writes via the Firebase Admin SDK. Security Rules deny client-side order creates entirely, so the route is the only path in. This keeps the customer screen login-free and lets App Check stay off Firestore reads so real-time updates stay instant.
 - **Abuse protection** — The order route verifies a Firebase App Check (reCAPTCHA v3) token before writing — validated directly with `jose` to avoid the firebase-admin app-check ESM/serverless issue — and validates the order's shape and size.
 - **Public reads via Admin SDK** — Server components resolve slug → cafe and load the initial menu with the Admin SDK, so public pages render without exposing client credentials or depending on App Check.
+- **Per-cafe Instagram QR** — Owners can attach an Instagram link; the order-confirmation screen generates a QR for it on the fly (`qrcode.react`), toggleable per location.
 - **Environment-variable-validated config** — Firebase credentials are validated at startup so misconfigured deployments fail fast with a clear error rather than silently at runtime.
 - **Animated order cards** — Framer Motion drives entrance, exit, and state-transition animations on order cards for a polished staff-facing UX.
 
@@ -48,8 +52,10 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 | Language | TypeScript |
 | Database | Firebase Firestore |
 | Auth | Firebase Authentication |
-| Server | Next.js API route + Firebase Admin SDK (order writes, public reads) |
+| Server | Next.js API routes + Firebase Admin SDK (order writes, public reads, cleanup) |
 | Abuse protection | Firebase App Check (reCAPTCHA v3), verified with `jose` |
+| Scheduling | Vercel Cron (daily cleanup) |
+| QR codes | qrcode.react |
 | Styling | Tailwind CSS + Radix UI primitives |
 | Animation | Framer Motion |
 | Forms | React Hook Form + Zod |
@@ -62,22 +68,26 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 ```
 src/
   app/
-    /               — Landing page
-    /login          — Owner sign in / sign up (email + Google)
-    /onboarding     — First-time cafe setup (name + public slug)
-    /order/[slug]   — Public customer ordering screen (per cafe)
-    /api/orders     — Server route that verifies App Check + writes orders (Admin SDK)
-    /staff          — Owner queue dashboard (auth-gated)
-    /staff/menu     — Menu and category management (auth-gated)
-  components/       — UI components for customer and staff flows
+    /                  — Landing page
+    /login             — Sign in / sign up (email + Google)
+    /onboarding        — First-time setup (location name + public slug)
+    /join              — Redeem an invite code to join a location as staff
+    /order/[slug]      — Public customer ordering screen (per cafe)
+    /api/orders        — Server route: verifies App Check + writes orders (Admin SDK)
+    /api/cron/cleanup  — Scheduled purge of old cancelled orders (Admin SDK)
+    /staff             — Queue dashboard (auth-gated; owner or staff)
+    /staff/menu        — Menu and category management
+    /staff/settings    — Location, link, Instagram, and staff management (owner-only)
+  components/          — UI components for customer and staff flows
   lib/
-    data.ts         — Server-side public reads (slug → cafe, menu) via Admin SDK
-    firebase-admin.ts — Lazy Firebase Admin SDK init (server-only)
-    cafe-paths.ts   — Cafe-scoped Firestore path helpers + slug validation
-    definitions.ts  — Shared TypeScript types
-  firebase/         — Firebase client init, App Check, auth helpers, React provider
+    data.ts            — Server-side public reads (slug → cafe, menu) via Admin SDK
+    firebase-admin.ts  — Lazy Firebase Admin SDK init (server-only)
+    cafe-paths.ts      — Cafe-scoped Firestore path helpers + slug/invite utilities
+    definitions.ts     — Shared TypeScript types
+  firebase/            — Client init, App Check, auth + cafe-membership providers
 scripts/
-  migrate.ts        — One-time legacy → multi-tenant data migration (Admin SDK)
+  migrate.ts           — One-time legacy → multi-tenant data migration (Admin SDK)
+vercel.json            — Vercel Cron schedule for the cleanup job
 ```
 
 ---
@@ -108,7 +118,6 @@ cp .env.example .env.local
 npm run dev        # Starts at http://localhost:9002
 npm run build      # Production build
 npm run typecheck  # Type check without emitting
-npm run lint       # ESLint
 ```
 
 ---
@@ -120,7 +129,7 @@ Each location owns an isolated subtree under `cafes/{cafeId}`, where `cafeId ===
 | Path | Fields |
 |---|---|
 | `cafes/{cafeId}` | `location`, `slug`, `createdAt`, `instagramEnabled?`, `instagramUrl?` |
-| `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived`), `createdAt` |
+| `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived` / `cancelled`), `createdAt` |
 | `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
 | `cafes/{cafeId}/categories/{id}` | `name` |
 | `cafes/{cafeId}/counters/{id}` | all-time drink totals |

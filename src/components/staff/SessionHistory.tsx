@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, CalendarClock, Coffee, History, MapPin, Receipt } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Coffee, History, MapPin } from 'lucide-react';
 
 type LiveStats = { drinkCount: number; orderCount: number };
 
@@ -64,7 +64,6 @@ function SessionCard({
 
   // A running session's totals are live; an ended one quotes its frozen snapshot.
   const drinkCount = isActive ? liveStats.drinkCount : session.drinkCount ?? 0;
-  const orderCount = isActive ? liveStats.orderCount : session.orderCount ?? 0;
   const top = topDrinks(session.itemCounts, 3);
 
   return (
@@ -104,18 +103,11 @@ function SessionCard({
             Not started yet — this session isn&apos;t collecting orders.
           </p>
         ) : (
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-            <Stat
-              icon={<Coffee className="h-7 w-7 text-muted-foreground" />}
-              value={drinkCount}
-              label={drinkCount === 1 ? 'drink' : 'drinks'}
-            />
-            <Stat
-              icon={<Receipt className="h-7 w-7 text-muted-foreground" />}
-              value={orderCount}
-              label={orderCount === 1 ? 'order' : 'orders'}
-            />
-          </div>
+          <Stat
+            icon={<Coffee className="h-7 w-7 text-muted-foreground" />}
+            value={drinkCount}
+            label={drinkCount === 1 ? 'drink' : 'drinks'}
+          />
         )}
 
         {top.length > 0 && (

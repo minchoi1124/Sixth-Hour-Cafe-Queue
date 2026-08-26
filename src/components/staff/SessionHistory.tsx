@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, CalendarClock, Coffee, History, MapPin } from 'lucide-react';
 
-type LiveStats = { drinkCount: number; orderCount: number };
+type LiveStats = { drinkCount: number };
 
 type SessionHistoryProps = {
   cafeId: string;

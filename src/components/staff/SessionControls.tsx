@@ -237,12 +237,10 @@ export function EndSessionButton({
   cafeId,
   session,
   drinkCount,
-  orderCount,
 }: {
   cafeId: string;
   session: Session;
   drinkCount: number;
-  orderCount: number;
 }) {
   const firestore = useFirestore();
   const [isEnding, setIsEnding] = useState(false);
@@ -254,7 +252,7 @@ export function EndSessionButton({
       const stats = await endSession(firestore, cafeId, session.id);
       toast({
         title: 'Session ended',
-        description: `${stats.drinkCount} drink${stats.drinkCount === 1 ? '' : 's'} across ${stats.orderCount} order${stats.orderCount === 1 ? '' : 's'}. Saved to History.`,
+        description: `${stats.drinkCount} drink${stats.drinkCount === 1 ? '' : 's'} saved to History.`,
       });
     } catch (e) {
       console.error('Failed to end session:', e);
@@ -281,8 +279,7 @@ export function EndSessionButton({
           <AlertDialogTitle>End this session?</AlertDialogTitle>
           <AlertDialogDescription>
             {session.location} finishes with <strong>{drinkCount}</strong> drink
-            {drinkCount === 1 ? '' : 's'} across <strong>{orderCount}</strong> order
-            {orderCount === 1 ? '' : 's'}. These totals are saved to History, and the
+            {drinkCount === 1 ? '' : 's'}. That total is saved to History, and the
             counter resets when you start the next session.
           </AlertDialogDescription>
         </AlertDialogHeader>

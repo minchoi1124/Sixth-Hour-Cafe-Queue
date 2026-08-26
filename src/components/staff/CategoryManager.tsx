@@ -3,7 +3,14 @@
 import type { Category } from '@/lib/definitions';
 import { useRef, useState, useEffect } from 'react';
 import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
@@ -240,8 +247,7 @@ export default function CategoryManager({ initialCategories }: { initialCategori
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6 space-y-6">
+    <div className="space-y-6">
         <h3 className="text-2xl font-semibold">Add New Category</h3>
         <AddCategoryForm />
         
@@ -264,7 +270,34 @@ export default function CategoryManager({ initialCategories }: { initialCategori
             </p>
           )}
         </div>
-      </CardContent>
-    </Card>
+    </div>
+  );
+}
+
+/**
+ * Category management lives behind a dialog so the menu page isn't carrying a
+ * permanently open form below the drink list.
+ */
+export function ManageCategoriesDialog({
+  categories,
+  children,
+}: {
+  categories: Category[];
+  children: React.ReactNode;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-3xl">Manage categories</DialogTitle>
+          <DialogDescription className="text-lg">
+            Renaming a category updates every drink in it. Deleting one leaves its
+            drinks uncategorized.
+          </DialogDescription>
+        </DialogHeader>
+        <CategoryManager initialCategories={categories} />
+      </DialogContent>
+    </Dialog>
   );
 }

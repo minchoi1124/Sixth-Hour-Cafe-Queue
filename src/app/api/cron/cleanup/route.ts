@@ -13,7 +13,14 @@ const BATCH_SIZE = 450;
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get('authorization') !== `Bearer ${secret}`) {
+  // Fail closed. A missing secret used to skip the check entirely, which left a
+  // route that mass-deletes orders callable by anyone if the env var ever went
+  // missing.
+  if (!secret) {
+    console.error('[cron/cleanup] CRON_SECRET is not set; refusing to run');
+    return NextResponse.json({ error: 'Cleanup is not configured' }, { status: 503 });
+  }
+  if (req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -35,7 +42,21 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ deleted: docs.length, cutoff: cutoff.toISOString() });
   } catch (e) {
-    console.error('[cron/cleanup] Failed to purge cancelled orders:', e);
-    return NextResponse.json({ error: 'Cleanup failed' }, { status: 500 });
+    // Name the reason. This job silently 500'd nightly for seven weeks because
+    // its collection-group index was declared in firestore.indexes.json but
+    // never deployed, and a bare "Cleanup failed" gave nothing to go on.
+    const message = (e as Error)?.message ?? String(e);
+    console.error('[cron/cleanup] Failed to purge cancelled orders:', message);
+    const needsIndex = message.includes('requires an index');
+    return NextResponse.json(
+      {
+        error: 'Cleanup failed',
+        reason: message,
+        ...(needsIndex
+          ? { hint: 'Run: firebase deploy --only firestore:indexes' }
+          : {}),
+      },
+      { status: 500 },
+    );
   }
 }

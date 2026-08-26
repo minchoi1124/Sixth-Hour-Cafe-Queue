@@ -97,7 +97,7 @@ export default function StaffPageClient() {
 
   const liveStats = useMemo(() => {
     const orders = sessionOrders ?? [];
-    return { drinkCount: countDrinks(orders), orderCount: orders.length };
+    return { drinkCount: countDrinks(orders) };
   }, [sessionOrders]);
 
   // All-time reads only the frozen session snapshots plus the live session, so
@@ -134,7 +134,6 @@ export default function StaffPageClient() {
                           cafeId={cafeId}
                           session={activeSession}
                           drinkCount={liveStats.drinkCount}
-                          orderCount={liveStats.orderCount}
                         />
                       )}
                     </>

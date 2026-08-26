@@ -32,8 +32,10 @@ export const ordersCol = (db: Firestore, cafeId: string) =>
 export const orderDoc = (db: Firestore, cafeId: string, id: string) =>
   doc(db, 'cafes', cafeId, 'orders', id);
 
-export const countersCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'counters');
+export const sessionsCol = (db: Firestore, cafeId: string) =>
+  collection(db, 'cafes', cafeId, 'sessions');
+export const sessionDoc = (db: Firestore, cafeId: string, id: string) =>
+  doc(db, 'cafes', cafeId, 'sessions', id);
 
 // --- Public slug -> cafe lookup ---
 export const slugDoc = (db: Firestore, slug: string) =>

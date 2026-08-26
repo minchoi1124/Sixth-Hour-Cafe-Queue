@@ -15,7 +15,15 @@ import { ToastAction } from '@/components/ui/toast';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 
-const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'completed' }) => {
+const OrderCard = ({
+  order,
+  status,
+  activeSessionId,
+}: {
+  order: Order;
+  status: 'pending' | 'completed';
+  activeSessionId: string | null;
+}) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
@@ -44,7 +52,7 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
     setIsDeleting(true);
     try {
         // Soft delete: drop it from the queue but keep the doc so it can be
-        // restored. Cancelled orders aren't counted in completed/archived totals.
+        // restored. Cancelled orders never count towards a session's totals.
         await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'cancelled' });
         toast({
             title: 'Order deleted',
@@ -70,7 +78,12 @@ const OrderCard = ({ order, status }: { order: Order; status: 'pending' | 'compl
   const handleUndo = async () => {
     if (!firestore || !cafeId) return;
     try {
-        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'pending' });
+        // Adoption only sweeps pending/completed orders, so a cancelled orphan
+        // would come back unassigned. Attach it to the running session here.
+        await updateDoc(orderDoc(firestore, cafeId, order.id), {
+            status: 'pending',
+            ...(order.sessionId ? {} : { sessionId: activeSessionId }),
+        });
     } catch (error) {
         console.error("Failed to restore order:", error);
         toast({
@@ -184,7 +197,15 @@ const EmptyState = ({ status }: { status: 'pending' | 'completed' }) => {
     )
 }
 
-export function OrderQueue({ status, orders }: { status: 'pending' | 'completed', orders: Order[] | null }) {
+export function OrderQueue({
+  status,
+  orders,
+  activeSessionId,
+}: {
+  status: 'pending' | 'completed';
+  orders: Order[] | null;
+  activeSessionId: string | null;
+}) {
   if (orders === null) {
     return <OrderQueueSkeleton />;
   }
@@ -205,7 +226,7 @@ export function OrderQueue({ status, orders }: { status: 'pending' | 'completed'
             exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.9, transition: { duration: 0.3 } }}
             className="h-full"
           >
-            <OrderCard order={order} status={status} />
+            <OrderCard order={order} status={status} activeSessionId={activeSessionId} />
           </motion.div>
         ))}
       </AnimatePresence>

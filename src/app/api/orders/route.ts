@@ -109,10 +109,17 @@ export async function POST(req: NextRequest) {
   }
 
   // --- Write the order ---
+  // The order joins whichever session is currently running. `sessionId` is
+  // written even when there is none (as null) so the staff app can find these
+  // orphans with `where('sessionId', '==', null)` and adopt them when a session
+  // starts — a missing field would never match that query.
+  const activeSessionId = (cafeSnap.get('activeSessionId') as string | null | undefined) ?? null;
+
   const ref = await adminDb.collection(`cafes/${cafeId}/orders`).add({
     customerName: customerName.trim(),
     items: sanitizedItems,
     status: 'pending',
+    sessionId: activeSessionId,
     createdAt: FieldValue.serverTimestamp(),
   });
 

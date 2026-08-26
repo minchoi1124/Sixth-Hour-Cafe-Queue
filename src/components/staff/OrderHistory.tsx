@@ -2,14 +2,15 @@
 
 import type { Order } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coffee, Tag, History, Archive, Trash2 } from 'lucide-react';
+import { Coffee, Tag, History, Trash2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { Timestamp, updateDoc, deleteDoc } from 'firebase/firestore';
+import { deleteDoc } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCafeId } from '@/firebase';
 import { orderDoc } from '@/lib/cafe-paths';
+import { toDate } from '@/lib/sessions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,46 +24,11 @@ import {
 } from "@/components/ui/alert-dialog"
 
 
-function HistoryCard({ order }: { order: Order }) {
-  const [isArchiving, setIsArchiving] = useState(false);
+function HistoryCard({ order, onDeleted }: { order: Order; onDeleted?: () => void }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const cafeId = useCafeId();
-
-  const getDisplayDate = (createdAt: string | Timestamp | undefined): string => {
-    if (!createdAt) return 'Date not available';
-
-    if (typeof createdAt === 'string') {
-      return new Date(createdAt).toLocaleString();
-    } 
-    
-    if (createdAt instanceof Timestamp) {
-      return createdAt.toDate().toLocaleString();
-    }
-    
-    return 'Invalid Date';
-  };
-
-  const handleArchive = async () => {
-    if (!firestore || !cafeId) return;
-    setIsArchiving(true);
-    try {
-        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'archived' });
-        toast({
-            title: "Order Archived",
-            description: `Order for ${order.customerName} has been archived.`
-        });
-    } catch (error) {
-        console.error("Failed to archive order:", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not archive the order. You may not have permission.",
-        });
-        setIsArchiving(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!firestore || !cafeId) return;
@@ -73,6 +39,9 @@ function HistoryCard({ order }: { order: Order }) {
             title: "Order Deleted",
             description: `Order for ${order.customerName} has been permanently deleted.`
         });
+        // Lets the parent re-freeze an ended session's totals so the history
+        // card doesn't keep quoting a count that no longer holds.
+        onDeleted?.();
     } catch (error) {
         console.error("Failed to delete order:", error);
         toast({
@@ -86,7 +55,8 @@ function HistoryCard({ order }: { order: Order }) {
     }
   }
 
-  const date = getDisplayDate(order.createdAt as any);
+  const createdAt = toDate(order.createdAt);
+  const date = createdAt ? createdAt.toLocaleString() : 'Date not available';
 
   return (
     <Card className="flex flex-col h-full overflow-hidden border-primary/20 shadow-lg">
@@ -122,22 +92,13 @@ function HistoryCard({ order }: { order: Order }) {
           ))}
         </ul>
       </CardContent>
-      <CardFooter className="grid grid-cols-2 gap-2">
-        <Button 
-          variant="outline" 
-          className="w-full text-xl py-6"
-          onClick={handleArchive}
-          disabled={isArchiving || isDeleting}
-        >
-          <Archive className="w-6 h-6 mr-2"/>
-          {isArchiving ? 'Archiving...' : 'Archive'}
-        </Button>
+      <CardFooter>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               className="w-full text-xl py-6"
-              disabled={isDeleting || isArchiving}
+              disabled={isDeleting}
             >
               <Trash2 className="w-6 h-6 mr-2"/>
               {isDeleting ? 'Deleting...' : 'Delete'}
@@ -170,12 +131,19 @@ const EmptyState = () => {
         <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
             <History className="w-24 h-24 text-muted-foreground/50 mb-6"/>
             <h2 className="text-4xl font-bold">No Completed Orders</h2>
-            <p className="text-2xl text-muted-foreground mt-2">The order history is empty.</p>
+            <p className="text-2xl text-muted-foreground mt-2">No drinks were made in this session.</p>
         </div>
     )
 }
 
-export default function OrderHistory({ orders }: { orders: Order[] }) {
+/** The completed orders belonging to one session. */
+export default function OrderHistory({
+  orders,
+  onOrderDeleted,
+}: {
+  orders: Order[];
+  onOrderDeleted?: () => void;
+}) {
   if (!orders || orders.length === 0) {
     return <EmptyState />;
   }
@@ -184,7 +152,7 @@ export default function OrderHistory({ orders }: { orders: Order[] }) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         {orders.map((order) => (
           <div key={order.id} className="h-full">
-            <HistoryCard order={order} />
+            <HistoryCard order={order} onDeleted={onOrderDeleted} />
           </div>
         ))}
     </div>

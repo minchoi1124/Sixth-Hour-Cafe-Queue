@@ -23,17 +23,84 @@
         },
         "status": {
           "type": "string",
+          "description": "'archived' is legacy — it predates sessions and is no longer written.",
           "enum": [
             "pending",
             "completed",
+            "cancelled",
             "archived"
           ]
+        },
+        "sessionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The session this order belongs to, or null if placed while none was running. Always present so `sessionId == null` queries can find orphans."
         }
       },
       "required": [
         "customerName",
         "items",
         "createdAt",
+        "status",
+        "sessionId"
+      ]
+    },
+    "Session": {
+      "title": "Session",
+      "type": "object",
+      "description": "One pop-up service. Starting a session resets the drink counter; ending it freezes the session's stats onto this document.",
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "The venue for this session (e.g. Library 2nd floor), distinct from the cafe's branch label."
+        },
+        "startsAt": {
+          "type": "string",
+          "description": "When the session starts. Autofilled to now but editable, so a session can be planned ahead.",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "description": "When the session ended.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "scheduled",
+            "active",
+            "ended"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-text notes about the session."
+        },
+        "drinkCount": {
+          "type": "number",
+          "description": "Drinks made, frozen when the session ends."
+        },
+        "orderCount": {
+          "type": "number",
+          "description": "Completed orders, frozen when the session ends."
+        },
+        "itemCounts": {
+          "type": "object",
+          "description": "Drink name to quantity made.",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "backfilled": {
+          "type": "boolean",
+          "description": "True for sessions reconstructed from pre-sessions order history."
+        }
+      },
+      "required": [
+        "location",
+        "startsAt",
         "status"
       ]
     },
@@ -147,23 +214,30 @@
   },
   "auth": {
     "providers": [
-      "anonymous"
+      "password",
+      "google.com"
     ]
   },
   "firestore": {
-    "/drinks/{drinkId}": {
+    "/cafes/{cafeId}/drinks/{drinkId}": {
       "schema": {
         "$ref": "#/entities/Drink"
       },
       "description": "Stores individual drink menu items."
     },
-    "/orders/{orderId}": {
+    "/cafes/{cafeId}/orders/{orderId}": {
       "schema": {
         "$ref": "#/entities/Order"
       },
-      "description": "Stores customer orders submitted through the app."
+      "description": "Stores customer orders submitted through the app. Written only by the /api/orders server route."
     },
-    "/categories/{categoryId}": {
+    "/cafes/{cafeId}/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/Session"
+      },
+      "description": "Stores each pop-up service and its frozen stats."
+    },
+    "/cafes/{cafeId}/categories/{categoryId}": {
       "schema": {
         "$ref": "#/entities/Category"
       },

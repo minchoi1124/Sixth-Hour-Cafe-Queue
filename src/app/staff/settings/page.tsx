@@ -28,7 +28,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { COMMON_TIMEZONES, cafeTimezone } from '@/lib/timezone';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, AlertTriangle, Copy, RefreshCw, Trash2, UserPlus } from 'lucide-react';
 
@@ -178,6 +186,10 @@ export default function SettingsPage() {
   const [location, setLocation] = useState('');
   const [isSavingLocation, setIsSavingLocation] = useState(false);
 
+  // --- Timezone (groups sessions by local calendar date) ---
+  const [timezone, setTimezone] = useState(cafeTimezone());
+  const [isSavingTimezone, setIsSavingTimezone] = useState(false);
+
   // --- Link / slug ---
   const [slug, setSlug] = useState('');
   const [isSavingLink, setIsSavingLink] = useState(false);
@@ -191,6 +203,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!cafe) return;
     setLocation(cafe.location ?? '');
+    setTimezone(cafeTimezone(cafe.timezone));
     setSlug(cafe.slug ?? '');
     setInstagramEnabled(cafe.instagramEnabled ?? false);
     setInstagramUrl(cafe.instagramUrl ?? '');
@@ -235,6 +248,27 @@ export default function SettingsPage() {
       toast({ variant: 'destructive', title: 'Could not save', description: 'Please try again.' });
     } finally {
       setIsSavingLocation(false);
+    }
+  };
+
+  // Offer the standard list plus the browser's own zone, if it's not already there.
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezoneOptions = Array.from(
+    new Set([...COMMON_TIMEZONES, browserTimezone, timezone].filter(Boolean)),
+  );
+  const timezoneDirty = timezone !== cafeTimezone(cafe.timezone);
+
+  const handleSaveTimezone = async () => {
+    if (!cafeRef || !timezoneDirty) return;
+    setIsSavingTimezone(true);
+    try {
+      await updateDoc(cafeRef, { timezone });
+      toast({ title: 'Saved', description: 'Session dates now use this timezone.' });
+    } catch (e) {
+      console.error('Failed to update timezone:', e);
+      toast({ variant: 'destructive', title: 'Could not save', description: 'Please try again.' });
+    } finally {
+      setIsSavingTimezone(false);
     }
   };
 
@@ -333,6 +367,36 @@ export default function SettingsPage() {
           </div>
           <Button onClick={handleSaveLocation} disabled={!locationDirty || !locationValid || isSavingLocation} className="text-xl py-6">
             {isSavingLocation ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Save changes'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Timezone */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-3xl">Timezone</CardTitle>
+          <CardDescription className="text-lg">
+            Used to date your sessions and prefill the start time when you begin one.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="timezone" className="text-lg">Timezone</Label>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger id="timezone" className="h-14 text-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timezoneOptions.map((tz) => (
+                  <SelectItem key={tz} value={tz} className="text-lg">
+                    {tz.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleSaveTimezone} disabled={!timezoneDirty || isSavingTimezone} className="text-xl py-6">
+            {isSavingTimezone ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Save changes'}
           </Button>
         </CardContent>
       </Card>

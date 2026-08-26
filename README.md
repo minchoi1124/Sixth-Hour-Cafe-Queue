@@ -18,11 +18,13 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 
 **Customer screen (`/order/[slug]`)** — A cafe's public order page, typically opened on a customer-facing tablet (or reached via a shared link/QR). Customers tap their name, select drinks and modifications, and submit. No login required. The order appears on that cafe's staff screen in real time.
 
-**Staff queue (`/staff`)** — The signed-in owner or staff member sees that location's pending orders as cards, with animated transitions when orders arrive or are completed. Each card can be marked done or deleted (with a one-tap **Undo**). Completed orders move to an archived history. A "Customer screen" button copies the order-page URL to open on the customer-facing device.
+**Staff queue (`/staff`)** — The signed-in owner or staff member sees that location's pending orders as cards, with animated transitions when orders arrive or are completed. Each card can be marked done or deleted (with a one-tap **Undo**). A "Customer screen" button copies the order-page URL to open on the customer-facing device.
+
+**Sessions** — Each pop-up service is a **session** with its own venue and start time. Starting one resets the drink counter; ending one freezes that session's totals. The History tab lists past sessions as stat cards (drinks, orders, top drinks) that open to the orders inside. A session can also be **scheduled** ahead of time — a future start time is saved without taking over as the active session, so planning next week can't capture tonight's orders. Orders placed while no session is running are still accepted and get attached to the next session that starts.
 
 **Menu management (`/staff/menu`)** — Owners and staff add/remove drinks, update descriptions, mark items out-of-stock, reorder items, and manage categories and modifiers — all scoped to their own cafe, with auto-save and real-time sync.
 
-**Settings (`/staff/settings`, owner-only)** — Rename the location, change the customer link, toggle and configure an Instagram QR shown after ordering, and manage staff.
+**Settings (`/staff/settings`, owner-only)** — Rename the location, set the timezone used to date sessions, change the customer link, toggle and configure an Instagram QR shown after ordering, and manage staff.
 
 **Staff invites** — From Settings, an owner generates an invite code/link. Anyone who signs up and redeems it at `/join` becomes staff for that location, with access to the **queue and menu** (location settings, link, Instagram, and staff management stay owner-only).
 
@@ -34,6 +36,7 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 - **Role-based staff access** — A user is resolved as **owner** (`cafes/{uid}`) or **staff** (a `userCafes/{uid}` membership created by redeeming an invite code). Owners and staff share queue + menu access; settings and the staff roster are owner-only — all enforced in the rules.
 - **Real-time sync** — Firestore `onSnapshot` listeners push order and menu updates to every connected screen instantly, with no polling.
 - **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
+- **Session-scoped stats** — Ending a session freezes its totals onto the session document, so History and the all-time counter read one small doc per session instead of subscribing to every order ever completed.
 - **Reversible deletes** — Deleting a queued order is a soft delete (`status: 'cancelled'`) with an Undo toast; a daily Vercel Cron job purges cancelled orders older than a week.
 - **Server-side order creation** — Customers place orders through a Next.js API route (`/api/orders`) that writes via the Firebase Admin SDK. Security Rules deny client-side order creates entirely, so the route is the only path in. This keeps the customer screen login-free and lets App Check stay off Firestore reads so real-time updates stay instant.
 - **Abuse protection** — The order route verifies a Firebase App Check (reCAPTCHA v3) token before writing — validated directly with `jose` to avoid the firebase-admin app-check ESM/serverless issue — and validates the order's shape and size.
@@ -128,17 +131,24 @@ Each location owns an isolated subtree under `cafes/{cafeId}`, where `cafeId ===
 
 | Path | Fields |
 |---|---|
-| `cafes/{cafeId}` | `location`, `slug`, `createdAt`, `instagramEnabled?`, `instagramUrl?` |
-| `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `archived` / `cancelled`), `createdAt` |
+| `cafes/{cafeId}` | `location`, `slug`, `createdAt`, `activeSessionId?`, `timezone?`, `instagramEnabled?`, `instagramUrl?` |
+| `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `cancelled`; `archived` is legacy), `sessionId`, `createdAt` |
+| `cafes/{cafeId}/sessions/{id}` | `location`, `startsAt`, `endedAt?`, `status` (`scheduled` / `active` / `ended`), `notes?`, and the stats frozen on end: `drinkCount`, `orderCount`, `itemCounts` |
 | `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
 | `cafes/{cafeId}/categories/{id}` | `name` |
-| `cafes/{cafeId}/counters/{id}` | all-time drink totals |
 | `cafes/{cafeId}/private/invite` | `code` (owner-only; current invite code) |
 | `slugs/{slug}` | `cafeId` |
 | `inviteCodes/{code}` | `cafeId` (staff join lookup) |
 | `userCafes/{uid}` | `cafeId`, `role`, `email`, `code` (staff membership) |
 
-Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners (`request.auth.uid == cafeId`) and **staff** (a `userCafes/{uid}` doc pointing at the cafe) may manage drinks, categories, and orders; cafe settings, invite codes, and the staff roster are **owner-only**.
+Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners (`request.auth.uid == cafeId`) and **staff** (a `userCafes/{uid}` doc pointing at the cafe) may manage drinks, categories, orders, and sessions; cafe settings, invite codes, and the staff roster are **owner-only** — except `activeSessionId`, the one cafe field staff may change, so they can start and end sessions.
+
+**Migrating existing data** — [`scripts/backfill-sessions.ts`](scripts/backfill-sessions.ts) reconstructs sessions from order history that predates the feature, grouping each cafe's completed orders into one session per calendar date in its timezone (and collapsing legacy `archived` orders back into `completed`). It's idempotent and dry-runs by default:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccount.json npm run backfill-sessions
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccount.json npm run backfill-sessions -- --commit
+```
 
 ---
 

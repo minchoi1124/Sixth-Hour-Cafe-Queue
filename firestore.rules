@@ -22,8 +22,13 @@ service cloud.firestore {
     match /cafes/{cafeId} {
       // Menu/cafe info is public so customers can view it without an account.
       allow read: if true;
-      // Cafe settings (location, slug, instagram) are owner-only.
-      allow create, update, delete: if isOwner(cafeId);
+      // Cafe settings (location, slug, instagram, timezone) are owner-only, but
+      // staff work the queue and so must be able to start and end sessions —
+      // which means flipping `activeSessionId`, and nothing else, on this doc.
+      allow create, delete: if isOwner(cafeId);
+      allow update: if isOwner(cafeId)
+        || (isStaff(cafeId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeSessionId']));
 
       match /drinks/{drinkId} {
         allow read: if true;
@@ -35,9 +40,10 @@ service cloud.firestore {
         allow create, update, delete: if canManage(cafeId);
       }
 
-      match /counters/{counterId} {
-        allow read: if true;
-        allow create, update, delete: if canManage(cafeId);
+      // A session is one pop-up service, with its stats frozen on end.
+      // Staff-only: customers never need to see them.
+      match /sessions/{sessionId} {
+        allow read, create, update, delete: if canManage(cafeId);
       }
 
       match /orders/{orderId} {

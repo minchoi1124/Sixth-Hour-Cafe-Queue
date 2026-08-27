@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "backfill-sessions": "tsx scripts/backfill-sessions.ts"
+    "backfill-sessions": "tsx scripts/backfill-sessions.ts",
+    "backfill-menus": "tsx scripts/backfill-menus.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

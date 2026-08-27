@@ -1,11 +1,10 @@
 
 'use client';
 
-import type { MenuItem, Category } from '@/lib/definitions';
+import type { MenuItem, Category, MenuPreset } from '@/lib/definitions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from '../ui/input';
@@ -15,7 +14,7 @@ import { writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
 import { drinkDoc } from '@/lib/cafe-paths';
 import {
   ArrowDown, ArrowUp, Trash2, Cloud, Check, Loader2, AlertCircle,
-  ChevronDown, ChevronRight, Search, X, Plus, Tags,
+  ChevronDown, ChevronRight, Search, X, Plus, Tags, ListChecks,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -32,6 +31,7 @@ import { Textarea } from '../ui/textarea';
 import { ModificationEditor } from '@/components/staff/ModificationEditor';
 import { AddDrinkDialog } from '@/components/staff/AddDrinkForm';
 import { ManageCategoriesDialog } from '@/components/staff/CategoryManager';
+import { ManagePresetsDialog } from '@/components/staff/PresetManager';
 import { cn } from '@/lib/utils';
 
 /**
@@ -42,8 +42,6 @@ import { cn } from '@/lib/utils';
  */
 const ORPHAN_KEY = 'orphan';
 const categoryKey = (name: string) => `cat:${name}`;
-
-type StockFilter = 'all' | 'in' | 'out';
 
 type Section = { key: string; label: string; items: MenuItem[] };
 
@@ -118,7 +116,15 @@ function SavingStatus({ status }: { status: 'idle' | 'saving' | 'saved' | 'error
   );
 }
 
-export default function MenuManager({ menu, categories }: { menu: MenuItem[], categories: Category[] }) {
+export default function MenuManager({
+  menu,
+  categories,
+  presets,
+}: {
+  menu: MenuItem[];
+  categories: Category[];
+  presets: MenuPreset[];
+}) {
   const firestore = useFirestore();
   const cafeId = useCafeId();
   const [localMenu, setLocalMenu] = useState<MenuItem[]>([]);
@@ -127,7 +133,6 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
 
   // --- Browsing state ---
   const [search, setSearch] = useState('');
-  const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   // One drink open at a time: expanding a second collapses the first, which is
   // the point of the change. Pending autosaves live on a ref at this level, so
@@ -210,23 +215,6 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     });
   };
 
-  const handleSwitchChange = async (id: string, field: 'inStock', checked: boolean) => {
-    setLocalMenu(currentMenu =>
-      currentMenu.map(item => item.id === id ? { ...item, [field]: checked } : item)
-    );
-
-    if (!firestore || !cafeId) return;
-    setSavingStatus('saving');
-    try {
-      await updateDoc(drinkDoc(firestore, cafeId, id), { [field]: checked });
-      setSavingStatus('saved');
-    } catch (e) {
-      console.error("Failed to update stock status:", e);
-      setSavingStatus('error');
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update stock status.' });
-    }
-  };
-
   /**
    * Swap a drink with its neighbour in the same category.
    *
@@ -293,7 +281,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
 
   // --- Derived view ---
   const query = search.trim().toLowerCase();
-  const isFiltering = query.length > 0 || stockFilter !== 'all';
+  const isFiltering = query.length > 0;
 
   const allSections = useMemo(
     () => groupByCategory(localMenu, categories),
@@ -302,8 +290,6 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
 
   const visibleSections = useMemo(() => {
     const matches = (item: MenuItem) => {
-      if (stockFilter === 'in' && !item.inStock) return false;
-      if (stockFilter === 'out' && item.inStock) return false;
       if (!query) return true;
       return Boolean(
         item.name?.toLowerCase().includes(query) ||
@@ -314,7 +300,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
     return allSections
       .map(section => ({ ...section, items: section.items.filter(matches) }))
       .filter(section => section.items.length > 0);
-  }, [allSections, query, stockFilter]);
+  }, [allSections, query]);
 
   const toggleSection = (key: string) => {
     setCollapsedSections(prev => {
@@ -357,25 +343,15 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
               )}
             </div>
 
-            <div className="flex rounded-md border p-1">
-              {([
-                { value: 'all', label: 'All' },
-                { value: 'in', label: 'In stock' },
-                { value: 'out', label: 'Out' },
-              ] as { value: StockFilter; label: string }[]).map(option => (
-                <Button
-                  key={option.value}
-                  variant={stockFilter === option.value ? 'secondary' : 'ghost'}
-                  onClick={() => setStockFilter(option.value)}
-                  className="h-10 px-4 text-lg"
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <ManagePresetsDialog library={localMenu} presets={presets}>
+              <Button variant="outline" className="h-12 text-lg">
+                <ListChecks className="mr-2 h-5 w-5" />
+                Presets
+              </Button>
+            </ManagePresetsDialog>
             <ManageCategoriesDialog categories={categories}>
               <Button variant="outline" className="h-12 text-lg">
                 <Tags className="mr-2 h-5 w-5" />
@@ -476,10 +452,7 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                               {isExpanded
                                 ? <ChevronDown className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                                 : <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground" />}
-                              <span className={cn(
-                                'truncate text-2xl',
-                                !item.inStock && 'text-muted-foreground line-through',
-                              )}>
+                              <span className="truncate text-2xl">
                                 {item.name || 'Untitled drink'}
                               </span>
                               {modCount > 0 && (
@@ -489,17 +462,6 @@ export default function MenuManager({ menu, categories }: { menu: MenuItem[], ca
                               )}
                             </button>
 
-                            <div className="flex flex-shrink-0 items-center gap-2">
-                              <Label htmlFor={`row-${item.id}-instock`} className="hidden text-base text-muted-foreground sm:inline">
-                                {item.inStock ? 'In stock' : 'Out'}
-                              </Label>
-                              <Switch
-                                id={`row-${item.id}-instock`}
-                                checked={item.inStock}
-                                onCheckedChange={(checked) => handleSwitchChange(item.id, 'inStock', checked)}
-                                className="data-[state=checked]:bg-green-500 scale-110"
-                              />
-                            </div>
                           </div>
 
                           {isExpanded && (

@@ -11,6 +11,7 @@ import {
   type Firestore,
   type Timestamp,
   doc,
+  getDoc,
   getDocs,
   query,
   runTransaction,
@@ -303,6 +304,56 @@ export async function toggleSoldOut(
     liveMenu: { drinkIds: menuIds, soldOutIds: next },
   });
   await batch.commit();
+}
+
+/**
+ * Delete a session and every order in it.
+ *
+ * Cascading is deliberate. Orders keep a `sessionId`, so leaving them behind
+ * would point them at a session that no longer exists: invisible in History,
+ * excluded from every count, and never purged by the cleanup cron, which only
+ * looks at cancelled orders. Unassigning them is worse still — orphans get
+ * adopted by the next session started, so an old test order would silently join
+ * a real service.
+ *
+ * The running session cannot be deleted: `cafe.activeSessionId` and `liveMenu`
+ * would be left pointing at nothing, which would open the ordering page onto a
+ * menu that isn't there. End it first.
+ */
+export async function deleteSession(
+  db: Firestore,
+  cafeId: string,
+  sessionId: string,
+): Promise<{ deletedOrders: number }> {
+  const cafeSnap = await getDoc(cafeDoc(db, cafeId));
+  if ((cafeSnap.get('activeSessionId') as string | null | undefined) === sessionId) {
+    throw new Error('This session is still running. End it before deleting.');
+  }
+
+  // Every status, not just completed: cancelled and pending orders carry the
+  // same sessionId and would be orphaned just as thoroughly.
+  const snapshot = await getDocs(
+    query(ordersCol(db, cafeId), where('sessionId', '==', sessionId)),
+  );
+
+  let batch = writeBatch(db);
+  let ops = 0;
+  for (const orderSnap of snapshot.docs) {
+    batch.delete(orderSnap.ref);
+    ops++;
+    if (ops >= BATCH_LIMIT) {
+      await batch.commit();
+      batch = writeBatch(db);
+      ops = 0;
+    }
+  }
+
+  // The session doc goes last, in the final batch, so a failure part-way leaves
+  // the session in place rather than stranding orders behind a missing parent.
+  batch.delete(sessionDoc(db, cafeId, sessionId));
+  await batch.commit();
+
+  return { deletedOrders: snapshot.size };
 }
 
 /**

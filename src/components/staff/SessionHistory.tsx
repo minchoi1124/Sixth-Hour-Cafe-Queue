@@ -5,7 +5,7 @@ import { orderBy, query, where } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { ordersCol } from '@/lib/cafe-paths';
 import type { Order, Session } from '@/lib/definitions';
-import { recomputeSessionStats, toDate, topDrinks } from '@/lib/sessions';
+import { deleteSession, recomputeSessionStats, toDate, topDrinks } from '@/lib/sessions';
 import { formatSessionDate, formatTimeRange } from '@/lib/timezone';
 import OrderHistory from '@/components/staff/OrderHistory';
 import { ActivateSessionButton } from '@/components/staff/SessionControls';
@@ -13,7 +13,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, CalendarClock, Coffee, History, MapPin } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Coffee, History, MapPin, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/hooks/use-toast';
 
 type LiveStats = { drinkCount: number };
 
@@ -29,6 +41,77 @@ type SessionHistoryProps = {
    */
   sessions: Session[] | null;
 };
+
+/** Deletes a session and, with it, every order placed during it. */
+function DeleteSessionButton({
+  cafeId,
+  session,
+  drinkCount,
+  orderCount,
+}: {
+  cafeId: string;
+  session: Session;
+  drinkCount: number;
+  orderCount: number;
+}) {
+  const firestore = useFirestore();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!firestore) return;
+    setIsDeleting(true);
+    try {
+      const { deletedOrders } = await deleteSession(firestore, cafeId, session.id);
+      toast({
+        title: 'Session deleted',
+        description: `${session.location} and its ${deletedOrders} order${deletedOrders === 1 ? '' : 's'} were removed.`,
+      });
+    } catch (e) {
+      console.error('Failed to delete session:', e);
+      toast({
+        variant: 'destructive',
+        title: 'Could not delete',
+        description:
+          e instanceof Error && e.message.includes('still running')
+            ? e.message
+            : 'Please try again.',
+      });
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          className="text-lg text-muted-foreground hover:text-destructive"
+          disabled={isDeleting}
+        >
+          <Trash2 className="mr-2 h-5 w-5" />
+          {isDeleting ? 'Deleting...' : 'Delete'}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this session?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently deletes {session.location} along with its{' '}
+            <strong>{orderCount}</strong> order{orderCount === 1 ? '' : 's'}, and removes{' '}
+            <strong>{drinkCount}</strong> drink{drinkCount === 1 ? '' : 's'} from your all-time
+            total. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} variant="destructive">
+            Yes, delete session
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 /** One stat block in a session card. */
 function Stat({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
@@ -64,6 +147,7 @@ function SessionCard({
 
   // A running session's totals are live; an ended one quotes its frozen snapshot.
   const drinkCount = isActive ? liveStats.drinkCount : session.drinkCount ?? 0;
+  const orderCount = session.orderCount ?? 0;
   const top = topDrinks(session.itemCounts, 3);
 
   return (
@@ -133,6 +217,16 @@ function SessionCard({
             <Button variant="outline" onClick={onOpen} className="text-lg">
               View orders
             </Button>
+          )}
+          {/* The running session can't be deleted — the cafe would still point
+              at it, opening the ordering page onto a menu that isn't there. */}
+          {!isActive && (
+            <DeleteSessionButton
+              cafeId={cafeId}
+              session={session}
+              drinkCount={drinkCount}
+              orderCount={orderCount}
+            />
           )}
         </div>
       </CardContent>

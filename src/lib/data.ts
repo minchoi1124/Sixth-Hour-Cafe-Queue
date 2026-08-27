@@ -33,3 +33,60 @@ export const getMenuForCafe = async (cafeId: string): Promise<MenuItem[]> => {
     return [];
   }
 };
+
+/**
+ * What to show a customer when the cafe is closed.
+ *
+ * Prefers the next scheduled session, so the page can say when it opens and
+ * preview that menu. Falls back to the most recent ended session, which at
+ * least shows what's usually served.
+ *
+ * Runs through the Admin SDK, which bypasses security rules — `sessions` is
+ * staff-only, so an unauthenticated client could not read this itself.
+ */
+export type NextOpening = {
+  /** ISO string, or null when nothing is scheduled. */
+  startsAt: string | null;
+  location: string | null;
+  /** Drink ids to preview, greyed out. */
+  menuIds: string[];
+};
+
+export const getNextOpening = async (cafeId: string): Promise<NextOpening | null> => {
+  try {
+    const sessions = getAdminDb().collection(`cafes/${cafeId}/sessions`);
+
+    const scheduled = await sessions
+      .where('status', '==', 'scheduled')
+      .orderBy('startsAt', 'asc')
+      .limit(1)
+      .get();
+
+    if (!scheduled.empty) {
+      const doc = scheduled.docs[0];
+      return {
+        startsAt: doc.get('startsAt')?.toDate?.().toISOString() ?? null,
+        location: (doc.get('location') as string | undefined) ?? null,
+        menuIds: (doc.get('menuIds') as string[] | undefined) ?? [],
+      };
+    }
+
+    // Nothing planned — preview the last menu served so the page isn't bare.
+    const previous = await sessions
+      .where('status', '==', 'ended')
+      .orderBy('startsAt', 'desc')
+      .limit(1)
+      .get();
+
+    if (previous.empty) return null;
+    const doc = previous.docs[0];
+    return {
+      startsAt: null,
+      location: (doc.get('location') as string | undefined) ?? null,
+      menuIds: (doc.get('menuIds') as string[] | undefined) ?? [],
+    };
+  } catch (error) {
+    console.error('Failed to resolve next opening:', error);
+    return null;
+  }
+};

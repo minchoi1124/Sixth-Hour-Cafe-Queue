@@ -3,33 +3,115 @@
 
 import OrderForm from '@/components/customer/OrderForm';
 import { Logo } from '@/components/Logo';
-import type { MenuItem } from '@/lib/definitions';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { query, orderBy } from 'firebase/firestore';
-import { drinksCol } from '@/lib/cafe-paths';
+import type { Cafe, LiveMenu, MenuItem } from '@/lib/definitions';
+import type { NextOpening } from '@/lib/data';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { cafeDoc, drinksCol } from '@/lib/cafe-paths';
+import { resolveMenu } from '@/lib/presets';
+import { formatSessionDate, formatSessionTime } from '@/lib/timezone';
+import { Badge } from '@/components/ui/badge';
+import { Coffee } from 'lucide-react';
+
+/** The menu customers see when the cafe isn't open — greyed, not orderable. */
+function ClosedScreen({
+  drinks,
+  nextOpening,
+  timezone,
+}: {
+  drinks: MenuItem[];
+  nextOpening: NextOpening | null;
+  timezone: string;
+}) {
+  const opensAt = nextOpening?.startsAt ? new Date(nextOpening.startsAt) : null;
+
+  return (
+    <div className="mt-12 space-y-8">
+      <div className="rounded-lg border-2 border-dashed p-8 text-center">
+        <Coffee className="mx-auto mb-4 h-16 w-16 text-muted-foreground/50" />
+        <h2 className="text-4xl font-bold">We&apos;re closed right now</h2>
+        {opensAt ? (
+          <p className="mt-3 text-2xl text-muted-foreground">
+            Opens {formatSessionDate(opensAt, timezone)} at{' '}
+            <span className="font-medium text-foreground">
+              {formatSessionTime(opensAt, timezone)}
+            </span>
+            {nextOpening?.location ? ` · ${nextOpening.location}` : ''}
+          </p>
+        ) : (
+          <p className="mt-3 text-2xl text-muted-foreground">
+            Check back soon — we&apos;ll be serving again before long.
+          </p>
+        )}
+      </div>
+
+      {drinks.length > 0 && (
+        <div>
+          <h3 className="mb-4 text-3xl font-category text-primary">
+            {opensAt ? "What we'll be serving" : 'What we usually serve'}
+          </h3>
+          <ul className="grid grid-cols-1 gap-4">
+            {drinks.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-lg border-2 border-primary/10 bg-muted/40 p-6 opacity-60"
+              >
+                <span className="block text-2xl font-medium">{item.name}</span>
+                {item.description && (
+                  <p className="mt-1 text-lg text-muted-foreground">{item.description}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CustomerPageClient({
   cafeId,
   location,
-  menu: initialMenu,
+  menu: initialLibrary,
   instagramUrl,
+  initialLiveMenu,
+  nextOpening,
+  timezone,
 }: {
   cafeId: string;
   location: string;
+  /** The whole drink library; what's orderable comes from `liveMenu`. */
   menu: MenuItem[];
   instagramUrl: string | null;
+  initialLiveMenu: LiveMenu | null;
+  nextOpening: NextOpening | null;
+  timezone: string;
 }) {
   const firestore = useFirestore();
 
-  const menuQuery = useMemoFirebase(() => {
+  const libraryQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(drinksCol(firestore, cafeId), orderBy('order', 'asc'));
+    return drinksCol(firestore, cafeId);
   }, [firestore, cafeId]);
+  const { data: realTimeLibrary } = useCollection<MenuItem>(libraryQuery);
 
-  const { data: realTimeMenu } = useCollection<MenuItem>(menuQuery);
+  // The cafe doc is world-readable and carries the public mirror of the active
+  // session's menu, so an unauthenticated customer gets live menu and sold-out
+  // updates without ever reading the staff-only session document.
+  const cafeRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return cafeDoc(firestore, cafeId);
+  }, [firestore, cafeId]);
+  const { data: liveCafe, isLoading: isCafeLoading } = useDoc<Cafe>(cafeRef);
 
-  const displayMenu = realTimeMenu ?? initialMenu;
-  const availableMenu = displayMenu.filter(item => item.inStock);
+  const library = realTimeLibrary ?? initialLibrary;
+  // Fall back to the server-rendered value until the listener resolves, so the
+  // page doesn't flash "closed" on load while open.
+  const liveMenu = isCafeLoading ? initialLiveMenu : liveCafe?.liveMenu ?? null;
+
+  const isOpen = !!liveMenu && liveMenu.drinkIds.length > 0;
+  const orderableMenu = resolveMenu(library, liveMenu?.drinkIds);
+  const soldOutIds = liveMenu?.soldOutIds ?? [];
+  const previewMenu = resolveMenu(library, nextOpening?.menuIds);
 
   return (
     <>
@@ -42,14 +124,29 @@ export default function CustomerPageClient({
           {location && (
             <p className="mt-2 text-2xl font-medium text-primary">{location}</p>
           )}
-          <p className="mt-4 text-xl text-muted-foreground">
-            Place your order below.
-          </p>
+          {isOpen ? (
+            <p className="mt-4 text-xl text-muted-foreground">Place your order below.</p>
+          ) : (
+            <Badge variant="secondary" className="mt-4 text-lg">Closed</Badge>
+          )}
         </div>
 
-        <div className="mt-12">
-          <OrderForm cafeId={cafeId} menu={availableMenu} instagramUrl={instagramUrl} />
-        </div>
+        {isOpen ? (
+          <div className="mt-12">
+            <OrderForm
+              cafeId={cafeId}
+              menu={orderableMenu}
+              soldOutIds={soldOutIds}
+              instagramUrl={instagramUrl}
+            />
+          </div>
+        ) : (
+          <ClosedScreen
+            drinks={previewMenu}
+            nextOpening={nextOpening}
+            timezone={timezone}
+          />
+        )}
       </main>
     </>
   );

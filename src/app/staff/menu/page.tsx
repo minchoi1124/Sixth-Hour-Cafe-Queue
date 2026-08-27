@@ -2,8 +2,8 @@
 
 import { useCollection, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
-import { drinksCol, categoriesCol, presetsCol } from '@/lib/cafe-paths';
-import type { MenuItem, Category, MenuPreset } from '@/lib/definitions';
+import { drinksCol, categoriesCol, presetsCol, recipesCol } from '@/lib/cafe-paths';
+import type { MenuItem, Category, MenuPreset, Recipe } from '@/lib/definitions';
 import MenuManager from '@/components/staff/MenuManager';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -41,7 +41,13 @@ export default function MenuManagementPage() {
     return presetsCol(firestore, cafeId);
   }, [firestore, cafeId]);
 
+  const recipesQuery = useMemoFirebase(() => {
+    if (!firestore || !cafeId) return null;
+    return recipesCol(firestore, cafeId);
+  }, [firestore, cafeId]);
+
   const { data: menu, isLoading: isLoadingMenu } = useCollection<MenuItem>(menuQuery);
+  const { data: recipes } = useCollection<Recipe>(recipesQuery);
   const { data: presets } = useCollection<MenuPreset>(presetsQuery);
   const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);
 
@@ -56,6 +62,7 @@ export default function MenuManagementPage() {
   const safeMenu = menu ?? [];
   const safeCategories = categories ?? [];
   const safePresets = presets ?? [];
+  const safeRecipes = recipes ?? [];
 
   return (
     <div className="container mx-auto p-4 sm:p-8 space-y-6">
@@ -66,7 +73,12 @@ export default function MenuManagementPage() {
           when you start a session.
         </p>
       </div>
-      <MenuManager menu={safeMenu} categories={safeCategories} presets={safePresets} />
+      <MenuManager
+        menu={safeMenu}
+        categories={safeCategories}
+        presets={safePresets}
+        recipes={safeRecipes}
+      />
     </div>
   );
 }

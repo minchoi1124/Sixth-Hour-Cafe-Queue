@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { MenuItem, Category, MenuPreset } from '@/lib/definitions';
+import type { MenuItem, Category, MenuPreset, Recipe } from '@/lib/definitions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import { writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
 import { drinkDoc } from '@/lib/cafe-paths';
 import {
   ArrowDown, ArrowUp, Trash2, Cloud, Check, Loader2, AlertCircle,
-  ChevronDown, ChevronRight, Search, X, Plus, Tags, ListChecks,
+  ChevronDown, ChevronRight, Search, X, Plus, Tags, ListChecks, BookOpen,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -32,6 +32,8 @@ import { ModificationEditor } from '@/components/staff/ModificationEditor';
 import { AddDrinkDialog } from '@/components/staff/AddDrinkForm';
 import { ManageCategoriesDialog } from '@/components/staff/CategoryManager';
 import { ManagePresetsDialog } from '@/components/staff/PresetManager';
+import { RecipeEditor } from '@/components/staff/RecipeEditor';
+import { recipesByDrink, hasContent } from '@/lib/recipes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -120,10 +122,12 @@ export default function MenuManager({
   menu,
   categories,
   presets,
+  recipes,
 }: {
   menu: MenuItem[];
   categories: Category[];
   presets: MenuPreset[];
+  recipes: Recipe[];
 }) {
   const firestore = useFirestore();
   const cafeId = useCafeId();
@@ -312,6 +316,7 @@ export default function MenuManager({
   };
 
   const totalVisible = visibleSections.reduce((n, s) => n + s.items.length, 0);
+  const recipeFor = useMemo(() => recipesByDrink(recipes), [recipes]);
 
   return (
     <div className="space-y-6">
@@ -460,6 +465,12 @@ export default function MenuManager({
                                   {modCount} option{modCount === 1 ? '' : 's'}
                                 </span>
                               )}
+                              {hasContent(recipeFor.get(item.id)) && (
+                                <BookOpen
+                                  className="hidden h-5 w-5 flex-shrink-0 text-muted-foreground sm:block"
+                                  aria-label="Has a recipe"
+                                />
+                              )}
                             </button>
 
                           </div>
@@ -567,6 +578,17 @@ export default function MenuManager({
                                   </AlertDialog>
                                 </div>
                               </div>
+
+                              {cafeId && (
+                                <div className="border-t pt-6">
+                                  <RecipeEditor
+                                    cafeId={cafeId}
+                                    drinkId={item.id}
+                                    drinkName={item.name}
+                                    recipe={recipeFor.get(item.id) ?? null}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

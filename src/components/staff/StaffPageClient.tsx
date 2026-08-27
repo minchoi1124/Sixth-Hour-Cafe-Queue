@@ -2,7 +2,7 @@
 'use client';
 
 import { OrderQueue } from '@/components/staff/OrderQueue';
-import { Suspense, useState, useMemo } from 'react';
+import { Suspense, useState, useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SessionHistory from '@/components/staff/SessionHistory';
@@ -53,6 +53,29 @@ export default function StaffPageClient() {
   const firestore = useFirestore();
   const cafeId = useCafeId();
 
+  // Firestore's listener connection can go stale on a kiosk tablet — mobile
+  // Safari suspends it when the tab backgrounds or the screen locks, and a
+  // network blip can leave it half-open. The SDK does not always reconnect
+  // promptly, which shows up as orders arriving minutes late. Re-creating the
+  // query objects on focus/visibility/online forces a fresh subscribe, which is
+  // what reloading the page does by hand. `useCollection` keeps its previous
+  // data across a resubscribe, so this never flashes a loading skeleton.
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  useEffect(() => {
+    const bump = () => setReconnectNonce(n => n + 1);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') bump();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('online', bump);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('online', bump);
+    };
+  }, []);
+
   // The cafe doc carries the pointer to the running session and the timezone
   // used to display session dates.
   const cafeRef = useMemoFirebase(() => {
@@ -94,7 +117,8 @@ export default function StaffPageClient() {
       where('status', '==', 'pending'),
       orderBy('createdAt', 'asc')
     );
-  }, [firestore, cafeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firestore, cafeId, reconnectNonce]);
 
   // Live totals for the running session only — bounded to one session's orders
   // rather than every order the cafe has ever completed.

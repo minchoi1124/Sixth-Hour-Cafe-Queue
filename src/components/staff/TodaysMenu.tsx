@@ -174,7 +174,7 @@ export function TodaysMenu({
                     {drink.name}
                   </span>
                   <Label htmlFor={`soldout-${drink.id}`} className="text-base text-muted-foreground">
-                    {isSoldOut ? 'Sold out' : 'Available'}
+                    {isSoldOut ? 'Out of stock' : 'In stock'}
                   </Label>
                   <Switch
                     id={`soldout-${drink.id}`}

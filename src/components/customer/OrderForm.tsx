@@ -65,7 +65,7 @@ function DrinkOption({ item, soldOut }: { item: MenuItem; soldOut: boolean }) {
                   {item.name}
                   {soldOut && (
                     <span className="ml-3 align-middle text-lg font-normal text-muted-foreground">
-                      Sold out
+                      Out of stock
                     </span>
                   )}
                 </span>
@@ -156,7 +156,7 @@ export default function OrderForm({
 
     // Staff can mark a drink sold out while it's already selected here.
     if (soldOut.has(foundSelectedItem.id)) {
-      setErrors({ itemId: [`Sorry, ${foundSelectedItem.name} just sold out. Please pick another.`] });
+      setErrors({ itemId: [`Sorry, ${foundSelectedItem.name} just went out of stock. Please pick another.`] });
       setSelectedItemId(null);
       setIsPending(false);
       return;

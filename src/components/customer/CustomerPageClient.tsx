@@ -101,12 +101,17 @@ export default function CustomerPageClient({
     if (!firestore) return null;
     return cafeDoc(firestore, cafeId);
   }, [firestore, cafeId]);
-  const { data: liveCafe, isLoading: isCafeLoading } = useDoc<Cafe>(cafeRef);
+  const { data: liveCafe } = useDoc<Cafe>(cafeRef);
 
   const library = realTimeLibrary ?? initialLibrary;
-  // Fall back to the server-rendered value until the listener resolves, so the
+  // Use the server-rendered value only until the first snapshot arrives, so the
   // page doesn't flash "closed" on load while open.
-  const liveMenu = isCafeLoading ? initialLiveMenu : liveCafe?.liveMenu ?? null;
+  //
+  // Keyed on whether a snapshot has ever landed, NOT on isLoading: useDoc sets
+  // isLoading true again on every re-subscribe (it re-runs whenever the auth
+  // user object changes identity, e.g. on token refresh), and gating on that
+  // would snap the page back to the stale page-load menu each time.
+  const liveMenu = liveCafe ? liveCafe.liveMenu ?? null : initialLiveMenu;
 
   const isOpen = !!liveMenu && liveMenu.drinkIds.length > 0;
   const orderableMenu = resolveMenu(library, liveMenu?.drinkIds);

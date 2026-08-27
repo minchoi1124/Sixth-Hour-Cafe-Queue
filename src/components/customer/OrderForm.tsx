@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -31,7 +31,7 @@ const drinkIcons: { [key: string]: React.FC<{ className?: string }> } = {
     "Apple Cider Chai": AppleCiderChaiIcon,
 };
 
-function DrinkOption({ item }: { item: MenuItem }) {
+function DrinkOption({ item, soldOut }: { item: MenuItem; soldOut: boolean }) {
   const Icon = drinkIcons[item.name];
   return (
     <div>
@@ -40,21 +40,35 @@ function DrinkOption({ item }: { item: MenuItem }) {
         id={`item-${item.id}`}
         className="sr-only peer"
         aria-labelledby={`label-item-${item.id}`}
+        disabled={soldOut}
       />
       <Label
         htmlFor={`item-${item.id}`}
         id={`label-item-${item.id}`}
         className={cn(
-          'flex flex-col items-center justify-between p-6 text-center rounded-lg border-2 border-primary/20 cursor-pointer',
+          'flex flex-col items-center justify-between p-6 text-center rounded-lg border-2 border-primary/20',
           'transition-all duration-200 ease-in-out',
-          'bg-background hover:bg-accent',
-          'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
+          // Sold out stays visible rather than vanishing mid-service: a customer
+          // reading the board should see it's known-out, not wonder where it went.
+          soldOut
+            ? 'cursor-not-allowed bg-muted/40 opacity-60'
+            : [
+                'cursor-pointer bg-background hover:bg-accent',
+                'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground',
+              ]
         )}
       >
         <div className="flex items-start gap-4 w-full">
             {Icon && <div className="h-14 w-14 flex-shrink-0 mt-1"><Icon /></div>}
             <div className="text-left flex-1">
-                <span className="block text-2xl font-medium">{item.name}</span>
+                <span className="block text-2xl font-medium">
+                  {item.name}
+                  {soldOut && (
+                    <span className="ml-3 align-middle text-lg font-normal text-muted-foreground">
+                      Sold out
+                    </span>
+                  )}
+                </span>
                 <p className="text-lg opacity-80 mt-1">{item.description}</p>
             </div>
         </div>
@@ -66,10 +80,12 @@ function DrinkOption({ item }: { item: MenuItem }) {
 export default function OrderForm({
   cafeId,
   menu,
+  soldOutIds,
   instagramUrl,
 }: {
   cafeId: string;
   menu: MenuItem[];
+  soldOutIds: string[];
   instagramUrl: string | null;
 }) {
   const [isPending, setIsPending] = useState(false);
@@ -78,6 +94,7 @@ export default function OrderForm({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ customerName?: string[], itemId?: string[] } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const soldOut = useMemo(() => new Set(soldOutIds), [soldOutIds]);
 
   const categories = menu.reduce((acc, item) => {
     if (!acc[item.category]) {
@@ -133,6 +150,14 @@ export default function OrderForm({
     const foundSelectedItem = menu.find(item => validatedFields.data.itemId === item.id);
     if (!foundSelectedItem) {
       setErrors({ itemId: ['Invalid drink selected.'] });
+      setIsPending(false);
+      return;
+    }
+
+    // Staff can mark a drink sold out while it's already selected here.
+    if (soldOut.has(foundSelectedItem.id)) {
+      setErrors({ itemId: [`Sorry, ${foundSelectedItem.name} just sold out. Please pick another.`] });
+      setSelectedItemId(null);
       setIsPending(false);
       return;
     }
@@ -246,7 +271,9 @@ export default function OrderForm({
                 <div key={category}>
                     <h3 className="text-4xl font-category mb-4 text-primary">{category}</h3>
                     <div className="grid grid-cols-1 gap-4">
-                        {items.map((item) => <DrinkOption key={item.id} item={item} />)}
+                        {items.map((item) => (
+                <DrinkOption key={item.id} item={item} soldOut={soldOut.has(item.id)} />
+              ))}
                     </div>
                 </div>
             ))}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useFirestore } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
-import type { Session } from '@/lib/definitions';
+import type { MenuItem, MenuPreset, Session } from '@/lib/definitions';
 import {
   activateSession,
   endSession,
@@ -22,6 +22,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { MenuPicker } from '@/components/staff/MenuPicker';
+import { createPreset, resolveMenu, sortPresets } from '@/lib/presets';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +52,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { CalendarClock, Loader2, MapPin, Play, Square } from 'lucide-react';
+
+/** Select value meaning "build a new preset here" — never a preset id. */
+const NEW_PRESET = '__new__';
 
 /** The venue + clock readout for the session currently running. */
 export function SessionChip({ session, timezone }: { session: Session; timezone: string }) {
@@ -74,6 +86,10 @@ type StartSessionDialogProps = {
   timezone: string;
   /** Prefill for the venue field — last session's, falling back to the cafe's. */
   defaultLocation: string;
+  /** Every drink the cafe has created, to build a menu from. */
+  library: MenuItem[];
+  /** Saved named menus to choose between. */
+  presets: MenuPreset[];
   /** Rendered as the dialog trigger. */
   children: React.ReactNode;
 };
@@ -88,6 +104,8 @@ export function StartSessionDialog({
   cafeId,
   timezone,
   defaultLocation,
+  library,
+  presets,
   children,
 }: StartSessionDialogProps) {
   const firestore = useFirestore();
@@ -97,6 +115,11 @@ export function StartSessionDialog({
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
+  // A session must have a menu — either an existing preset or a new one built
+  // here. NEW_PRESET is a sentinel for the Select, not a preset id.
+  const [presetChoice, setPresetChoice] = useState<string>('');
+  const [newPresetName, setNewPresetName] = useState('');
+  const [newPresetIds, setNewPresetIds] = useState<string[]>([]);
 
   // Reset the form to "here, now" every time the dialog opens.
   useEffect(() => {
@@ -106,23 +129,53 @@ export function StartSessionDialog({
     setDate(wall.date);
     setTime(wall.time);
     setNotes('');
-  }, [open, defaultLocation, timezone]);
+    // Default to the most recently used preset — the common case is running the
+    // same menu as last time.
+    setPresetChoice(sortPresets(presets)[0]?.id ?? NEW_PRESET);
+    setNewPresetName('');
+    setNewPresetIds([]);
+  }, [open, defaultLocation, timezone, presets]);
 
   const startsAt = date && time ? zonedWallTimeToDate(date, time, timezone) : null;
   const startsAtValid = !!startsAt && !Number.isNaN(startsAt.getTime());
   // Same rule the write path uses, so the button never promises "Start session"
   // and then save a scheduled one.
   const isScheduled = startsAtValid && isScheduledStart(startsAt);
-  const canSubmit = location.trim().length > 0 && startsAtValid && !isSaving;
+
+  const orderedPresets = sortPresets(presets);
+  const creatingPreset = presetChoice === NEW_PRESET;
+  const chosenPreset = creatingPreset
+    ? null
+    : presets.find((p) => p.id === presetChoice) ?? null;
+  // Resolve through the library so a preset referencing a deleted drink can't
+  // put a dead id on the menu.
+  const menuIds = creatingPreset
+    ? newPresetIds
+    : resolveMenu(library, chosenPreset?.drinkIds).map((d) => d.id);
+
+  const menuReady = creatingPreset
+    ? newPresetName.trim().length > 0 && newPresetIds.length > 0
+    : menuIds.length > 0;
+
+  const canSubmit =
+    location.trim().length > 0 && startsAtValid && menuReady && !isSaving;
 
   const handleSubmit = async () => {
     if (!firestore || !canSubmit || !startsAt) return;
     setIsSaving(true);
     try {
+      // Save the new preset first so the session records where its menu came
+      // from, and so the menu is reusable next time.
+      const presetId = creatingPreset
+        ? await createPreset(firestore, cafeId, newPresetName, newPresetIds)
+        : chosenPreset?.id ?? null;
+
       const result = await startSession(firestore, cafeId, {
         location: location.trim(),
         startsAt,
         notes: notes.trim() || undefined,
+        menuIds,
+        presetId,
       });
       setOpen(false);
       toast({
@@ -151,7 +204,7 @@ export function StartSessionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-3xl">Start a new session</DialogTitle>
           <DialogDescription className="text-lg">
@@ -203,6 +256,55 @@ export function StartSessionDialog({
               placeholder="Anything worth remembering about this session"
               className="text-lg"
             />
+          </div>
+
+          {/* Menu — required. A session with no menu leaves customers nothing
+              to order, so submit stays blocked until one is chosen. */}
+          <div className="space-y-3 rounded-md border p-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-preset" className="text-lg">Menu</Label>
+              <Select value={presetChoice} onValueChange={setPresetChoice}>
+                <SelectTrigger id="session-preset" className="h-12 text-xl">
+                  <SelectValue placeholder="Choose a menu" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orderedPresets.map((preset) => (
+                    <SelectItem key={preset.id} value={preset.id} className="text-lg">
+                      {preset.name} ({resolveMenu(library, preset.drinkIds).length})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={NEW_PRESET} className="text-lg">
+                    + New preset...
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {creatingPreset ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="new-preset-name" className="text-lg">Preset name</Label>
+                  <Input
+                    id="new-preset-name"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    placeholder="e.g. Fall Menu"
+                    className="h-12 text-xl"
+                  />
+                </div>
+                <MenuPicker
+                  library={library}
+                  selectedIds={newPresetIds}
+                  onChange={setNewPresetIds}
+                />
+              </div>
+            ) : (
+              <p className="text-base text-muted-foreground">
+                {menuIds.length === 0
+                  ? 'This preset has no drinks left in the library. Pick another or build a new one.'
+                  : resolveMenu(library, chosenPreset?.drinkIds).map((d) => d.name).join(', ')}
+              </p>
+            )}
           </div>
 
           {isScheduled && (

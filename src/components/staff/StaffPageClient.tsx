@@ -11,7 +11,7 @@ import {
   SessionChip,
   StartSessionDialog,
 } from '@/components/staff/SessionControls';
-import type { Cafe, Order, Session } from '@/lib/definitions';
+import type { Cafe, MenuItem, MenuPreset, Order, Session } from '@/lib/definitions';
 import { Button } from '../ui/button';
 import { Coffee, Play, Sigma } from 'lucide-react';
 import {
@@ -25,9 +25,10 @@ import {
 
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
 import { query, where, orderBy } from 'firebase/firestore';
-import { cafeDoc, ordersCol, sessionsCol } from '@/lib/cafe-paths';
+import { cafeDoc, drinksCol, ordersCol, presetsCol, sessionsCol } from '@/lib/cafe-paths';
 import { countDrinks, suggestedLocation } from '@/lib/sessions';
 import { cafeTimezone } from '@/lib/timezone';
+import { TodaysMenu } from '@/components/staff/TodaysMenu';
 
 function OrderQueueSkeleton() {
     return (
@@ -69,6 +70,20 @@ export default function StaffPageClient() {
   }, [firestore, cafeId]);
   const { data: sessions } = useCollection<Session>(sessionsQuery);
   const activeSession = sessions?.find((s) => s.id === activeSessionId) ?? null;
+
+  // The library and saved presets: needed to build a menu when starting a
+  // session, and to resolve today's menu ids into drink names.
+  const libraryQuery = useMemoFirebase(() => {
+    if (!firestore || !cafeId) return null;
+    return drinksCol(firestore, cafeId);
+  }, [firestore, cafeId]);
+  const { data: library } = useCollection<MenuItem>(libraryQuery);
+
+  const presetsQuery = useMemoFirebase(() => {
+    if (!firestore || !cafeId) return null;
+    return presetsCol(firestore, cafeId);
+  }, [firestore, cafeId]);
+  const { data: presets } = useCollection<MenuPreset>(presetsQuery);
 
   // The queue is deliberately NOT session-scoped: whatever is pending needs
   // making, even if it arrived before this session started.
@@ -143,6 +158,8 @@ export default function StaffPageClient() {
                         cafeId={cafeId}
                         timezone={timezone}
                         defaultLocation={defaultLocation}
+                        library={library ?? []}
+                        presets={presets ?? []}
                       >
                         <Button className="py-6 text-xl">
                           <Play className="mr-2 h-5 w-5" />
@@ -187,6 +204,16 @@ export default function StaffPageClient() {
             )}
 
             <TabsContent value="queue">
+                {activeSession && cafeId && (
+                  <div className="mb-6">
+                    <TodaysMenu
+                      cafeId={cafeId}
+                      session={activeSession}
+                      library={library ?? []}
+                      presets={presets ?? []}
+                    />
+                  </div>
+                )}
                 <Suspense fallback={<OrderQueueSkeleton />}>
                     <OrderQueue status="pending" orders={pendingOrders} activeSessionId={activeSessionId} />
                 </Suspense>

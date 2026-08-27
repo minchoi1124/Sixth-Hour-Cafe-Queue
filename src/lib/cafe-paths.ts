@@ -37,6 +37,12 @@ export const sessionsCol = (db: Firestore, cafeId: string) =>
 export const sessionDoc = (db: Firestore, cafeId: string, id: string) =>
   doc(db, 'cafes', cafeId, 'sessions', id);
 
+// Named, reusable menus. A session snapshots one of these when it starts.
+export const presetsCol = (db: Firestore, cafeId: string) =>
+  collection(db, 'cafes', cafeId, 'presets');
+export const presetDoc = (db: Firestore, cafeId: string, id: string) =>
+  doc(db, 'cafes', cafeId, 'presets', id);
+
 // --- Public slug -> cafe lookup ---
 export const slugDoc = (db: Firestore, slug: string) =>
   doc(db, 'slugs', slug);

@@ -6,14 +6,41 @@ export type Modification = {
   default: boolean;
 };
 
+/**
+ * A drink recipe in the cafe's library. The library holds everything ever
+ * created; what customers see is the active session's menu, not this list.
+ */
 export type MenuItem = {
   id: string; // Firestore document ID
   name: string;
   description: string;
+  /**
+   * Legacy. Availability is now per-session (`Session.soldOutIds`) so running
+   * out one week doesn't carry into the next. Kept so old docs still parse.
+   */
   inStock: boolean;
   category: string;
+  /**
+   * Legacy. Display order now comes from position in the session's `menuIds`,
+   * so this no longer drives what customers see. The library sorts by category
+   * and name.
+   */
   order: number;
   modifications: Modification[];
+};
+
+/**
+ * A named, reusable menu — "Fall Menu", "Finals Week". Starting a session
+ * snapshots one of these onto the session; the preset itself is never changed
+ * by that session unless someone explicitly saves back to it.
+ */
+export type MenuPreset = {
+  id: string; // Firestore document ID
+  name: string;
+  /** Ordered: array position is the display order customers see. */
+  drinkIds: string[];
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 };
 
 export type OrderItem = {
@@ -64,6 +91,19 @@ export type Session = {
   endedAt?: Timestamp | null;
   status: SessionStatus;
   notes?: string;
+  /**
+   * The ordered menu for this session, snapshotted from a preset when the
+   * session is created. Authoritative and historical — editing the preset later
+   * must not change what a past session served.
+   */
+  menuIds: string[];
+  /**
+   * Drinks that ran out during this session. Session-scoped by construction, so
+   * there's no reset step to forget between services.
+   */
+  soldOutIds: string[];
+  /** Which preset the menu came from, for the deliberate "save back" action. */
+  presetId?: string | null;
   // --- Stats snapshot, written when the session ends (or on recompute) ---
   drinkCount?: number;
   orderCount?: number;
@@ -79,6 +119,22 @@ export type NewSession = {
   location: string;
   startsAt: Date;
   notes?: string;
+  /** Required: a session with no menu leaves customers nothing to order. */
+  menuIds: string[];
+  presetId?: string | null;
+};
+
+/**
+ * What customers are being served right now, mirrored onto the cafe document.
+ *
+ * Sessions are staff-only, but the cafe doc is world-readable and already
+ * fetched when resolving a slug — so this gives the unauthenticated ordering
+ * page the live menu and sold-out state with no extra read and nothing internal
+ * exposed. `null` means the cafe is closed.
+ */
+export type LiveMenu = {
+  drinkIds: string[];
+  soldOutIds: string[];
 };
 
 export type Category = {
@@ -105,4 +161,6 @@ export type Cafe = {
   activeSessionId?: string | null;
   /** IANA timezone used to group sessions by date. Defaults to America/New_York. */
   timezone?: string;
+  /** Public mirror of the active session's menu; null/absent means closed. */
+  liveMenu?: LiveMenu | null;
 };

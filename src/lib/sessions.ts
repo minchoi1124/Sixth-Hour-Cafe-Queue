@@ -172,10 +172,18 @@ export async function startSession(
       startsAt: input.startsAt,
       endedAt: null,
       status: isFuture ? 'scheduled' : 'active',
+      menuIds: input.menuIds,
+      soldOutIds: [],
+      presetId: input.presetId ?? null,
       ...(input.notes ? { notes: input.notes } : {}),
     });
     if (!isFuture) {
-      tx.update(cafeRef, { activeSessionId: ref.id });
+      // The public mirror goes out in the same write as activeSessionId, so the
+      // cafe can never be "open" without a menu for customers to read.
+      tx.update(cafeRef, {
+        activeSessionId: ref.id,
+        liveMenu: { drinkIds: input.menuIds, soldOutIds: [] },
+      });
     }
   });
 
@@ -191,13 +199,23 @@ export async function activateSession(
 ): Promise<number> {
   await runTransaction(db, async (tx) => {
     const cafeRef = cafeDoc(db, cafeId);
-    const cafeSnap = await tx.get(cafeRef);
+    const sessionRef = sessionDoc(db, cafeId, sessionId);
+    // Both reads must precede any write inside a transaction.
+    const [cafeSnap, sessionSnap] = await Promise.all([tx.get(cafeRef), tx.get(sessionRef)]);
+
     const activeSessionId = cafeSnap.get('activeSessionId') as string | null | undefined;
     if (activeSessionId && activeSessionId !== sessionId) {
       throw new Error('A session is already running. End it before starting a new one.');
     }
-    tx.update(sessionDoc(db, cafeId, sessionId), { status: 'active' });
-    tx.update(cafeRef, { activeSessionId: sessionId });
+
+    const menuIds = (sessionSnap.get('menuIds') as string[] | undefined) ?? [];
+    const soldOutIds = (sessionSnap.get('soldOutIds') as string[] | undefined) ?? [];
+
+    tx.update(sessionRef, { status: 'active' });
+    tx.update(cafeRef, {
+      activeSessionId: sessionId,
+      liveMenu: { drinkIds: menuIds, soldOutIds },
+    });
   });
 
   return adoptOrphanOrders(db, cafeId, sessionId);
@@ -221,10 +239,70 @@ export async function endSession(
     endedAt: serverTimestamp(),
     statsUpdatedAt: serverTimestamp(),
   });
-  batch.update(cafeDoc(db, cafeId), { activeSessionId: null });
+  // Clearing liveMenu is what closes the ordering page — it must go out with
+  // activeSessionId, never separately.
+  batch.update(cafeDoc(db, cafeId), { activeSessionId: null, liveMenu: null });
   await batch.commit();
 
   return stats;
+}
+
+/**
+ * Replace the running session's menu.
+ *
+ * Session and public mirror are written in one batch so customers can never see
+ * a menu that disagrees with what staff have set. The preset the menu came from
+ * is deliberately untouched — see `savePresetFromSession` for the explicit
+ * write-back.
+ */
+export async function setSessionMenu(
+  db: Firestore,
+  cafeId: string,
+  sessionId: string,
+  menuIds: string[],
+  soldOutIds: string[] = [],
+): Promise<void> {
+  // Anything sold out but no longer on the menu is meaningless; drop it.
+  const menuSet = new Set(menuIds);
+  const prunedSoldOut = soldOutIds.filter((id) => menuSet.has(id));
+
+  const batch = writeBatch(db);
+  batch.update(sessionDoc(db, cafeId, sessionId), {
+    menuIds,
+    soldOutIds: prunedSoldOut,
+  });
+  batch.update(cafeDoc(db, cafeId), {
+    liveMenu: { drinkIds: menuIds, soldOutIds: prunedSoldOut },
+  });
+  await batch.commit();
+}
+
+/**
+ * Mark a drink sold out (or back in) for this session only.
+ *
+ * The mid-rush action: it must be one tap and it must not leak into the next
+ * session, which is why availability lives on the session rather than on the
+ * drink document.
+ */
+export async function toggleSoldOut(
+  db: Firestore,
+  cafeId: string,
+  sessionId: string,
+  menuIds: string[],
+  soldOutIds: string[],
+  drinkId: string,
+  soldOut: boolean,
+): Promise<void> {
+  const next = soldOut
+    ? Array.from(new Set([...soldOutIds, drinkId]))
+    : soldOutIds.filter((id) => id !== drinkId);
+
+  const batch = writeBatch(db);
+  batch.update(sessionDoc(db, cafeId, sessionId), { soldOutIds: next });
+  batch.update(cafeDoc(db, cafeId), {
+    liveMenu: { drinkIds: menuIds, soldOutIds: next },
+  });
+  await batch.commit();
 }
 
 /**

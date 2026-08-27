@@ -2,8 +2,8 @@
 
 import { useCollection, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
 import { query, orderBy } from 'firebase/firestore';
-import { drinksCol, categoriesCol } from '@/lib/cafe-paths';
-import type { MenuItem, Category } from '@/lib/definitions';
+import { drinksCol, categoriesCol, presetsCol } from '@/lib/cafe-paths';
+import type { MenuItem, Category, MenuPreset } from '@/lib/definitions';
 import MenuManager from '@/components/staff/MenuManager';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -36,7 +36,13 @@ export default function MenuManagementPage() {
     return query(categoriesCol(firestore, cafeId), orderBy('name', 'asc'));
   }, [firestore, cafeId]);
 
+  const presetsQuery = useMemoFirebase(() => {
+    if (!firestore || !cafeId) return null;
+    return presetsCol(firestore, cafeId);
+  }, [firestore, cafeId]);
+
   const { data: menu, isLoading: isLoadingMenu } = useCollection<MenuItem>(menuQuery);
+  const { data: presets } = useCollection<MenuPreset>(presetsQuery);
   const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);
 
   if (isLoadingMenu || isLoadingCategories) {
@@ -49,16 +55,18 @@ export default function MenuManagementPage() {
 
   const safeMenu = menu ?? [];
   const safeCategories = categories ?? [];
+  const safePresets = presets ?? [];
 
   return (
     <div className="container mx-auto p-4 sm:p-8 space-y-6">
       <div>
-        <h1 className="text-5xl font-bold">Menu Management</h1>
+        <h1 className="text-5xl font-bold">Drink Library</h1>
         <p className="text-2xl text-muted-foreground">
-          Update drink availability, names, categories, and display order.
+          Every drink you&apos;ve created. Build named presets from these, then pick one
+          when you start a session.
         </p>
       </div>
-      <MenuManager menu={safeMenu} categories={safeCategories} />
+      <MenuManager menu={safeMenu} categories={safeCategories} presets={safePresets} />
     </div>
   );
 }

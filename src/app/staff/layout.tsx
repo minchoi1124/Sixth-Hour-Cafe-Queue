@@ -150,6 +150,7 @@ export default function StaffLayout({
           <nav className="flex items-center gap-2 sm:gap-4 p-1 bg-secondary rounded-lg">
             <NavLink href="/staff">Queue</NavLink>
             <NavLink href="/staff/menu">Menu</NavLink>
+            <NavLink href="/staff/stats">Stats</NavLink>
             {isOwner && <NavLink href="/staff/settings">Settings</NavLink>}
           </nav>
           <div className="flex items-center gap-2">

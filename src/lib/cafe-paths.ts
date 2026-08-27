@@ -43,6 +43,13 @@ export const presetsCol = (db: Firestore, cafeId: string) =>
 export const presetDoc = (db: Firestore, cafeId: string, id: string) =>
   doc(db, 'cafes', cafeId, 'presets', id);
 
+// How to make each drink. Keyed by drink id, so a drink has at most one recipe
+// and looking one up needs no query.
+export const recipesCol = (db: Firestore, cafeId: string) =>
+  collection(db, 'cafes', cafeId, 'recipes');
+export const recipeDoc = (db: Firestore, cafeId: string, drinkId: string) =>
+  doc(db, 'cafes', cafeId, 'recipes', drinkId);
+
 // --- Public slug -> cafe lookup ---
 export const slugDoc = (db: Firestore, slug: string) =>
   doc(db, 'slugs', slug);

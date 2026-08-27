@@ -11,7 +11,7 @@ import {
   SessionChip,
   StartSessionDialog,
 } from '@/components/staff/SessionControls';
-import type { Cafe, MenuItem, MenuPreset, Order, Session } from '@/lib/definitions';
+import type { Cafe, MenuItem, MenuPreset, Order, Recipe, Session } from '@/lib/definitions';
 import { Button } from '../ui/button';
 import { Coffee, Play, Sigma } from 'lucide-react';
 import {
@@ -25,7 +25,7 @@ import {
 
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
 import { query, where, orderBy } from 'firebase/firestore';
-import { cafeDoc, drinksCol, ordersCol, presetsCol, sessionsCol } from '@/lib/cafe-paths';
+import { cafeDoc, drinksCol, ordersCol, presetsCol, recipesCol, sessionsCol } from '@/lib/cafe-paths';
 import { countDrinks, suggestedLocation } from '@/lib/sessions';
 import { cafeTimezone } from '@/lib/timezone';
 import { TodaysMenu } from '@/components/staff/TodaysMenu';
@@ -107,6 +107,14 @@ export default function StaffPageClient() {
     return presetsCol(firestore, cafeId);
   }, [firestore, cafeId]);
   const { data: presets } = useCollection<MenuPreset>(presetsQuery);
+
+  // How-to-make recipes, shown inline on Today's Menu so whoever is on bar can
+  // check a build without leaving the queue.
+  const recipesQuery = useMemoFirebase(() => {
+    if (!firestore || !cafeId) return null;
+    return recipesCol(firestore, cafeId);
+  }, [firestore, cafeId]);
+  const { data: recipes } = useCollection<Recipe>(recipesQuery);
 
   // The queue is deliberately NOT session-scoped: whatever is pending needs
   // making, even if it arrived before this session started.
@@ -235,6 +243,7 @@ export default function StaffPageClient() {
                       session={activeSession}
                       library={library ?? []}
                       presets={presets ?? []}
+                      recipes={recipes ?? []}
                     />
                   </div>
                 )}

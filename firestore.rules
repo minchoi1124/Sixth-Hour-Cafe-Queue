@@ -55,6 +55,13 @@ service cloud.firestore {
         allow read, create, update, delete: if canManage(cafeId);
       }
 
+      // How to make each drink, keyed by drink id. Staff-only and deliberately
+      // NOT world-readable, unlike `drinks`: customers see the description, the
+      // people making it see the ingredients and steps.
+      match /recipes/{drinkId} {
+        allow read, create, update, delete: if canManage(cafeId);
+      }
+
       match /orders/{orderId} {
         // Orders are created only by the server (Admin SDK via /api/orders, which
         // verifies an App Check token). Client-side creates are denied; owners and

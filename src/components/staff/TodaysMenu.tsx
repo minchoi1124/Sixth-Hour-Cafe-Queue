@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useFirestore } from '@/firebase';
 import { toast } from '@/hooks/use-toast';
-import type { MenuItem, MenuPreset, Session } from '@/lib/definitions';
+import type { MenuItem, MenuPreset, Recipe, Session } from '@/lib/definitions';
 import { setSessionMenu, toggleSoldOut } from '@/lib/sessions';
 import { resolveMenu, savePresetFromSession } from '@/lib/presets';
+import { hasContent, recipesByDrink } from '@/lib/recipes';
+import { RecipeCard } from '@/components/staff/RecipeCard';
 import { MenuPicker } from '@/components/staff/MenuPicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Loader2, Pencil, Save } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, Loader2, Pencil, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -35,22 +37,28 @@ export function TodaysMenu({
   session,
   library,
   presets,
+  recipes,
 }: {
   cafeId: string;
   session: Session;
   library: MenuItem[];
   presets: MenuPreset[];
+  recipes: Recipe[];
 }) {
   const firestore = useFirestore();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  // One recipe open at a time — the panel sits above the order queue, and two
+  // expanded recipes would push the queue off screen mid-rush.
+  const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
 
   const menuIds = session.menuIds ?? [];
   const soldOutIds = session.soldOutIds ?? [];
   const drinks = resolveMenu(library, menuIds);
   const soldOut = new Set(soldOutIds);
+  const recipeFor = useMemo(() => recipesByDrink(recipes), [recipes]);
 
   const preset = session.presetId ? presets.find((p) => p.id === session.presetId) ?? null : null;
   // Only worth offering the write-back when the menu has actually drifted.
@@ -165,24 +173,53 @@ export function TodaysMenu({
           <ul className="divide-y">
             {drinks.map((drink) => {
               const isSoldOut = soldOut.has(drink.id);
+              const recipe = recipeFor.get(drink.id) ?? null;
+              const isOpen = openRecipeId === drink.id;
               return (
-                <li key={drink.id} className="flex items-center gap-3 py-2">
-                  <span className={cn(
-                    'min-w-0 flex-1 truncate text-xl',
-                    isSoldOut && 'text-muted-foreground line-through',
-                  )}>
-                    {drink.name}
-                  </span>
-                  <Label htmlFor={`soldout-${drink.id}`} className="text-base text-muted-foreground">
-                    {isSoldOut ? 'Out of stock' : 'In stock'}
-                  </Label>
-                  <Switch
-                    id={`soldout-${drink.id}`}
-                    checked={!isSoldOut}
-                    disabled={busyId === drink.id}
-                    onCheckedChange={(available) => handleToggle(drink.id, !available)}
-                    className="scale-110 data-[state=checked]:bg-green-500"
-                  />
+                <li key={drink.id} className="py-2">
+                  <div className="flex items-center gap-3">
+                    {/* Tapping the name opens the recipe; the switch is a
+                        separate target so marking a drink out mid-rush never
+                        expands anything. */}
+                    <button
+                      type="button"
+                      onClick={() => setOpenRecipeId(isOpen ? null : drink.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                      aria-expanded={isOpen}
+                    >
+                      {isOpen
+                        ? <ChevronDown className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                        : <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground" />}
+                      <span className={cn(
+                        'min-w-0 truncate text-xl',
+                        isSoldOut && 'text-muted-foreground line-through',
+                      )}>
+                        {drink.name}
+                      </span>
+                      {hasContent(recipe) && (
+                        <BookOpen
+                          className="h-4 w-4 flex-shrink-0 text-muted-foreground"
+                          aria-label="Has a recipe"
+                        />
+                      )}
+                    </button>
+                    <Label htmlFor={`soldout-${drink.id}`} className="text-base text-muted-foreground">
+                      {isSoldOut ? 'Out of stock' : 'In stock'}
+                    </Label>
+                    <Switch
+                      id={`soldout-${drink.id}`}
+                      checked={!isSoldOut}
+                      disabled={busyId === drink.id}
+                      onCheckedChange={(available) => handleToggle(drink.id, !available)}
+                      className="scale-110 data-[state=checked]:bg-green-500"
+                    />
+                  </div>
+
+                  {isOpen && (
+                    <div className="border-l-2 border-primary/30 py-3 pl-7 pr-2">
+                      <RecipeCard recipe={recipe} />
+                    </div>
+                  )}
                 </li>
               );
             })}

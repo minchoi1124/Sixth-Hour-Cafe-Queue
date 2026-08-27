@@ -43,6 +43,25 @@ export type MenuPreset = {
   updatedAt?: Timestamp;
 };
 
+/**
+ * How to make a drink: what goes in it and the steps to build it.
+ *
+ * Staff-only — prep instructions are never exposed on the ordering page. Stored
+ * at `cafes/{cafeId}/recipes/{drinkId}`: keying the document by the drink id
+ * gives a one-recipe-per-drink guarantee and an O(1) lookup with no query.
+ *
+ * The drink's name is deliberately not denormalized here; it's resolved from the
+ * library at render time so renaming a drink can't leave a stale label behind.
+ */
+export type Recipe = {
+  id: string; // Firestore document ID == the drink's id
+  /** One line per ingredient, e.g. "matcha powder (1/2 tbsp)". */
+  ingredients: string[];
+  /** Free text, newline-separated steps. */
+  instructions: string;
+  updatedAt?: Timestamp;
+};
+
 export type OrderItem = {
     id: string; // ID of the base menu item
     name: string;

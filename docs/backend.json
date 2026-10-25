@@ -219,25 +219,25 @@
     ]
   },
   "firestore": {
-    "/cafes/{cafeId}/drinks/{drinkId}": {
+    "/locations/{locationId}/drinks/{drinkId}": {
       "schema": {
         "$ref": "#/entities/Drink"
       },
       "description": "Stores individual drink menu items."
     },
-    "/cafes/{cafeId}/orders/{orderId}": {
+    "/locations/{locationId}/orders/{orderId}": {
       "schema": {
         "$ref": "#/entities/Order"
       },
       "description": "Stores customer orders submitted through the app. Written only by the /api/orders server route."
     },
-    "/cafes/{cafeId}/sessions/{sessionId}": {
+    "/locations/{locationId}/sessions/{sessionId}": {
       "schema": {
         "$ref": "#/entities/Session"
       },
       "description": "Stores each pop-up service and its frozen stats."
     },
-    "/cafes/{cafeId}/categories/{categoryId}": {
+    "/locations/{locationId}/categories/{categoryId}": {
       "schema": {
         "$ref": "#/entities/Category"
       },

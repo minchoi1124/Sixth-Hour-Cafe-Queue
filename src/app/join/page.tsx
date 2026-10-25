@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { inviteCodeDoc, userCafeDoc } from '@/lib/cafe-paths';
+import { inviteCodeDoc, memberDoc, userDoc } from '@/lib/cafe-paths';
 
 export default function JoinPage() {
   const firestore = useFirestore();
@@ -59,15 +59,19 @@ export default function JoinPage() {
         setIsPending(false);
         return;
       }
-      const cafeId = codeSnap.data().cafeId as string;
+      const locationId = codeSnap.data().locationId as string;
 
-      await setDoc(userCafeDoc(firestore, user.uid), {
-        cafeId,
-        role: 'staff',
+      // One batch: the rules only accept the user pointer if the membership it
+      // points at lands with it.
+      const batch = writeBatch(firestore);
+      batch.set(memberDoc(firestore, locationId, user.uid), {
         email: user.email,
+        role: 'staff',
         code: finalCode,
         joinedAt: serverTimestamp(),
       });
+      batch.set(userDoc(firestore, user.uid), { locationId, role: 'staff', email: user.email });
+      await batch.commit();
       router.replace('/staff');
     } catch (e) {
       console.error('Failed to join location:', e);

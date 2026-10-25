@@ -2,64 +2,77 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // A cafe is owned by the user whose uid equals the cafe document id.
-    function isOwner(cafeId) {
-      return request.auth != null && request.auth.uid == cafeId;
+    // Access to a location is decided by one doc:
+    // locations/{locationId}/members/{uid}, with role 'owner' or 'staff'.
+    function memberPath(locationId) {
+      return /databases/$(database)/documents/locations/$(locationId)/members/$(request.auth.uid);
     }
 
-    // A staff member has a userCafes/{uid} doc pointing at this cafe.
-    function isStaff(cafeId) {
+    function isMember(locationId) {
+      return request.auth != null && exists(memberPath(locationId));
+    }
+
+    function isOwner(locationId) {
+      return isMember(locationId) && get(memberPath(locationId)).data.role == 'owner';
+    }
+
+    // Owner as of the end of the current batch/transaction. Lets onboarding
+    // create the location, the owner's membership and the slug in one write.
+    function isOwnerAfter(locationId) {
       return request.auth != null
-        && exists(/databases/$(database)/documents/userCafes/$(request.auth.uid))
-        && get(/databases/$(database)/documents/userCafes/$(request.auth.uid)).data.cafeId == cafeId;
+        && getAfter(memberPath(locationId)).data.role == 'owner';
     }
 
     // Owners and staff may both work the queue and manage the menu.
-    function canManage(cafeId) {
-      return isOwner(cafeId) || isStaff(cafeId);
+    function canManage(locationId) {
+      return isMember(locationId);
     }
 
-    match /cafes/{cafeId} {
+    match /locations/{locationId} {
       // Menu/cafe info is public so customers can view it without an account.
       allow read: if true;
-      // Cafe settings (location, slug, instagram, timezone) are owner-only, but
+      // Created by onboarding in the same write as the founder's owner
+      // membership. Holds nothing private: it's world-readable, so who owns it
+      // lives in `members`, which isn't.
+      allow create: if isOwnerAfter(locationId);
+      allow delete: if isOwner(locationId);
+      // Settings (location, slug, instagram, timezone) are owner-only, but
       // staff work the queue and so must be able to start and end sessions and
       // set today's menu — which means `activeSessionId` and `liveMenu`, and
       // nothing else, on this doc. `liveMenu` is the public mirror the
       // unauthenticated ordering page reads, since sessions are staff-only.
-      allow create, delete: if isOwner(cafeId);
-      allow update: if isOwner(cafeId)
-        || (isStaff(cafeId)
+      allow update: if isOwner(locationId)
+        || (isMember(locationId)
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['activeSessionId', 'liveMenu']));
 
       match /drinks/{drinkId} {
         allow read: if true;
-        allow create, update, delete: if canManage(cafeId);
+        allow create, update, delete: if canManage(locationId);
       }
 
       match /categories/{categoryId} {
         allow read: if true;
-        allow create, update, delete: if canManage(cafeId);
+        allow create, update, delete: if canManage(locationId);
       }
 
       // A session is one pop-up service, with its stats frozen on end.
       // Staff-only: customers never need to see them.
       match /sessions/{sessionId} {
-        allow read, create, update, delete: if canManage(cafeId);
+        allow read, create, update, delete: if canManage(locationId);
       }
 
       // Named, reusable menus that sessions snapshot from. Staff-only —
       // customers read the active menu from the cafe doc's `liveMenu` mirror.
       match /presets/{presetId} {
-        allow read, create, update, delete: if canManage(cafeId);
+        allow read, create, update, delete: if canManage(locationId);
       }
 
       // How to make each drink, keyed by drink id. Staff-only and deliberately
       // NOT world-readable, unlike `drinks`: customers see the description, the
       // people making it see the ingredients and steps.
       match /recipes/{drinkId} {
-        allow read, create, update, delete: if canManage(cafeId);
+        allow read, create, update, delete: if canManage(locationId);
       }
 
       match /orders/{orderId} {
@@ -67,57 +80,79 @@ service cloud.firestore {
         // verifies an App Check token). Client-side creates are denied; owners and
         // staff read and manage them.
         allow create: if false;
-        allow read, update, delete: if canManage(cafeId);
+        allow read, update, delete: if canManage(locationId);
       }
 
       // Owner-only private data (e.g. the current invite code).
       match /private/{doc} {
-        allow read, write: if isOwner(cafeId);
+        allow read, write: if isOwner(locationId);
+      }
+
+      // Everyone with access to this location. Owners see and manage the whole
+      // roster; anyone can read their own membership (login resolves it).
+      match /members/{uid} {
+        allow read: if isOwner(locationId)
+          || (request.auth != null && request.auth.uid == uid);
+        // The founding owner, only in the same write that creates the location.
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['email', 'role', 'joinedAt'])
+          && request.resource.data.role == 'owner'
+          && request.resource.data.email == request.auth.token.get('email', null)
+          && !exists(/databases/$(database)/documents/locations/$(locationId))
+          && existsAfter(/databases/$(database)/documents/locations/$(locationId));
+        // Staff joining themselves with a valid invite code for this location.
+        allow create: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['email', 'role', 'code', 'joinedAt'])
+          && request.resource.data.role == 'staff'
+          && request.resource.data.email == request.auth.token.get('email', null)
+          && exists(/databases/$(database)/documents/inviteCodes/$(request.resource.data.code))
+          && get(/databases/$(database)/documents/inviteCodes/$(request.resource.data.code)).data.locationId == locationId;
+        // Owners remove staff; staff may leave. An owner can't remove
+        // themselves, which would strand the location with nobody in charge.
+        allow delete: if (isOwner(locationId) && request.auth.uid != uid)
+          || (request.auth != null && request.auth.uid == uid && resource.data.role != 'owner');
+        allow update: if false;
       }
     }
 
-    // Public slug -> cafe lookup. A signed-in owner may claim a slug pointing to
-    // their own cafe, and may release a slug they own (used when changing links).
-    // Slugs are never edited in place — to change a link, delete + create.
+    // Public slug -> location lookup. An owner may claim a slug pointing to
+    // their own location, and may release one they own (used when changing
+    // links). Slugs are never edited in place — to change a link, delete + create.
     match /slugs/{slug} {
       allow read: if true;
-      allow create: if request.auth != null
-        && request.resource.data.keys().hasOnly(['cafeId'])
-        && request.resource.data.cafeId == request.auth.uid;
-      allow delete: if request.auth != null
-        && resource.data.cafeId == request.auth.uid;
+      allow create: if request.resource.data.keys().hasOnly(['locationId'])
+        && isOwnerAfter(request.resource.data.locationId);
+      allow delete: if isOwner(resource.data.locationId);
       allow update: if false;
     }
 
-    // Invite code -> cafe lookup. Anyone signed in can resolve a code they know
-    // (get by id), but codes can't be listed/enumerated. Only the owner manages
-    // codes for their own cafe.
+    // Invite code -> location lookup. Anyone signed in can resolve a code they
+    // know (get by id), but codes can't be listed/enumerated. Only owners manage
+    // codes for their own location.
     match /inviteCodes/{code} {
       allow get: if request.auth != null;
       allow list: if false;
-      allow create, update: if request.auth != null
-        && request.resource.data.keys().hasOnly(['cafeId'])
-        && request.resource.data.cafeId == request.auth.uid;
-      allow delete: if request.auth != null
-        && resource.data.cafeId == request.auth.uid;
+      allow create, update: if request.resource.data.keys().hasOnly(['locationId'])
+        && isOwner(request.resource.data.locationId);
+      allow delete: if isOwner(resource.data.locationId);
     }
 
-    // Staff membership. A user joins by creating their own doc, but only with a
-    // valid invite code that maps to the target cafe. The cafe owner can list and
-    // remove their staff; a user can read/remove their own membership.
-    match /userCafes/{uid} {
+    // Which location an account belongs to. Only a pointer — access comes from
+    // the member doc, which must exist (by the end of the write) for the
+    // pointer to be accepted. Overwriting is allowed so someone removed from
+    // one location can join another.
+    match /users/{uid} {
       allow read: if request.auth != null
-        && (request.auth.uid == uid || resource.data.cafeId == request.auth.uid);
-      allow create: if request.auth != null
+        && (request.auth.uid == uid || isOwner(resource.data.locationId));
+      allow create, update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['cafeId', 'role', 'email', 'code', 'joinedAt'])
-        && request.resource.data.role == 'staff'
-        && request.resource.data.email == request.auth.token.email
-        && exists(/databases/$(database)/documents/inviteCodes/$(request.resource.data.code))
-        && get(/databases/$(database)/documents/inviteCodes/$(request.resource.data.code)).data.cafeId == request.resource.data.cafeId;
+        && request.resource.data.keys().hasOnly(['locationId', 'role', 'email'])
+        && getAfter(/databases/$(database)/documents/locations/$(request.resource.data.locationId)/members/$(uid)).data.role
+             == request.resource.data.role;
       allow delete: if request.auth != null
-        && (request.auth.uid == uid || resource.data.cafeId == request.auth.uid);
-      allow update: if false;
+        && (request.auth.uid == uid || isOwner(resource.data.locationId));
     }
 
     // Everything else is denied by default.

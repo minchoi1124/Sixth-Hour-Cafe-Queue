@@ -9,9 +9,9 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
     const adminDb = getAdminDb();
     const slugSnap = await adminDb.doc(`slugs/${slug}`).get();
     if (!slugSnap.exists) return null;
-    const cafeId = slugSnap.data()!.cafeId as string;
+    const cafeId = slugSnap.data()!.locationId as string;
 
-    const cafeSnap = await adminDb.doc(`cafes/${cafeId}`).get();
+    const cafeSnap = await adminDb.doc(`locations/${cafeId}`).get();
     if (!cafeSnap.exists) return null;
 
     return { id: cafeSnap.id, ...(cafeSnap.data() as Omit<Cafe, 'id'>) };
@@ -24,7 +24,7 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
 export const getMenuForCafe = async (cafeId: string): Promise<MenuItem[]> => {
   try {
     const snapshot = await getAdminDb()
-      .collection(`cafes/${cafeId}/drinks`)
+      .collection(`locations/${cafeId}/drinks`)
       .orderBy('order', 'asc')
       .get();
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as MenuItem);
@@ -54,7 +54,7 @@ export type NextOpening = {
 
 export const getNextOpening = async (cafeId: string): Promise<NextOpening | null> => {
   try {
-    const sessions = getAdminDb().collection(`cafes/${cafeId}/sessions`);
+    const sessions = getAdminDb().collection(`locations/${cafeId}/sessions`);
 
     const scheduled = await sessions
       .where('status', '==', 'scheduled')

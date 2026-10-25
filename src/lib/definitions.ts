@@ -47,7 +47,7 @@ export type MenuPreset = {
  * How to make a drink: what goes in it and the steps to build it.
  *
  * Staff-only — prep instructions are never exposed on the ordering page. Stored
- * at `cafes/{cafeId}/recipes/{drinkId}`: keying the document by the drink id
+ * at `locations/{cafeId}/recipes/{drinkId}`: keying the document by the drink id
  * gives a one-recipe-per-drink guarantee and an O(1) lookup with no query.
  *
  * The drink's name is deliberately not denormalized here; it's resolved from the
@@ -164,7 +164,7 @@ export type Category = {
 // Every cafe is a Sixth Hour Cafe; `location` is the branch/operator label
 // (e.g. "MSU Campus") that distinguishes one account from another.
 export type Cafe = {
-  id: string; // == owner uid == cafeId
+  id: string; // Readable location id, e.g. "msu-campus". Fixed at creation.
   location: string;
   slug: string;
   createdAt?: string;
@@ -182,4 +182,26 @@ export type Cafe = {
   timezone?: string;
   /** Public mirror of the active session's menu; null/absent means closed. */
   liveMenu?: LiveMenu | null;
+};
+
+export type MemberRole = 'owner' | 'staff';
+
+/**
+ * Someone with access to a location, at `locations/{locationId}/members/{uid}`.
+ * The security rules decide access from this doc alone.
+ */
+export type Member = {
+  id: string; // == the member's Auth uid
+  email: string | null;
+  role: MemberRole;
+  /** The invite code redeemed to join. Staff only. */
+  code?: string;
+  joinedAt?: Timestamp;
+};
+
+/** `users/{uid}`: which location a signed-in account belongs to. */
+export type UserLocation = {
+  locationId: string;
+  role: MemberRole;
+  email: string | null;
 };

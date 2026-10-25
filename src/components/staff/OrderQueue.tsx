@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Timestamp, updateDoc } from 'firebase/firestore';
+import { Timestamp, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useFirestore, useCafeId } from '@/firebase';
 import { orderDoc } from '@/lib/cafe-paths';
 import type { Order } from '@/lib/definitions';
@@ -34,7 +34,10 @@ const OrderCard = ({
     if (!firestore || !cafeId) return;
     setIsCompleting(true);
     try {
-        await updateDoc(orderDoc(firestore, cafeId, order.id), { status: 'completed' });
+        await updateDoc(orderDoc(firestore, cafeId, order.id), {
+            status: 'completed',
+            completedAt: serverTimestamp(),
+        });
         // Optimistic update handled by real-time listener removing the card
     } catch (error) {
         console.error("Failed to complete order:", error);
@@ -102,7 +105,11 @@ const OrderCard = ({
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-4xl tracking-tight flex items-center gap-3">
-            <Tag className="w-8 h-8 text-primary/70" />
+            {order.number ? (
+              <span className="text-primary/70">#{order.number}</span>
+            ) : (
+              <Tag className="w-8 h-8 text-primary/70" />
+            )}
             {order.customerName}
           </CardTitle>
           <Button

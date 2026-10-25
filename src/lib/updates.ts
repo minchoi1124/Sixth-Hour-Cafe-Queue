@@ -16,6 +16,15 @@ export type Update = {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-10-25-order-numbers',
+    date: '2026-10-25',
+    title: 'Order numbers',
+    points: [
+      'Every order gets a number, starting from #1 each day, shown on its queue card.',
+      'Customers see theirs after ordering, so two people with the same name are easy to tell apart.',
+    ],
+  },
+  {
     id: '2026-10-25-order-chime',
     date: '2026-10-25',
     title: 'Hear new orders come in',

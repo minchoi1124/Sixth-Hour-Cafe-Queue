@@ -84,6 +84,10 @@ export type Order = {
    * orphan adoption depends on that query.
    */
   sessionId: string | null;
+  /** Counts up from 1 each day; missing on orders placed before numbering. */
+  number?: number;
+  /** When staff marked it done. */
+  completedAt?: Timestamp | null;
 };
 
 export type NewOrder = {

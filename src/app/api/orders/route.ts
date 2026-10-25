@@ -3,7 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { orderDocId } from '@/lib/readable-ids';
-import { cafeTimezone } from '@/lib/timezone';
+import { cafeTimezone, zonedDateKey } from '@/lib/timezone';
 
 // Order creation runs server-side via the Admin SDK so the public real-time
 // listeners no longer need App Check enforcement on Firestore (which was adding
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid items' }, { status: 400 });
   }
 
-  const sanitizedItems = [];
+  const sanitizedItems: { id: string; name: string; modifications: string[] }[] = [];
   for (const raw of items as IncomingItem[]) {
     if (
       !raw ||
@@ -121,14 +121,29 @@ export async function POST(req: NextRequest) {
   // rather than `set` so an id collision fails loudly instead of overwriting.
   const name = customerName.trim();
   const tz = cafeTimezone(cafeSnap.get('timezone') as string | undefined);
-  const ref = adminDb.doc(`locations/${cafeId}/orders/${orderDocId(new Date(), name, tz)}`);
-  await ref.create({
-    customerName: name,
-    items: sanitizedItems,
-    status: 'pending',
-    sessionId: activeSessionId,
-    createdAt: FieldValue.serverTimestamp(),
+  const now = new Date();
+  const ref = adminDb.doc(`locations/${cafeId}/orders/${orderDocId(now, name, tz)}`);
+
+  // Order numbers count up from 1 each day in the cafe's timezone, so two
+  // customers with the same name can be told apart. The counter lives under
+  // `private/`, which only owners can read, and is bumped in the same
+  // transaction as the order so no two orders share a number.
+  const today = zonedDateKey(now, tz);
+  const counterRef = adminDb.doc(`locations/${cafeId}/private/orderCounter`);
+  const number = await adminDb.runTransaction(async (tx) => {
+    const counter = await tx.get(counterRef);
+    const next = counter.get('date') === today ? (counter.get('last') as number) + 1 : 1;
+    tx.set(counterRef, { date: today, last: next });
+    tx.create(ref, {
+      customerName: name,
+      items: sanitizedItems,
+      status: 'pending',
+      sessionId: activeSessionId,
+      number: next,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return next;
   });
 
-  return NextResponse.json({ id: ref.id }, { status: 201 });
+  return NextResponse.json({ id: ref.id, number }, { status: 201 });
 }

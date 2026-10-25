@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { inviteCodeDoc, memberDoc, userDoc } from '@/lib/cafe-paths';
+import { LATEST_UPDATE_ID } from '@/lib/updates';
 
 export default function JoinPage() {
   const firestore = useFirestore();
@@ -70,7 +71,13 @@ export default function JoinPage() {
         code: finalCode,
         joinedAt: serverTimestamp(),
       });
-      batch.set(userDoc(firestore, user.uid), { locationId, role: 'staff', email: user.email });
+      // New accounts start caught up rather than with the whole update history.
+      batch.set(userDoc(firestore, user.uid), {
+        locationId,
+        role: 'staff',
+        email: user.email,
+        lastSeenUpdate: LATEST_UPDATE_ID,
+      });
       await batch.commit();
       router.replace('/staff');
     } catch (e) {

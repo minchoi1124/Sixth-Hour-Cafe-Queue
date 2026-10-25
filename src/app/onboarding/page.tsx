@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { cafeDoc, memberDoc, slugDoc, userDoc, isValidSlug, slugify } from '@/lib/cafe-paths';
+import { LATEST_UPDATE_ID } from '@/lib/updates';
 import { idPart, pickFreeId } from '@/lib/readable-ids';
 
 export default function OnboardingPage() {
@@ -99,7 +100,13 @@ export default function OnboardingPage() {
           role: 'owner',
           joinedAt: serverTimestamp(),
         });
-        tx.set(userDoc(firestore, user.uid), { locationId, role: 'owner', email });
+        // New accounts start caught up rather than with the whole update history.
+        tx.set(userDoc(firestore, user.uid), {
+          locationId,
+          role: 'owner',
+          email,
+          lastSeenUpdate: LATEST_UPDATE_ID,
+        });
         tx.set(slugRef, { locationId });
       });
       router.replace('/staff');

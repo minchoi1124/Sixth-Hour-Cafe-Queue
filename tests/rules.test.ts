@@ -45,6 +45,7 @@ import {
 } from '@/lib/cafe-paths';
 import { startSession } from '@/lib/sessions';
 import { createPreset } from '@/lib/presets';
+import { LATEST_UPDATE_ID } from '@/lib/updates';
 
 const PROJECT_ID = 'demo-sixth-hour';
 const LOCATION = 'msu-campus';
@@ -68,7 +69,7 @@ async function onboard(db: Firestore, user: { uid: string; email: string }, loca
     await tx.get(cafeDoc(db, locationId));
     tx.set(cafeDoc(db, locationId), { location: 'MSU Campus', slug, createdAt: serverTimestamp() });
     tx.set(memberDoc(db, locationId, user.uid), { email: user.email, role: 'owner', joinedAt: serverTimestamp() });
-    tx.set(userDoc(db, user.uid), { locationId, role: 'owner', email: user.email });
+    tx.set(userDoc(db, user.uid), { locationId, role: 'owner', email: user.email, lastSeenUpdate: LATEST_UPDATE_ID });
     tx.set(slugDoc(db, slug), { locationId });
   });
 }
@@ -77,7 +78,7 @@ async function onboard(db: Firestore, user: { uid: string; email: string }, loca
 function join(db: Firestore, user: { uid: string; email: string }, locationId: string, code: string, role = 'staff') {
   const batch = writeBatch(db);
   batch.set(memberDoc(db, locationId, user.uid), { email: user.email, role, code, joinedAt: serverTimestamp() });
-  batch.set(userDoc(db, user.uid), { locationId, role, email: user.email });
+  batch.set(userDoc(db, user.uid), { locationId, role, email: user.email, lastSeenUpdate: LATEST_UPDATE_ID });
   return batch.commit();
 }
 
@@ -259,3 +260,24 @@ describe('the roster', () => {
   });
 });
 
+describe("what's new", () => {
+  beforeEach(seedLocation);
+
+  test('staff mark updates seen on their own account only', async () => {
+    await assertSucceeds(updateDoc(userDoc(dbFor(STAFF), STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+    await assertFails(updateDoc(userDoc(dbFor(STAFF), OWNER.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+  });
+
+  test('lastSeenUpdate must be a short string', async () => {
+    const ref = userDoc(dbFor(STAFF), STAFF.uid);
+    await assertFails(updateDoc(ref, { lastSeenUpdate: 42 }));
+    await assertFails(updateDoc(ref, { lastSeenUpdate: 'x'.repeat(101) }));
+  });
+
+  test('someone removed from their location cannot write it', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await deleteDoc(memberDoc(ctx.firestore() as unknown as Firestore, LOCATION, STAFF.uid));
+    });
+    await assertFails(updateDoc(userDoc(dbFor(STAFF), STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+  });
+});

@@ -20,6 +20,7 @@ import {
 } from '@/firebase';
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
+import { WhatsNew } from '@/components/staff/WhatsNew';
 import {
   Dialog,
   DialogContent,
@@ -176,6 +177,7 @@ export default function StaffLayout({
           </nav>
           <div className="flex items-center gap-2">
             <CustomerScreenButton slug={cafe.slug} />
+            <WhatsNew />
             <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
                 <Maximize className="w-8 h-8"/>
             </Button>

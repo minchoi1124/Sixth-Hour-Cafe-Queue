@@ -142,13 +142,17 @@ service cloud.firestore {
     // Which location an account belongs to. Only a pointer — access comes from
     // the member doc, which must exist (by the end of the write) for the
     // pointer to be accepted. Overwriting is allowed so someone removed from
-    // one location can join another.
+    // one location can join another. `lastSeenUpdate` is the newest "What's
+    // new" entry the account has dismissed (src/lib/updates.ts).
     match /users/{uid} {
       allow read: if request.auth != null
         && (request.auth.uid == uid || isOwner(resource.data.locationId));
       allow create, update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['locationId', 'role', 'email'])
+        && request.resource.data.keys().hasOnly(['locationId', 'role', 'email', 'lastSeenUpdate'])
+        && (!('lastSeenUpdate' in request.resource.data)
+            || (request.resource.data.lastSeenUpdate is string
+                && request.resource.data.lastSeenUpdate.size() <= 100))
         && getAfter(/databases/$(database)/documents/locations/$(request.resource.data.locationId)/members/$(uid)).data.role
              == request.resource.data.role;
       allow delete: if request.auth != null

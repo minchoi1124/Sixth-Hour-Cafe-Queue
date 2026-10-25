@@ -30,6 +30,10 @@ import { countDrinks, suggestedLocation } from '@/lib/sessions';
 import { cafeTimezone } from '@/lib/timezone';
 import { TodaysMenu } from '@/components/staff/TodaysMenu';
 
+// Longest an order can sit unseen on an idle staff screen if its listener has
+// silently stalled.
+const RESUBSCRIBE_INTERVAL_MS = 30_000;
+
 function OrderQueueSkeleton() {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -60,6 +64,11 @@ export default function StaffPageClient() {
   // query objects on focus/visibility/online forces a fresh subscribe, which is
   // what reloading the page does by hand. `useCollection` keeps its previous
   // data across a resubscribe, so this never flashes a loading skeleton.
+  //
+  // Those events never fire on a tablet left open on an idle queue, yet the
+  // stream can still go quiet there, so the first order after a lull showed up
+  // late. A periodic resubscribe while visible caps that delay; each one costs
+  // only a read of the (small) pending set.
   const [reconnectNonce, setReconnectNonce] = useState(0);
   useEffect(() => {
     const bump = () => setReconnectNonce(n => n + 1);
@@ -69,10 +78,12 @@ export default function StaffPageClient() {
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
     window.addEventListener('online', bump);
+    const heartbeat = setInterval(onVisible, RESUBSCRIBE_INTERVAL_MS);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       window.removeEventListener('online', bump);
+      clearInterval(heartbeat);
     };
   }, []);
 

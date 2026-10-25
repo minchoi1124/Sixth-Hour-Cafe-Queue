@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -99,6 +99,8 @@ export default function OrderForm({
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [customerName, setCustomerName] = useState('');
+  const [orderNumber, setOrderNumber] = useState<number | null>(null);
+  const modificationsRef = useRef<HTMLDivElement>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ customerName?: string[], itemId?: string[] } | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -118,6 +120,7 @@ export default function OrderForm({
   const resetForm = () => {
     setIsSuccess(false);
     setCustomerName('');
+    setOrderNumber(null);
     setSelectedItemId(null);
     setErrors(null);
     setHasTyped(false);
@@ -154,6 +157,14 @@ export default function OrderForm({
 
   const selectedItem = menu.find(item => item.id === selectedItemId);
   const availableModifications = selectedItem?.modifications ?? [];
+
+  // Add-ons appear below the drink list, often off screen, so bring them into
+  // view when a drink that has them is picked.
+  const hasModifications = availableModifications.length > 0;
+  useEffect(() => {
+    if (!selectedItemId || !hasModifications) return;
+    modificationsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [selectedItemId, hasModifications]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -217,6 +228,8 @@ export default function OrderForm({
         throw new Error(`Order request failed with status ${response.status}: ${detail?.error ?? ''}`);
       }
 
+      const placed = await response.json().catch(() => ({}));
+      setOrderNumber(typeof placed?.number === 'number' ? placed.number : null);
       setCustomerName(validatedFields.data.customerName);
       setSecondsLeft(instagramUrl ? SUCCESS_SECONDS_WITH_INSTAGRAM : SUCCESS_SECONDS);
       setIsSuccess(true);
@@ -242,6 +255,9 @@ export default function OrderForm({
           <AlertDescription className="text-xl">
             Thanks, {customerName}! Your order is in.
           </AlertDescription>
+          {orderNumber !== null && (
+            <p className="mt-4 text-5xl font-bold text-primary">#{orderNumber}</p>
+          )}
         </Alert>
 
         {/* The next person in line walks up to this screen, so starting a new
@@ -327,14 +343,15 @@ export default function OrderForm({
       </Card>
 
       {selectedItemId && availableModifications.length > 0 && (
-        <Card>
+        <Card ref={modificationsRef}>
           <CardHeader>
             <CardTitle className="text-4xl">3. Any modifications?</CardTitle>
             <CardDescription className="text-xl">Optional add-ons for your drink.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {availableModifications.map(mod => (
-              <div key={mod.id} className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
+              // The whole row is the label, so a tap anywhere on it toggles the box.
+              <label key={mod.id} htmlFor={`mod-${mod.id}`} className="items-top flex space-x-4 p-6 rounded-lg border-2 border-primary/20 bg-background hover:bg-accent transition-all cursor-pointer">
                   <Checkbox 
                     id={`mod-${mod.id}`} 
                     name={`mod-${mod.id}`}
@@ -342,22 +359,24 @@ export default function OrderForm({
                     className="w-7 h-7 mt-1 border-2" 
                   />
                   <div className="grid gap-1.5 leading-none">
-                      <label
-                          htmlFor={`mod-${mod.id}`}
-                          className="text-2xl font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
+                      <span className="text-2xl font-medium leading-none">
                           {mod.name}
-                      </label>
+                      </span>
                   </div>
-              </div>
+              </label>
             ))}
           </CardContent>
         </Card>
       )}
       
-      <Button type="submit" disabled={isPending || !selectedItemId} className="w-full text-3xl py-8">
-        {isPending ? 'Placing Order...' : 'Place My Order'}
-      </Button>
+      <div className="space-y-3">
+        <Button type="submit" disabled={isPending || !selectedItemId} className="w-full text-3xl py-8">
+          {isPending ? 'Placing Order...' : 'Place My Order'}
+        </Button>
+        {!selectedItemId && (
+          <p className="text-center text-lg text-muted-foreground">Pick a drink above to continue.</p>
+        )}
+      </div>
     </form>
   );
 }

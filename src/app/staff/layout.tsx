@@ -21,6 +21,7 @@ import {
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
+import { useWakeLock } from '@/hooks/use-wake-lock';
 import {
   Dialog,
   DialogContent,
@@ -94,6 +95,7 @@ export default function StaffLayout({
   const { user, isUserLoading } = useUser();
   const { cafeId, role, loading: isResolving } = useResolveCafe();
   const [isFullScreen, setIsFullScreen] = useState(false);
+  useWakeLock();
 
   const cafeRef = useMemoFirebase(() => {
     if (!firestore || !cafeId) return null;

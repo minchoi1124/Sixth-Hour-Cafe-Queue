@@ -11,6 +11,7 @@ import { resolveMenu } from '@/lib/presets';
 import { formatSessionDate, formatSessionTime } from '@/lib/timezone';
 import { Badge } from '@/components/ui/badge';
 import { Coffee } from 'lucide-react';
+import { useWakeLock } from '@/hooks/use-wake-lock';
 
 /** The menu customers see when the cafe isn't open — greyed, not orderable. */
 function ClosedScreen({
@@ -87,6 +88,7 @@ export default function CustomerPageClient({
   timezone: string;
 }) {
   const firestore = useFirestore();
+  useWakeLock();
 
   const libraryQuery = useMemoFirebase(() => {
     if (!firestore) return null;

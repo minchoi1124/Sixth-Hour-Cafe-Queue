@@ -27,8 +27,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useCollection, useFirestore, useMemoFirebase, useCafeId } from '@/firebase';
-import { query, orderBy, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
-import { categoriesCol, categoryDoc, drinksCol } from '@/lib/cafe-paths';
+import { query, orderBy, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
+import { addDocWithReadableId, categoriesCol, categoryDoc, drinksCol } from '@/lib/cafe-paths';
 import { Skeleton } from '../ui/skeleton';
 import { z } from 'zod';
 
@@ -65,7 +65,7 @@ function AddCategoryForm() {
     }
 
     try {
-      await addDoc(categoriesCol(firestore, cafeId), { name: validation.data.name });
+      await addDocWithReadableId(firestore, categoriesCol(firestore, cafeId), validation.data.name, { name: validation.data.name });
       toast({ title: "Category Added!", description: `"${validation.data.name}" added.` });
       formRef.current?.reset();
     } catch (e: any) {

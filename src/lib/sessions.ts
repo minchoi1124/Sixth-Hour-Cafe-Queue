@@ -1,7 +1,7 @@
 /**
  * Session lifecycle: start → (adopt orphan orders) → end → stats snapshot.
  *
- * A session is one pop-up service. `cafes/{cafeId}.activeSessionId` points at
+ * A session is one pop-up service. `locations/{id}.activeSessionId` points at
  * the one that's running, and every order records the `sessionId` it was placed
  * under. Ending a session freezes its stats onto the session doc so the history
  * view and the all-time counter only ever read session docs — never the whole
@@ -10,7 +10,6 @@
 import {
   type Firestore,
   type Timestamp,
-  doc,
   getDoc,
   getDocs,
   query,
@@ -20,8 +19,10 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { cafeDoc, ordersCol, sessionDoc, sessionsCol } from '@/lib/cafe-paths';
+import { cafeDoc, ordersCol, sessionDoc } from '@/lib/cafe-paths';
 import type { NewSession, Order, Session } from '@/lib/definitions';
+import { sessionDocId } from '@/lib/readable-ids';
+import { cafeTimezone } from '@/lib/timezone';
 
 /** Firestore writes over 500 ops fail; stay under with room to spare. */
 const BATCH_LIMIT = 450;
@@ -157,16 +158,19 @@ export async function startSession(
   cafeId: string,
   input: NewSession,
 ): Promise<StartSessionResult> {
-  const ref = doc(sessionsCol(db, cafeId));
   const isFuture = isScheduledStart(input.startsAt);
 
-  await runTransaction(db, async (tx) => {
+  const sessionId = await runTransaction(db, async (tx) => {
     const cafeRef = cafeDoc(db, cafeId);
     const cafeSnap = await tx.get(cafeRef);
     const activeSessionId = cafeSnap.get('activeSessionId') as string | null | undefined;
     if (!isFuture && activeSessionId) {
       throw new Error('A session is already running. End it before starting a new one.');
     }
+
+    // Dated in the location's own timezone so the id matches the date staff see.
+    const tz = cafeTimezone(cafeSnap.get('timezone') as string | undefined);
+    const ref = sessionDoc(db, cafeId, sessionDocId(input.startsAt, input.location, tz));
 
     tx.set(ref, {
       location: input.location,
@@ -186,10 +190,11 @@ export async function startSession(
         liveMenu: { drinkIds: input.menuIds, soldOutIds: [] },
       });
     }
+    return ref.id;
   });
 
-  const adoptedOrders = isFuture ? 0 : await adoptOrphanOrders(db, cafeId, ref.id);
-  return { sessionId: ref.id, started: !isFuture, adoptedOrders };
+  const adoptedOrders = isFuture ? 0 : await adoptOrphanOrders(db, cafeId, sessionId);
+  return { sessionId, started: !isFuture, adoptedOrders };
 }
 
 /** Promote a scheduled session to the active one ("Start now"). */

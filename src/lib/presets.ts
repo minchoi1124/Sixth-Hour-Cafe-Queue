@@ -8,12 +8,11 @@
  */
 import {
   type Firestore,
-  addDoc,
   deleteDoc,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
-import { presetDoc, presetsCol } from '@/lib/cafe-paths';
+import { addDocWithReadableId, presetDoc, presetsCol } from '@/lib/cafe-paths';
 import type { MenuItem, MenuPreset } from '@/lib/definitions';
 
 /**
@@ -44,13 +43,12 @@ export async function createPreset(
   name: string,
   drinkIds: string[],
 ): Promise<string> {
-  const ref = await addDoc(presetsCol(db, cafeId), {
+  return addDocWithReadableId(db, presetsCol(db, cafeId), name.trim(), {
     name: name.trim(),
     drinkIds,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  return ref.id;
 }
 
 export async function renamePreset(

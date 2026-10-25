@@ -1,72 +1,104 @@
 /**
  * Centralized Firestore path helpers for the multi-tenant data model.
  *
- * Every cafe owns an isolated subtree under `cafes/{cafeId}` where
- * `cafeId === the owner's Firebase Auth uid`. A separate top-level
- * `slugs/{slug}` collection maps a public, human-friendly slug to a cafeId so
- * customers can reach a specific cafe at `/order/{slug}` without logging in.
+ * Every Sixth Hour Cafe location owns an isolated subtree under
+ * `locations/{locationId}`. The id is readable and fixed at creation (e.g.
+ * `msu-campus`, see `readable-ids.ts`); in code it's still called `cafeId`.
+ * Who works there lives inside the location, at `members/{uid}`, so the people
+ * at a location sit next to its data. A separate top-level `slugs/{slug}`
+ * collection maps the public, changeable link to a locationId so customers can
+ * reach it at `/order/{slug}` without logging in.
  */
 import {
+  type CollectionReference,
+  type DocumentData,
   type Firestore,
   collection,
   doc,
+  runTransaction,
 } from 'firebase/firestore';
+import { idPart, pickFreeId } from '@/lib/readable-ids';
 
 // --- Cafe document ---
 export const cafeDoc = (db: Firestore, cafeId: string) =>
-  doc(db, 'cafes', cafeId);
+  doc(db, 'locations', cafeId);
 
 // --- Per-cafe subcollections ---
 export const drinksCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'drinks');
+  collection(db, 'locations', cafeId, 'drinks');
 export const drinkDoc = (db: Firestore, cafeId: string, id: string) =>
-  doc(db, 'cafes', cafeId, 'drinks', id);
+  doc(db, 'locations', cafeId, 'drinks', id);
 
 export const categoriesCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'categories');
+  collection(db, 'locations', cafeId, 'categories');
 export const categoryDoc = (db: Firestore, cafeId: string, id: string) =>
-  doc(db, 'cafes', cafeId, 'categories', id);
+  doc(db, 'locations', cafeId, 'categories', id);
 
 export const ordersCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'orders');
+  collection(db, 'locations', cafeId, 'orders');
 export const orderDoc = (db: Firestore, cafeId: string, id: string) =>
-  doc(db, 'cafes', cafeId, 'orders', id);
+  doc(db, 'locations', cafeId, 'orders', id);
 
 export const sessionsCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'sessions');
+  collection(db, 'locations', cafeId, 'sessions');
 export const sessionDoc = (db: Firestore, cafeId: string, id: string) =>
-  doc(db, 'cafes', cafeId, 'sessions', id);
+  doc(db, 'locations', cafeId, 'sessions', id);
 
 // Named, reusable menus. A session snapshots one of these when it starts.
 export const presetsCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'presets');
+  collection(db, 'locations', cafeId, 'presets');
 export const presetDoc = (db: Firestore, cafeId: string, id: string) =>
-  doc(db, 'cafes', cafeId, 'presets', id);
+  doc(db, 'locations', cafeId, 'presets', id);
 
 // How to make each drink. Keyed by drink id, so a drink has at most one recipe
 // and looking one up needs no query.
 export const recipesCol = (db: Firestore, cafeId: string) =>
-  collection(db, 'cafes', cafeId, 'recipes');
+  collection(db, 'locations', cafeId, 'recipes');
 export const recipeDoc = (db: Firestore, cafeId: string, drinkId: string) =>
-  doc(db, 'cafes', cafeId, 'recipes', drinkId);
+  doc(db, 'locations', cafeId, 'recipes', drinkId);
+
+/**
+ * `addDoc`, but the id is made from `name` (e.g. `matcha-latte`, or
+ * `matcha-latte-2` if taken) so the document reads clearly in the console and
+ * in every array that references it. Returns the id.
+ */
+export async function addDocWithReadableId(
+  db: Firestore,
+  col: CollectionReference,
+  name: string,
+  data: DocumentData,
+): Promise<string> {
+  return runTransaction(db, async (tx) => {
+    const id = await pickFreeId(
+      idPart(name, 30, 'item'),
+      async (candidate) => (await tx.get(doc(col, candidate))).exists(),
+    );
+    tx.set(doc(col, id), data);
+    return id;
+  });
+}
 
 // --- Public slug -> cafe lookup ---
 export const slugDoc = (db: Firestore, slug: string) =>
   doc(db, 'slugs', slug);
 
-// --- Staff membership ---
-// A staff member's membership lives at userCafes/{uid}; owners have no such doc
-// (they're resolved by `cafes/{uid}` existing). Invite codes map a shared code
-// to a cafe so staff can join. The owner's current code is kept in a private
-// subdoc that only the owner can read.
-export const userCafeDoc = (db: Firestore, uid: string) =>
-  doc(db, 'userCafes', uid);
-export const userCafesCol = (db: Firestore) =>
-  collection(db, 'userCafes');
+// --- Membership ---
+// Everyone with access to a location — owners and staff alike — has a
+// `locations/{locationId}/members/{uid}` doc, and that doc is what the rules
+// check. `users/{uid}` is only a pointer from a signed-in account to its
+// location, so login can find it without a query. Invite codes map a shared
+// code to a location so staff can join. The owner's current code is kept in a
+// private subdoc that only owners can read.
+export const membersCol = (db: Firestore, cafeId: string) =>
+  collection(db, 'locations', cafeId, 'members');
+export const memberDoc = (db: Firestore, cafeId: string, uid: string) =>
+  doc(db, 'locations', cafeId, 'members', uid);
+export const userDoc = (db: Firestore, uid: string) =>
+  doc(db, 'users', uid);
 export const inviteCodeDoc = (db: Firestore, code: string) =>
   doc(db, 'inviteCodes', code);
 export const cafeInviteDoc = (db: Firestore, cafeId: string) =>
-  doc(db, 'cafes', cafeId, 'private', 'invite');
+  doc(db, 'locations', cafeId, 'private', 'invite');
 
 /** Generate a random, unambiguous invite code (e.g. "7K2PQX9R"). */
 export function generateInviteCode(length = 8): string {
@@ -104,6 +136,8 @@ export const RESERVED_SLUGS = new Set([
   'settings',
   'account',
   'cafes',
+  'locations',
+  'users',
   'slugs',
   'new',
   'edit',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { updateDoc, runTransaction, writeBatch, deleteDoc, query, where } from 'firebase/firestore';
+import { updateDoc, runTransaction, writeBatch, query, where } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   useDoc,
@@ -18,11 +18,12 @@ import {
   slugify,
   cafeInviteDoc,
   inviteCodeDoc,
-  userCafesCol,
-  userCafeDoc,
+  membersCol,
+  memberDoc,
+  userDoc,
   generateInviteCode,
 } from '@/lib/cafe-paths';
-import type { Cafe } from '@/lib/definitions';
+import type { Cafe, Member } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,8 +48,6 @@ function normalizeUrl(input: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-type Membership = { cafeId: string; role: string; email: string; code: string };
-
 function StaffManager({ cafeId }: { cafeId: string }) {
   const firestore = useFirestore();
   const [isWorking, setIsWorking] = useState(false);
@@ -57,10 +56,10 @@ function StaffManager({ cafeId }: { cafeId: string }) {
   const { data: invite } = useDoc<{ code: string }>(inviteRef);
 
   const staffQuery = useMemoFirebase(
-    () => query(userCafesCol(firestore), where('cafeId', '==', cafeId)),
+    () => query(membersCol(firestore, cafeId), where('role', '==', 'staff')),
     [firestore, cafeId],
   );
-  const { data: staff } = useCollection<Membership>(staffQuery);
+  const { data: staff } = useCollection<Member>(staffQuery);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const code = invite?.code ?? null;
@@ -72,7 +71,7 @@ function StaffManager({ cafeId }: { cafeId: string }) {
       const newCode = generateInviteCode();
       const batch = writeBatch(firestore);
       if (invite?.code) batch.delete(inviteCodeDoc(firestore, invite.code));
-      batch.set(inviteCodeDoc(firestore, newCode), { cafeId });
+      batch.set(inviteCodeDoc(firestore, newCode), { locationId: cafeId });
       batch.set(cafeInviteDoc(firestore, cafeId), { code: newCode });
       await batch.commit();
       toast({
@@ -96,10 +95,15 @@ function StaffManager({ cafeId }: { cafeId: string }) {
     }
   };
 
-  const handleRemove = async (uid: string, email: string) => {
+  const handleRemove = async (uid: string, email: string | null) => {
     try {
-      await deleteDoc(userCafeDoc(firestore, uid));
-      toast({ title: 'Staff removed', description: `${email} can no longer access this location.` });
+      // The member doc is what grants access; the pointer goes with it so the
+      // account can join somewhere else later.
+      const batch = writeBatch(firestore);
+      batch.delete(memberDoc(firestore, cafeId, uid));
+      batch.delete(userDoc(firestore, uid));
+      await batch.commit();
+      toast({ title: 'Staff removed', description: `${email ?? 'They'} can no longer access this location.` });
     } catch (e) {
       console.error('Failed to remove staff:', e);
       toast({ variant: 'destructive', title: 'Could not remove', description: 'Please try again.' });
@@ -291,7 +295,7 @@ export default function SettingsPage() {
         const newRef = slugDoc(firestore, slug);
         const existing = await tx.get(newRef);
         if (existing.exists()) throw new Error('SLUG_TAKEN');
-        tx.set(newRef, { cafeId });
+        tx.set(newRef, { locationId: cafeId });
         tx.update(cafeDoc(firestore, cafeId), { slug });
         tx.delete(slugDoc(firestore, cafe.slug));
       });

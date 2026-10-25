@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { cafeDoc, slugDoc, isValidSlug, slugify } from '@/lib/cafe-paths';
+import { cafeDoc, memberDoc, slugDoc, userDoc, isValidSlug, slugify } from '@/lib/cafe-paths';
+import { idPart, pickFreeId } from '@/lib/readable-ids';
 
 export default function OnboardingPage() {
   const firestore = useFirestore();
@@ -34,7 +35,7 @@ export default function OnboardingPage() {
       return;
     }
     let cancelled = false;
-    getDoc(cafeDoc(firestore, user.uid)).then((snap) => {
+    getDoc(userDoc(firestore, user.uid)).then((snap) => {
       if (!cancelled && snap.exists()) {
         router.replace('/staff');
       }
@@ -81,12 +82,25 @@ export default function OnboardingPage() {
         if (existing.exists()) {
           throw new Error('SLUG_TAKEN');
         }
-        tx.set(slugRef, { cafeId: user.uid });
-        tx.set(cafeDoc(firestore, user.uid), {
+        // The id is readable and permanent; the slug is the changeable link.
+        // All reads must come before any write in a transaction.
+        const locationId = await pickFreeId(
+          idPart(locationName, 30, 'location'),
+          async (candidate) => (await tx.get(cafeDoc(firestore, candidate))).exists(),
+        );
+        const email = user.email ?? null;
+        tx.set(cafeDoc(firestore, locationId), {
           location: locationName,
           slug: finalSlug,
           createdAt: serverTimestamp(),
         });
+        tx.set(memberDoc(firestore, locationId, user.uid), {
+          email,
+          role: 'owner',
+          joinedAt: serverTimestamp(),
+        });
+        tx.set(userDoc(firestore, user.uid), { locationId, role: 'owner', email });
+        tx.set(slugRef, { locationId });
       });
       router.replace('/staff');
     } catch (e) {

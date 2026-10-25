@@ -18,8 +18,7 @@ import { ModificationEditor } from '@/components/staff/ModificationEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { Category, MenuItem, Modification } from '@/lib/definitions';
 import { useFirestore, useCafeId } from '@/firebase';
-import { addDoc } from 'firebase/firestore';
-import { drinksCol } from '@/lib/cafe-paths';
+import { addDocWithReadableId, drinksCol } from '@/lib/cafe-paths';
 import { z } from 'zod';
 import { Textarea } from '../ui/textarea';
 
@@ -89,7 +88,7 @@ function AddDrinkForm({
       // makes the sort unstable. Take one past the current maximum instead.
       const newOrder = menu.reduce((max, item) => Math.max(max, item.order ?? 0), -1) + 1;
 
-      await addDoc(drinks, {
+      await addDocWithReadableId(firestore, drinks, validatedFields.data.name, {
         name: validatedFields.data.name,
         description: validatedFields.data.description,
         category: validatedFields.data.category,

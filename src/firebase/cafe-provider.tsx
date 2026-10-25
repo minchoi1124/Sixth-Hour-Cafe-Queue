@@ -3,9 +3,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { getDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from './provider';
-import { cafeDoc, userCafeDoc } from '@/lib/cafe-paths';
+import { memberDoc, userDoc } from '@/lib/cafe-paths';
+import type { MemberRole, UserLocation } from '@/lib/definitions';
 
-export type CafeRole = 'owner' | 'staff';
+export type CafeRole = MemberRole;
 
 interface CafeContextValue {
   cafeId: string | null;
@@ -15,10 +16,11 @@ interface CafeContextValue {
 const CafeContext = createContext<CafeContextValue>({ cafeId: null, role: null });
 
 /**
- * Resolves which cafe the signed-in user belongs to:
- *  - owner  → `cafes/{uid}` exists (cafeId === uid)
- *  - staff  → `userCafes/{uid}` exists (cafeId from that doc)
- *  - none   → neither (a brand-new user who must onboard or join)
+ * Resolves which location the signed-in user belongs to:
+ *  - `users/{uid}` names the location, and
+ *  - `locations/{locationId}/members/{uid}` confirms access and gives the role.
+ * The member doc is the authority; a pointer whose membership was removed
+ * resolves to none, the same as a brand-new user who must onboard or join.
  * Intended for the staff layout, which then supplies CafeProvider.
  */
 export function useResolveCafe(): {
@@ -47,17 +49,16 @@ export function useResolveCafe(): {
     let cancelled = false;
     (async () => {
       try {
-        const ownDoc = await getDoc(cafeDoc(firestore, user.uid));
+        const pointer = await getDoc(userDoc(firestore, user.uid));
         if (cancelled) return;
-        if (ownDoc.exists()) {
-          setState({ cafeId: user.uid, role: 'owner', loading: false });
-          return;
-        }
-        const membership = await getDoc(userCafeDoc(firestore, user.uid));
-        if (cancelled) return;
-        if (membership.exists()) {
-          setState({ cafeId: membership.data().cafeId as string, role: 'staff', loading: false });
-          return;
+        if (pointer.exists()) {
+          const { locationId } = pointer.data() as UserLocation;
+          const membership = await getDoc(memberDoc(firestore, locationId, user.uid));
+          if (cancelled) return;
+          if (membership.exists()) {
+            setState({ cafeId: locationId, role: membership.get('role') as CafeRole, loading: false });
+            return;
+          }
         }
         setState({ cafeId: null, role: null, loading: false });
       } catch (e) {
@@ -86,7 +87,7 @@ export function CafeProvider({
   return <CafeContext.Provider value={{ cafeId, role }}>{children}</CafeContext.Provider>;
 }
 
-/** The current user's resolved cafeId (owner's uid or the staff member's cafe). */
+/** The current user's resolved location id. */
 export const useCafeId = (): string | null => useContext(CafeContext).cafeId;
 
 /** Whether the current user is the 'owner' or 'staff' of the active cafe. */

@@ -90,6 +90,15 @@ export function zonedDateKey(date: Date, tz: string): string {
   return dateToZonedWallTime(date, tz).date;
 }
 
+/**
+ * `YYYY-MM-DD_HH-mm-ss` wall-clock time in a zone. Fixed-width and
+ * most-significant first, so keys built from it sort chronologically as strings.
+ */
+export function zonedTimestampKey(date: Date, tz: string): string {
+  const p = wallPartsIn(date, tz);
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}_${pad(p.hour)}-${pad(p.minute)}-${pad(p.second)}`;
+}
+
 /** e.g. "Sat, Aug 23, 2026" */
 export function formatSessionDate(date: Date, tz: string): string {
   return new Intl.DateTimeFormat(undefined, {

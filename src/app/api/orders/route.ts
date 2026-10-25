@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { orderDocId } from '@/lib/readable-ids';
+import { cafeTimezone } from '@/lib/timezone';
 
 // Order creation runs server-side via the Admin SDK so the public real-time
 // listeners no longer need App Check enforcement on Firestore (which was adding
@@ -103,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   // --- Confirm the cafe exists before writing ---
   const adminDb = getAdminDb();
-  const cafeSnap = await adminDb.doc(`cafes/${cafeId}`).get();
+  const cafeSnap = await adminDb.doc(`locations/${cafeId}`).get();
   if (!cafeSnap.exists) {
     return NextResponse.json({ error: 'Cafe not found' }, { status: 404 });
   }
@@ -115,8 +117,13 @@ export async function POST(req: NextRequest) {
   // starts — a missing field would never match that query.
   const activeSessionId = (cafeSnap.get('activeSessionId') as string | null | undefined) ?? null;
 
-  const ref = await adminDb.collection(`cafes/${cafeId}/orders`).add({
-    customerName: customerName.trim(),
+  // Readable, time-sortable id, e.g. `2026-10-24_14-32-05_min_a1b2`. `create`
+  // rather than `set` so an id collision fails loudly instead of overwriting.
+  const name = customerName.trim();
+  const tz = cafeTimezone(cafeSnap.get('timezone') as string | undefined);
+  const ref = adminDb.doc(`locations/${cafeId}/orders/${orderDocId(new Date(), name, tz)}`);
+  await ref.create({
+    customerName: name,
     items: sanitizedItems,
     status: 'pending',
     sessionId: activeSessionId,

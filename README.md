@@ -32,8 +32,8 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 
 ## Technical highlights
 
-- **Multi-tenant data isolation** — Every location's data lives under `cafes/{cafeId}/…` where `cafeId` is the owner's Auth uid. Firestore Security Rules scope all access to a single cafe, while menus stay publicly readable for customers.
-- **Role-based staff access** — A user is resolved as **owner** (`cafes/{uid}`) or **staff** (a `userCafes/{uid}` membership created by redeeming an invite code). Owners and staff share queue + menu access; settings and the staff roster are owner-only — all enforced in the rules.
+- **Multi-tenant data isolation** — Every location's data lives under `locations/{locationId}/…`, with readable ids (`locations/msu-campus`, `drinks/matcha-latte`, date-prefixed sessions and orders) so the Firebase console reads at a glance. Firestore Security Rules scope all access to a single location, while menus stay publicly readable for customers.
+- **Role-based staff access** — Everyone at a location has a `locations/{locationId}/members/{uid}` doc with role **owner** or **staff** (staff join by redeeming an invite code). Owners and staff share queue + menu access; settings and the staff roster are owner-only — all enforced in the rules.
 - **Real-time sync** — Firestore `onSnapshot` listeners push order and menu updates to every connected screen instantly, with no polling.
 - **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
 - **Session-scoped stats** — Ending a session freezes its totals onto the session document, so History and the all-time counter read one small doc per session instead of subscribing to every order ever completed.
@@ -127,21 +127,30 @@ npm run typecheck  # Type check without emitting
 
 ## Firestore data model
 
-Each location owns an isolated subtree under `cafes/{cafeId}`, where `cafeId === the operator's Auth uid`. The `location` field is the branch label (e.g. "MSU Campus"); the brand ("Sixth Hour Cafe") is fixed in the UI. A top-level `slugs` collection maps public slugs to locations for customer links.
+Each location owns an isolated subtree under `locations/{locationId}`. The id is readable and fixed when the location is created (e.g. `msu-campus`); the public `slug` is separate and can change. The `location` field is the branch label (e.g. "MSU Campus"); the brand ("Sixth Hour Cafe") is fixed in the UI.
+
+Document ids are chosen to read well in the Firebase console ([`src/lib/readable-ids.ts`](src/lib/readable-ids.ts)). Drinks, categories and presets are named after themselves (`matcha-latte`, `matcha-latte-2` on a clash), so `menuIds` reads as a list of drinks. Sessions and orders start with their local date/time, so they list chronologically. Ids never change after creation; renaming a drink keeps its id.
 
 | Path | Fields |
 |---|---|
-| `cafes/{cafeId}` | `location`, `slug`, `createdAt`, `activeSessionId?`, `timezone?`, `instagramEnabled?`, `instagramUrl?` |
-| `cafes/{cafeId}/orders/{id}` | `customerName`, `items[]`, `status` (`pending` / `completed` / `cancelled`; `archived` is legacy), `sessionId`, `createdAt` |
-| `cafes/{cafeId}/sessions/{id}` | `location`, `startsAt`, `endedAt?`, `status` (`scheduled` / `active` / `ended`), `notes?`, and the stats frozen on end: `drinkCount`, `orderCount`, `itemCounts` |
-| `cafes/{cafeId}/drinks/{id}` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
-| `cafes/{cafeId}/categories/{id}` | `name` |
-| `cafes/{cafeId}/private/invite` | `code` (owner-only; current invite code) |
-| `slugs/{slug}` | `cafeId` |
-| `inviteCodes/{code}` | `cafeId` (staff join lookup) |
-| `userCafes/{uid}` | `cafeId`, `role`, `email`, `code` (staff membership) |
+| `locations/{locationId}` e.g. `msu-campus` | `location`, `slug`, `createdAt`, `activeSessionId?`, `liveMenu?`, `timezone?`, `instagramEnabled?`, `instagramUrl?` |
+| `…/members/{uid}` | `email`, `role` (`owner` / `staff`), `code?`, `joinedAt` — who has access; owner-only roster |
+| `…/orders/{id}` e.g. `2026-10-24_14-32-05_min_a1b2` | `customerName`, `items[]`, `status` (`pending` / `completed` / `cancelled`; `archived` is legacy), `sessionId`, `createdAt` |
+| `…/sessions/{id}` e.g. `2026-10-24_library_k3f9` | `location`, `startsAt`, `endedAt?`, `status` (`scheduled` / `active` / `ended`), `notes?`, `menuIds`, `soldOutIds`, `presetId?`, and the stats frozen on end: `drinkCount`, `orderCount`, `itemCounts` |
+| `…/drinks/{id}` e.g. `matcha-latte` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
+| `…/categories/{id}` | `name` |
+| `…/presets/{id}` | `name`, `drinkIds[]` |
+| `…/recipes/{drinkId}` | `ingredients[]`, `instructions` (staff-only) |
+| `…/private/invite` | `code` (owner-only; current invite code) |
+| `users/{uid}` | `locationId`, `role`, `email` — pointer from an account to its location |
+| `slugs/{slug}` | `locationId` |
+| `inviteCodes/{code}` | `locationId` (staff join lookup) |
 
-Access is enforced by [`firestore.rules`](firestore.rules): cafe info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners (`request.auth.uid == cafeId`) and **staff** (a `userCafes/{uid}` doc pointing at the cafe) may manage drinks, categories, orders, and sessions; cafe settings, invite codes, and the staff roster are **owner-only** — except `activeSessionId`, the one cafe field staff may change, so they can start and end sessions.
+Access is enforced by [`firestore.rules`](firestore.rules) and decided by the member doc alone: location info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners and staff may manage drinks, categories, presets, recipes, orders, and sessions; location settings, invite codes, and the roster are **owner-only** — except `activeSessionId` and `liveMenu`, the location fields staff may change, so they can run sessions.
+
+**Moving from the old `cafes/{uid}` layout** — [`scripts/migrate-readable-ids.ts`](scripts/migrate-readable-ids.ts) copies every cafe into `locations/`, assigns readable ids, rewrites every reference to them, and builds `members` and `users`. See the header of the script for the run order (dry run → copy → deploy → catch-up → cleanup).
+
+**Testing rules and the migration** — `npm run test:emulator` runs [`tests/`](tests/) against the Firestore and Auth emulators: the security rules, and a full migration of seeded old-layout data. Needs Java on `PATH` (e.g. `brew install openjdk`).
 
 **Migrating existing data** — [`scripts/backfill-sessions.ts`](scripts/backfill-sessions.ts) reconstructs sessions from order history that predates the feature, grouping each cafe's completed orders into one session per calendar date in its timezone (and collapsing legacy `archived` orders back into `completed`). It's idempotent and dry-runs by default:
 

@@ -13,7 +13,7 @@ import {
 } from '@/components/staff/SessionControls';
 import type { Cafe, MenuItem, MenuPreset, Order, Recipe, Session } from '@/lib/definitions';
 import { Button } from '../ui/button';
-import { Coffee, Play, Sigma } from 'lucide-react';
+import { Bell, BellOff, Coffee, Play, Sigma } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ import { cafeDoc, drinksCol, ordersCol, presetsCol, recipesCol, sessionsCol } fr
 import { countDrinks, suggestedLocation } from '@/lib/sessions';
 import { cafeTimezone } from '@/lib/timezone';
 import { TodaysMenu } from '@/components/staff/TodaysMenu';
+import { useNewOrderChime } from '@/hooks/use-new-order-chime';
 
 // Longest an order can sit unseen on an idle staff screen if its listener has
 // silently stalled.
@@ -152,6 +153,7 @@ export default function StaffPageClient() {
 
   const { data: pendingOrders } = useCollection<Order>(pendingOrdersQuery);
   const { data: sessionOrders } = useCollection<Order>(sessionOrdersQuery);
+  const chime = useNewOrderChime(pendingOrders);
 
   const liveStats = useMemo(() => {
     const orders = sessionOrders ?? [];
@@ -211,6 +213,16 @@ export default function StaffPageClient() {
                       </StartSessionDialog>
                     )
                   )}
+
+                  <Button
+                    variant="secondary"
+                    className="p-3 text-xl font-medium h-auto"
+                    onClick={chime.toggle}
+                    aria-pressed={chime.enabled}
+                    title={chime.enabled ? 'New order sound is on' : 'New order sound is off'}
+                  >
+                    {chime.enabled ? <Bell className="w-6 h-6" /> : <BellOff className="w-6 h-6 text-muted-foreground" />}
+                  </Button>
 
                    <Dialog>
                     <DialogTrigger asChild>

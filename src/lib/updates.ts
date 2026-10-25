@@ -16,6 +16,15 @@ export type Update = {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-10-25-order-chime',
+    date: '2026-10-25',
+    title: 'Hear new orders come in',
+    points: [
+      'Tap the bell next to the drink counter on the Queue page to play a chime for each new order.',
+      'Each iPad remembers its own setting. If the bell was left on, tap anywhere on the page once after opening it to let sound play.',
+    ],
+  },
+  {
     id: '2026-10-25-customer-qr',
     date: '2026-10-25',
     title: 'Open the customer screen with a QR code',

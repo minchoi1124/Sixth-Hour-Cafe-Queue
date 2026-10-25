@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Home, Maximize, Minimize, LogOut, Link2, Check, Loader2 } from 'lucide-react';
+import { Maximize, Minimize, LogOut, QrCode, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { signOut } from 'firebase/auth';
 import {
   useAuth,
@@ -19,7 +20,14 @@ import {
 } from '@/firebase';
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
-import { toast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => {
   const pathname = usePathname();
@@ -38,26 +46,39 @@ const NavLink = ({ href, children }: { href: string, children: React.ReactNode }
   );
 };
 
-function CustomerLinkButton({ slug }: { slug: string }) {
-  const [copied, setCopied] = useState(false);
+function CustomerScreenButton({ slug }: { slug: string }) {
+  const [url, setUrl] = useState('');
 
-  const handleCopy = async () => {
-    const url = `${window.location.origin}/order/${slug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      toast({ title: 'Link copied', description: url });
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ variant: 'destructive', title: 'Could not copy link' });
-    }
-  };
+  useEffect(() => {
+    setUrl(`${window.location.origin}/order/${slug}`);
+  }, [slug]);
 
   return (
-    <Button variant="outline" onClick={handleCopy} className="gap-2" title="Copy the ordering page link to open on your customer-facing device">
-      {copied ? <Check className="h-5 w-5 text-green-500" /> : <Link2 className="h-5 w-5" />}
-      <span className="hidden md:inline">Customer screen</span>
-    </Button>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2" title="Show a QR code to open the ordering page on your customer-facing device">
+          <QrCode className="h-5 w-5" />
+          <span className="hidden md:inline">Customer screen</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">Open the customer screen</DialogTitle>
+          <DialogDescription>
+            Scan this with the customer-facing device's camera, or type the link below.
+          </DialogDescription>
+        </DialogHeader>
+        {url && (
+          <div className="flex flex-col items-center gap-4 py-2">
+            {/* White backing keeps the code scannable in dark mode. */}
+            <div className="rounded-lg bg-white p-4">
+              <QRCodeSVG value={url} size={256} />
+            </div>
+            <span className="select-all break-all text-center text-xl font-mono">{url}</span>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -154,14 +175,9 @@ export default function StaffLayout({
             {isOwner && <NavLink href="/staff/settings">Settings</NavLink>}
           </nav>
           <div className="flex items-center gap-2">
-            <CustomerLinkButton slug={cafe.slug} />
+            <CustomerScreenButton slug={cafe.slug} />
             <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
                 <Maximize className="w-8 h-8"/>
-            </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href={`/order/${cafe.slug}`} aria-label="Go to customer page">
-                  <Home className="w-8 h-8"/>
-              </Link>
             </Button>
             <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out">
                 <LogOut className="w-7 h-7"/>

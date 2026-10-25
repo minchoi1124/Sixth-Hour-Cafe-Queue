@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { z } from 'zod';
 import { getAppCheckToken } from '@/firebase';
@@ -19,10 +19,18 @@ import { Checkbox } from '../ui/checkbox';
 import { QRCodeSVG } from 'qrcode.react';
 
 const OrderSchema = z.object({
-  customerName: z.string().trim().min(2, 'Please enter a name (at least 2 characters)'),
+  // Matches the limits in /api/orders.
+  customerName: z.string().trim().min(1, 'Please enter a name').max(60, 'Please keep your name under 60 characters'),
   itemId: z.string().min(1, 'Please select a drink'),
   modifications: z.array(z.string()),
 });
+
+// The thank-you screen clears itself for the next person in line; it stays up
+// longer when there's an Instagram code to scan.
+const SUCCESS_SECONDS = 8;
+const SUCCESS_SECONDS_WITH_INSTAGRAM = 15;
+// A half-filled order left on the kiosk is cleared after this long untouched.
+const IDLE_RESET_MS = 60_000;
 
 const drinkIcons: { [key: string]: React.FC<{ className?: string }> } = {
     "Maple Matcha Latte": MapleMatchaLatteIcon,
@@ -93,7 +101,10 @@ export default function OrderForm({
   const [customerName, setCustomerName] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ customerName?: string[], itemId?: string[] } | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [hasTyped, setHasTyped] = useState(false);
+  // Bumped to remount the form, which clears the name and the drink choice.
+  const [formKey, setFormKey] = useState(0);
   const soldOut = useMemo(() => new Set(soldOutIds), [soldOutIds]);
 
   const categories = menu.reduce((acc, item) => {
@@ -109,18 +120,37 @@ export default function OrderForm({
     setCustomerName('');
     setSelectedItemId(null);
     setErrors(null);
-    formRef.current?.reset();
+    setHasTyped(false);
+    setFormKey((key) => key + 1);
+    window.scrollTo({ top: 0 });
   };
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isSuccess) {
-      timer = setTimeout(() => {
-        resetForm();
-      }, 30000); // 30 seconds
-    }
-    return () => clearTimeout(timer);
+    if (!isSuccess) return;
+    const tick = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearInterval(tick);
   }, [isSuccess]);
+
+  useEffect(() => {
+    if (isSuccess && secondsLeft <= 0) resetForm();
+  }, [isSuccess, secondsLeft]);
+
+  // Any touch, keypress or scroll restarts the idle countdown.
+  const hasProgress = hasTyped || selectedItemId !== null;
+  useEffect(() => {
+    if (!hasProgress || isSuccess || isPending) return;
+    let timer = setTimeout(resetForm, IDLE_RESET_MS);
+    const restart = () => {
+      clearTimeout(timer);
+      timer = setTimeout(resetForm, IDLE_RESET_MS);
+    };
+    const events = ['pointerdown', 'keydown', 'input', 'scroll'] as const;
+    events.forEach((name) => window.addEventListener(name, restart, { passive: true }));
+    return () => {
+      clearTimeout(timer);
+      events.forEach((name) => window.removeEventListener(name, restart));
+    };
+  }, [hasProgress, isSuccess, isPending]);
 
   const selectedItem = menu.find(item => item.id === selectedItemId);
   const availableModifications = selectedItem?.modifications ?? [];
@@ -188,6 +218,7 @@ export default function OrderForm({
       }
 
       setCustomerName(validatedFields.data.customerName);
+      setSecondsLeft(instagramUrl ? SUCCESS_SECONDS_WITH_INSTAGRAM : SUCCESS_SECONDS);
       setIsSuccess(true);
 
     } catch (e: any) {
@@ -213,26 +244,35 @@ export default function OrderForm({
           </AlertDescription>
         </Alert>
 
-        {instagramUrl && (
-          <Card className="text-center border-primary/50 bg-background shadow-none">
-              <CardHeader>
-                  <CardTitle className="text-3xl">Follow us on Instagram for updates!</CardTitle>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                  <QRCodeSVG value={instagramUrl} size={200} />
-              </CardContent>
-          </Card>
-        )}
+        {/* The next person in line walks up to this screen, so starting a new
+            order is the biggest thing on it. */}
+        <div className="space-y-3">
+          <Button onClick={resetForm} className="h-auto w-full gap-3 py-10 text-3xl shadow-lg">
+            <Plus className="h-9 w-9" />
+            Next in line? Tap to order
+          </Button>
+          <p className="text-lg text-muted-foreground" aria-live="polite">
+            Starting a new order in {Math.max(secondsLeft, 0)}…
+          </p>
+        </div>
 
-        <Button onClick={resetForm} className="text-2xl py-6">
-            New Order
-        </Button>
+        {/* Kept small so it isn't mistaken for a way to order. */}
+        {instagramUrl && (
+          <div className="mx-auto flex max-w-md items-center gap-4 rounded-lg border border-dashed p-4 text-left">
+            <div className="flex-shrink-0 rounded bg-white p-2">
+              <QRCodeSVG value={instagramUrl} size={120} />
+            </div>
+            <p className="text-lg text-muted-foreground">
+              Follow us on Instagram for updates!
+            </p>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-12">
+    <form key={formKey} onSubmit={handleSubmit} onInput={() => setHasTyped(true)} className="space-y-12">
       <Card>
         <CardHeader>
           <CardTitle className="text-4xl">1. What&apos;s your name?</CardTitle>

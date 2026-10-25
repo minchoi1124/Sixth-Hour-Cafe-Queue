@@ -139,6 +139,9 @@ export default function JoinPage() {
             Setting up your own cafe instead?{' '}
             <Link href="/onboarding" className="underline">Create a location</Link>
           </p>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            New to the app? <Link href="/guide" className="underline">Read how it works</Link>
+          </p>
         </CardContent>
       </Card>
     </main>

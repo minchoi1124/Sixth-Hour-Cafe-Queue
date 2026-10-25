@@ -132,6 +132,7 @@ export const RESERVED_SLUGS = new Set([
   'app',
   'about',
   'help',
+  'guide',
   'support',
   'settings',
   'account',

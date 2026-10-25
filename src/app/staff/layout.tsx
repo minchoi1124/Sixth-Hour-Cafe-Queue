@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Maximize, Minimize, LogOut, QrCode, Loader2 } from 'lucide-react';
+import { Maximize, Minimize, LogOut, QrCode, Loader2, CircleHelp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { signOut } from 'firebase/auth';
@@ -180,6 +180,11 @@ export default function StaffLayout({
           <div className="flex items-center gap-2">
             <CustomerScreenButton slug={cafe.slug} />
             <WhatsNew />
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/guide" aria-label="How to use the app" title="How to use the app">
+                <CircleHelp className="w-7 h-7" />
+              </Link>
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
                 <Maximize className="w-8 h-8"/>
             </Button>

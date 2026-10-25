@@ -30,6 +30,7 @@ import { countDrinks, suggestedLocation } from '@/lib/sessions';
 import { cafeTimezone } from '@/lib/timezone';
 import { TodaysMenu } from '@/components/staff/TodaysMenu';
 import { useNewOrderChime } from '@/hooks/use-new-order-chime';
+import { GuideCard } from '@/components/staff/GuideCard';
 
 // Longest an order can sit unseen on an idle staff screen if its listener has
 // silently stalled.
@@ -251,10 +252,11 @@ export default function StaffPageClient() {
                 </div>
             </div>
 
+            {activeTab === 'queue' && <GuideCard />}
+
             {!activeSession && activeTab === 'queue' && (
               <div className="mb-6 rounded-md border border-dashed bg-card p-4 text-xl text-muted-foreground">
-                No active session. Orders still come through — they&apos;ll be added to the
-                next session you start.
+                No active session. Customers can&apos;t order until you start one.
               </div>
             )}
 

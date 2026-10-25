@@ -24,6 +24,9 @@ export default function LandingPage() {
           <Link href="/login">Log in</Link>
         </Button>
       </div>
+      <Link href="/guide" className="mt-4 text-lg text-muted-foreground underline">
+        How does it work?
+      </Link>
 
       <div className="mt-16 grid w-full grid-cols-1 gap-8 sm:grid-cols-3">
         <Feature

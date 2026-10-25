@@ -194,6 +194,9 @@ export default function OnboardingPage() {
             Joining an existing location?{' '}
             <Link href="/join" className="underline">Enter an invite code</Link>
           </p>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            New to the app? <Link href="/guide" className="underline">Read how it works</Link>
+          </p>
         </CardContent>
       </Card>
     </main>

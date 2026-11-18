@@ -85,7 +85,7 @@ async function main() {
   │  App:          http://localhost:9002                        │
   │  Staff:        MSU Campus, passcode 000000                  │
   │  Owner login:  owner@example.com / password123              │
-  │  Old staff:    staff@example.com / password123 (no access)  │
+  │  Old staff:    staff@example.com / password123 (role staff)     │
   └─────────────────────────────────────────────────────────────┘
 `);
 

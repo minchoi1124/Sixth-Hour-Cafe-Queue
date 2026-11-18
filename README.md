@@ -149,7 +149,9 @@ Document ids are chosen to read well in the Firebase console ([`src/lib/readable
 
 Access is enforced by [`firestore.rules`](firestore.rules): the owner by their member doc, staff by the claims on their passcode sign-in. Location info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners and staff may manage drinks, categories, presets, recipes, orders, and sessions; location settings and the passcode are **owner-only** — except `activeSessionId` and `liveMenu`, the location fields staff may change, so they can run sessions.
 
-**Removing old staff invites** — [`scripts/remove-staff-invites.ts`](scripts/remove-staff-invites.ts) deletes leftover staff `members`/`users` docs, `private/invite` and `inviteCodes/` (dry run by default, `--commit` to delete).
+**Promoting old staff accounts** — [`scripts/promote-staff-to-owners.ts`](scripts/promote-staff-to-owners.ts) gives every account from the old invite system (`role: staff`) the owner role, in both its `members` doc and its `users` pointer, so it keeps working as a co-owner (dry run lists them, `--commit` promotes; `npm run promote-staff`).
+
+**Removing old invite codes** — [`scripts/remove-staff-invites.ts`](scripts/remove-staff-invites.ts) deletes `private/invite` and `inviteCodes/` (dry run by default, `--commit` to delete). It leaves accounts alone.
 
 **Moving from the old `cafes/{uid}` layout** — [`scripts/migrate-readable-ids.ts`](scripts/migrate-readable-ids.ts) copies every cafe into `locations/`, assigns readable ids, rewrites every reference to them, and builds `members` and `users`. See the header of the script for the run order (dry run → copy → deploy → catch-up → cleanup).
 

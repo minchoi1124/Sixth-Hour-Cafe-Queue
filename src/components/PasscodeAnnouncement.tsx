@@ -61,7 +61,7 @@ export function PasscodeAnnouncement() {
               Staff sign-in is changing
             </DialogTitle>
             <DialogDescription className="text-base">
-              No more staff accounts or invite codes.
+              Staff can now sign in with a passcode, no account needed.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 text-base">
@@ -82,8 +82,7 @@ export function PasscodeAnnouncement() {
               </p>
             </div>
             <p className="text-muted-foreground">
-              Old staff accounts and invite codes no longer work. Owners still log in with their
-              account as before.
+              Staff who already have an account keep it, and it now has the same access as the owner. Owners still log in as before. Invite codes are no longer used.
             </p>
             <p>
               If you have any questions or issues, please reach out to me at <a href="tel:520-225-7945" className="text-primary underline">

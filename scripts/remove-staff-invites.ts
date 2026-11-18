@@ -1,17 +1,12 @@
 /**
- * One-time cleanup after switching staff to location passcodes.
+ * One-time cleanup of the old invite codes, which the passcode rules no
+ * longer use:
  *
- * Staff used to join with an invite code and get their own account. The rules
- * no longer give those accounts any access, so this only removes the leftover
- * data:
- *
- *   locations/{id}/members/{uid}  where role == 'staff'
- *   users/{uid}                   where role == 'staff'
  *   locations/{id}/private/invite
  *   inviteCodes/*
  *
- * Owners' members and users docs are left alone. The staff accounts
- * themselves stay in Firebase Auth; delete them from the console if you want.
+ * Staff accounts are NOT touched; scripts/promote-staff-to-owners.ts turns
+ * them into owners.
  *
  * ── How to run ──────────────────────────────────────────────────────────────
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccount.json \
@@ -33,20 +28,8 @@ async function main() {
 
   const doomed: DocumentReference[] = [];
 
-  const staffUsers = await db.collection('users').where('role', '==', 'staff').get();
-  for (const doc of staffUsers.docs) {
-    console.log(`  pointer  ${doc.ref.path}  (${doc.get('email') ?? 'no email'})`);
-    doomed.push(doc.ref);
-  }
-
   const locations = await db.collection('locations').listDocuments();
   for (const location of locations) {
-    const staffMembers = await location.collection('members').where('role', '==', 'staff').get();
-    for (const doc of staffMembers.docs) {
-      console.log(`  member   ${doc.ref.path}  (${doc.get('email') ?? 'no email'})`);
-      doomed.push(doc.ref);
-    }
-
     const invite = location.collection('private').doc('invite');
     if ((await invite.get()).exists) {
       console.log(`  invite   ${invite.path}`);

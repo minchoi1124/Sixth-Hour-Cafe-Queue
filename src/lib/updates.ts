@@ -23,7 +23,7 @@ export const UPDATES: Update[] = [
       'Staff now pick their location on the main page and enter its staff passcode. Their phone stays signed in after that.',
       'Every location starts with the passcode 000000. Owners: change it in Settings → Staff passcode as soon as you can, since anyone can guess the default.',
       'Changing the passcode signs out every phone that used the old one.',
-      'Invite codes and staff accounts have been removed.',
+      'Staff who already have an account keep it, with the same access as the owner. Invite codes are no longer used.',
     ],
   },
   {

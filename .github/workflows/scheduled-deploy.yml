@@ -2,7 +2,7 @@
 #
 # At 3:00 AM Eastern on Nov 19, 2026 this moves `main` to the
 # `staff-passcode` branch (Vercel then deploys the app) and deploys the
-# Firestore rules. The last commit on that branch deletes this file, so it
+# Firestore rules, then publishes the v1.3.0 GitHub release. The last commit on that branch deletes this file, so it
 # only ever runs once.
 #
 # It refuses to deploy while any staff account is still role 'staff'; run
@@ -94,6 +94,9 @@ jobs:
             echo "::error::main has new commits that aren't on staff-passcode. Not deploying."
             exit 1
           }
+          # The release notes live next to this workflow on main; grab them
+          # before main moves to the branch (which doesn't have them).
+          git show origin/main:.github/release-notes-v1.3.0.md > "$RUNNER_TEMP/release-notes.md"
 
       - name: Push the app to main (Vercel deploys it)
         if: env.DEPLOY == 'yes'
@@ -102,3 +105,15 @@ jobs:
       - name: Deploy Firestore rules
         if: env.DEPLOY == 'yes'
         run: npx --yes firebase-tools@15.36.0 deploy --only firestore:rules --project "$FIREBASE_PROJECT" --non-interactive
+
+      # Only once the app and rules are both out.
+      - name: Publish the v1.3.0 release
+        if: env.DEPLOY == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.3.0 \
+            --target "$(git rev-parse HEAD)" \
+            --title "v1.3.0 — Staff passcode sign-in" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --latest

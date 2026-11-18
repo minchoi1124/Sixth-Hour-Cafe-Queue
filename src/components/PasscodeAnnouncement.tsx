@@ -78,8 +78,7 @@ export function PasscodeAnnouncement() {
               <p className="mt-1">
                 For security reasons since this is a public application, I highly recommend changing it right away, since anyone who
                 knows the default can get into your queue and menu. Log in and go to{' '}
-                <strong>Settings → Staff passcode</strong> and pick a few words that are easy to
-                remember. Changing it signs out any phone that used the old passcode.
+                <strong>Settings → Staff passcode</strong>. Changing it signs out any phone that used the old passcode.
               </p>
             </div>
             <p className="text-muted-foreground">

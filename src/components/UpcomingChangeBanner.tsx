@@ -40,10 +40,11 @@ export function UpcomingChangeBanner() {
         <div className="flex-1 space-y-1 text-base">
           <p className="font-semibold">Heads up: staff sign-in is changing tonight at 3 AM Eastern.</p>
           <p>
-            After that, staff won’t need their own account. To log in, pick your location on the
+            After that, helpers won’t need their own account. To log in, pick your location on the
             main page and enter the location’s staff passcode, which is <strong>000000</strong> until
-            the owner changes it. Old staff accounts and invite codes will stop working. Owners
-            still log in as before, and should change the passcode in Settings → Staff passcode.
+            the owner changes it. If you already have a staff account, you keep it, and it will have
+            the same access as the owner. Owners still log in as before, and should change the
+            passcode in Settings → Staff passcode.
           </p>
           <p>
             Questions? Reach me at{' '}

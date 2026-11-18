@@ -5,6 +5,9 @@
 # Firestore rules. The last commit on that branch deletes this file, so it
 # only ever runs once.
 #
+# It refuses to deploy while any staff account is still role 'staff'; run
+# the "promote-staff" mode first, after checking who they are.
+#
 # Needs the repo secret FIREBASE_SERVICE_ACCOUNT (the same service account
 # JSON used in Vercel). To test it without deploying: Actions → this
 # workflow → Run workflow → mode "check".
@@ -17,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'check = test the Firebase credentials only; deploy = deploy now'
+        description: 'check = test only; promote-staff = make every staff account an owner; deploy = deploy now'
         type: choice
-        options: [check, deploy]
+        options: [check, promote-staff, deploy]
         default: check
 
 permissions:
@@ -65,6 +68,24 @@ jobs:
       # is touched (the app must never go out without its rules).
       - name: Check the rules deploy (dry run)
         run: npx --yes firebase-tools@15.36.0 deploy --only firestore:rules --project "$FIREBASE_PROJECT" --non-interactive --dry-run
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Staff accounts keep working only as owners. Promoting is a deliberate
+      # step (mode promote-staff) taken after the owner has checked who they are.
+      - name: Promote staff accounts to owners
+        if: inputs.mode == 'promote-staff'
+        run: npx tsx scripts/promote-staff-to-owners.ts --commit
+
+      - name: Staff accounts still to promote
+        if: env.DEPLOY != 'yes'
+        run: npx tsx scripts/promote-staff-to-owners.ts
+
+      # Never go live while a staff account would lose access.
+      - name: Check every staff account has been promoted
+        if: env.DEPLOY == 'yes'
+        run: npx tsx scripts/promote-staff-to-owners.ts --require-none
 
       - name: Check main can be fast-forwarded
         run: |

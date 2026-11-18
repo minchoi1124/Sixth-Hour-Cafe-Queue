@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
-import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Loader2, MonitorSmartphone } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +46,16 @@ export function StaffSignIn({ locations }: { locations: LocationChoice[] }) {
   }, [locations]);
 
   const signedIn = !isUserLoading && user && !user.isAnonymous;
+  const chosenSlug = locations.find((location) => location.id === locationId)?.slug;
+  const customerScreenUrl = chosenSlug ? `/order/${chosenSlug}` : null;
+
+  const rememberLocation = () => {
+    try {
+      localStorage.setItem(LAST_LOCATION_KEY, locationId);
+    } catch {
+      // Not remembering the location is fine.
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,11 +87,7 @@ export function StaffSignIn({ locations }: { locations: LocationChoice[] }) {
         return;
       }
       await signInWithCustomToken(auth, result.token);
-      try {
-        localStorage.setItem(LAST_LOCATION_KEY, locationId);
-      } catch {
-        // Not remembering the location is fine.
-      }
+      rememberLocation();
       router.push('/staff');
     } catch (e) {
       console.error('Staff sign-in failed:', e);
@@ -149,6 +155,29 @@ export function StaffSignIn({ locations }: { locations: LocationChoice[] }) {
             {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Log in'}
           </Button>
         </form>
+
+        {/* The ordering page is public, so this needs no passcode: handy for
+            setting up the customer iPad without signing it in as staff. */}
+        <div className="space-y-2 border-t pt-4">
+          {customerScreenUrl ? (
+            <Button asChild variant="outline" className="w-full py-6 text-xl">
+              <Link href={customerScreenUrl} onClick={rememberLocation}>
+                <MonitorSmartphone className="mr-2 h-5 w-5" />
+                Open customer screen
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" disabled className="w-full py-6 text-xl">
+              <MonitorSmartphone className="mr-2 h-5 w-5" />
+              Open customer screen
+            </Button>
+          )}
+          <p className="text-center text-sm text-muted-foreground">
+            {locationId
+              ? 'Opens the ordering page customers use. No passcode needed.'
+              : 'Pick a location to open the ordering page customers use. No passcode needed.'}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

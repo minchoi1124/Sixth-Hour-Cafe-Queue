@@ -21,14 +21,19 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
   }
 };
 
-export type LocationChoice = { id: string; name: string };
+/** `slug` is the public ordering link, /order/{slug}. */
+export type LocationChoice = { id: string; name: string; slug: string | null };
 
-/** Every location, by name, for the staff sign-in picker on the main page. */
+/** Every location, by name, for the picker on the main page (staff sign-in and the customer screen). */
 export const listLocations = async (): Promise<LocationChoice[]> => {
   try {
-    const snap = await getAdminDb().collection('locations').select('location').get();
+    const snap = await getAdminDb().collection('locations').select('location', 'slug').get();
     return snap.docs
-      .map((doc) => ({ id: doc.id, name: (doc.get('location') as string | undefined) || doc.id }))
+      .map((doc) => ({
+        id: doc.id,
+        name: (doc.get('location') as string | undefined) || doc.id,
+        slug: (doc.get('slug') as string | undefined) ?? null,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     console.error('Failed to list locations:', error);

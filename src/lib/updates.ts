@@ -34,6 +34,7 @@ export const UPDATES: Update[] = [
       'Every location starts with the passcode 000000. Owners: change it in Settings → Staff passcode as soon as you can, since anyone can guess the default.',
       'Changing the passcode signs out every phone that used the old one.',
       'Staff signed in with the passcode can look it up under Passcode at the top of the screen, to let other helpers in.',
+      'To set up the customer iPad, open the main page, pick your location and tap Open customer screen. No passcode needed.',
       'Staff who already have an account keep it, with the same access as the owner. Invite codes are no longer used.',
     ],
   },

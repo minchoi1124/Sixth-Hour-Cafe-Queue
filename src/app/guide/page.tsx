@@ -102,7 +102,9 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
         </li>
         <li>
           Tap <strong>Customer screen</strong> in the top bar and scan the QR code with the customer
-          iPad’s camera. No camera? Type the link shown under the code.
+          iPad’s camera. No camera? Type the link shown under the code. Or, on the customer iPad,
+          open the app’s main page, pick your location and tap <strong>Open customer screen</strong>.
+          No passcode needed.
         </li>
         <li>On the customer iPad, check the ordering page shows your drinks.</li>
         <li>
@@ -154,7 +156,10 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
     body: (
       <>
         <Steps>
-          <li>Open the ordering page by scanning the QR code from <strong>Customer screen</strong>.</li>
+          <li>
+            Open the ordering page by scanning the QR code from <strong>Customer screen</strong>, or
+            from the main page: pick your location and tap <strong>Open customer screen</strong>.
+          </li>
           <li>
             Tap Safari’s <strong>Share</strong> button, then <strong>Add to Home Screen</strong>. Next
             time, just tap the icon; there’s nothing to type.

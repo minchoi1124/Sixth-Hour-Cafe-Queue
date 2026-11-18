@@ -21,6 +21,7 @@ import {
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
+import { UpcomingChangeBanner } from '@/components/UpcomingChangeBanner';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 import {
   Dialog,
@@ -194,6 +195,7 @@ export default function StaffLayout({
           </div>
         </div>
       </header>
+      <UpcomingChangeBanner />
       <main className="flex-1">
         {children}
       </main>

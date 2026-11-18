@@ -2,9 +2,12 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Coffee, QrCode, ListChecks } from 'lucide-react';
+import { UpcomingChangeBanner } from '@/components/UpcomingChangeBanner';
 
 export default function LandingPage() {
   return (
+    <>
+    <UpcomingChangeBanner />
     <main className="container mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-6 text-center">
       <Logo className="mb-6 h-24 w-24" />
       <h1 className="text-5xl font-bold tracking-tighter md:text-6xl">
@@ -46,6 +49,7 @@ export default function LandingPage() {
         />
       </div>
     </main>
+    </>
   );
 }
 

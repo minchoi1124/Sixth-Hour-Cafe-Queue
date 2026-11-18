@@ -101,6 +101,12 @@ service cloud.firestore {
         allow read, write: if isOwner(locationId);
       }
 
+      // Staff signed in with the passcode may see it, so they can let other
+      // helpers in when the owner isn't there. Only the owner can change it.
+      match /private/staffPasscode {
+        allow read: if isPasscodeStaff(locationId);
+      }
+
       // The owner's account. Anyone can read their own membership (login
       // resolves it). Docs with role 'staff' are left over from the old invite
       // system and grant nothing.

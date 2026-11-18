@@ -21,6 +21,7 @@ import {
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
+import { StaffPasscodeButton } from '@/components/staff/StaffPasscodeButton';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 import { toast } from '@/hooks/use-toast';
 import { passcodeVersionOf } from '@/lib/staff-passcode';
@@ -196,6 +197,7 @@ export default function StaffLayout({
           </nav>
           <div className="flex items-center gap-2">
             <CustomerScreenButton slug={cafe.slug} />
+            {!isOwner && cafeId && <StaffPasscodeButton cafeId={cafeId} />}
             <WhatsNew />
             <Button variant="ghost" size="icon" asChild>
               <Link href="/guide" aria-label="How to use the app" title="How to use the app">

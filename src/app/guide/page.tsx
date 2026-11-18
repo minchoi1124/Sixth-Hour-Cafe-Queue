@@ -63,7 +63,8 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
         <p>
           There are two roles. <strong>Owners</strong> sign in with an account, create a location
           and control its settings and staff passcode. <strong>Staff</strong> don’t need an account: they
-          sign in with the location’s passcode, run the queue and edit the menu.
+          sign in with the location’s passcode, run the queue, edit the menu and can look up the passcode
+          to let other helpers in.
         </p>
       </>
     ),
@@ -82,7 +83,7 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
         </Steps>
         <p className="font-semibold">If you’re working a shift</p>
         <Steps>
-          <li>Ask the owner for your location’s staff passcode.</li>
+          <li>Ask the owner, or anyone already signed in at your location, for its staff passcode.</li>
           <li>On your phone, open the app’s main page, pick your location and type the passcode.</li>
           <li>Your phone stays signed in, so next time it opens straight to the queue.</li>
         </Steps>
@@ -227,6 +228,7 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
         <Steps>
           <li>Open <strong>Settings</strong>. Under <strong>Staff passcode</strong>, tap the eye to see the current passcode.</li>
           <li>Text the passcode to whoever is working. They pick your location on the main page and type it in.</li>
+          <li>Staff who are already signed in can see it too, under <strong>Passcode</strong> at the top of the screen, so they can let others in when you’re not there.</li>
           <li>
             To take away access, type a new passcode (or tap <strong>Make one up</strong>) and tap{' '}
             <strong>Change passcode</strong>. Every phone that used the old passcode is signed out.

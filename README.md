@@ -147,7 +147,7 @@ Document ids are chosen to read well in the Firebase console ([`src/lib/readable
 | `users/{uid}` | `locationId`, `role`, `email` — pointer from an owner's account to its location |
 | `slugs/{slug}` | `locationId` |
 
-Access is enforced by [`firestore.rules`](firestore.rules): the owner by their member doc, staff by the claims on their passcode sign-in. Location info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners and staff may manage drinks, categories, presets, recipes, orders, and sessions; location settings and the passcode are **owner-only** — except `activeSessionId` and `liveMenu`, the location fields staff may change, so they can run sessions.
+Access is enforced by [`firestore.rules`](firestore.rules): the owner by their member doc, staff by the claims on their passcode sign-in. Location info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners and staff may manage drinks, categories, presets, recipes, orders, and sessions; location settings and changing the passcode are **owner-only** (passcode staff may read `private/staffPasscode` so they can let others in) — except `activeSessionId` and `liveMenu`, the location fields staff may change, so they can run sessions.
 
 **Promoting old staff accounts** — [`scripts/promote-staff-to-owners.ts`](scripts/promote-staff-to-owners.ts) gives every account from the old invite system (`role: staff`) the owner role, in both its `members` doc and its `users` pointer, so it keeps working as a co-owner (dry run lists them, `--commit` promotes; `npm run promote-staff`).
 

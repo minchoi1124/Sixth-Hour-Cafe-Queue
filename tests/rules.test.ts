@@ -20,6 +20,7 @@ import {
 import {
   type Firestore,
   deleteDoc,
+  doc,
   getDoc,
   getDocs,
   increment,
@@ -32,6 +33,7 @@ import {
 import {
   addDocWithReadableId,
   cafeDoc,
+  categoryDoc,
   drinkDoc,
   drinksCol,
   memberDoc,
@@ -169,8 +171,10 @@ describe('staff passcode sign-in', () => {
     await assertSucceeds(getDocs(sessionsCol(passcodeDb(LOCATION, 1), LOCATION)));
   });
 
-  test('only the owner sees or changes the passcode', async () => {
-    await assertFails(getDoc(staffPasscodeDoc(passcodeDb(), LOCATION)));
+  test('staff can see the passcode, but only the owner changes it', async () => {
+    await assertSucceeds(getDoc(staffPasscodeDoc(passcodeDb(), LOCATION)));
+    await assertFails(getDoc(staffPasscodeDoc(passcodeDb(), 'other-place')));
+    await assertFails(getDoc(doc(passcodeDb(), 'locations', LOCATION, 'private', 'staffPasscodeAttempts')));
     await assertFails(changePasscode(passcodeDb(), '111111'));
     await assertFails(updateDoc(cafeDoc(passcodeDb(), LOCATION), { staffPasscodeVersion: 5 }));
     await assertFails(getDoc(staffPasscodeDoc(dbFor(OUTSIDER), LOCATION)));
@@ -182,6 +186,20 @@ describe('staff passcode sign-in', () => {
     await assertFails(getDocs(sessionsCol(db, LOCATION)));
     await assertFails(setDoc(drinkDoc(db, LOCATION, 'x'), { name: 'x' }));
     await assertFails(updateDoc(cafeDoc(db, LOCATION), { activeSessionId: null }));
+  });
+
+  test('an old staff account promoted to owner has full access', async () => {
+    // What scripts/promote-staff-to-owners.ts does.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await updateDoc(memberDoc(admin, LOCATION, OLD_STAFF.uid), { role: 'owner' });
+      await updateDoc(userDoc(admin, OLD_STAFF.uid), { role: 'owner' });
+    });
+    const db = dbFor(OLD_STAFF);
+    await assertSucceeds(getDocs(sessionsCol(db, LOCATION)));
+    await assertSucceeds(updateDoc(cafeDoc(db, LOCATION), { instagram: 'msu' }));
+    await assertSucceeds(changePasscode(db, 'blue door 27'));
+    await assertSucceeds(updateDoc(userDoc(db, OLD_STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
   });
 
   test('a staff pointer or membership can no longer be created', async () => {
@@ -217,6 +235,22 @@ describe('working a location', () => {
     assert.match(sessionId, /^\d{4}-\d{2}-\d{2}_library-2nd-floor_[a-z0-9]{4}$/);
     const location = await getDoc(cafeDoc(db, LOCATION));
     assert.equal(location.get('activeSessionId'), sessionId);
+  });
+
+  test('staff edit and delete drinks, categories and orders', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(drinkDoc(admin, LOCATION, 'mocha'), { name: 'Mocha' });
+      await setDoc(categoryDoc(admin, LOCATION, 'hot'), { name: 'Hot' });
+      await setDoc(orderDoc(admin, LOCATION, 'o1'), { customerName: 'Sam', status: 'pending' });
+    });
+    const db = passcodeDb();
+    await assertSucceeds(updateDoc(drinkDoc(db, LOCATION, 'mocha'), { name: 'Iced Mocha' }));
+    await assertSucceeds(deleteDoc(drinkDoc(db, LOCATION, 'mocha')));
+    await assertSucceeds(updateDoc(categoryDoc(db, LOCATION, 'hot'), { name: 'Warm' }));
+    await assertSucceeds(deleteDoc(categoryDoc(db, LOCATION, 'hot')));
+    await assertSucceeds(updateDoc(orderDoc(db, LOCATION, 'o1'), { status: 'completed' }));
+    await assertSucceeds(deleteDoc(orderDoc(db, LOCATION, 'o1')));
   });
 
   test('staff cannot change location settings', async () => {

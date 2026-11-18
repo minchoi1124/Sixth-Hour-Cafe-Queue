@@ -13,31 +13,68 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCafeRole, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { userDoc } from '@/lib/cafe-paths';
 import { LATEST_UPDATE_ID, UPDATES, unseenUpdates } from '@/lib/updates';
 
+const LAST_SEEN_KEY = 'whatsNew.lastSeenUpdate';
+
+/**
+ * The newest update a staff device has dismissed. Staff have no account doc,
+ * so it's kept on the device. Before a staff phone has dismissed anything it's
+ * treated as up to date as of signing in, so a new helper isn't greeted with
+ * the whole history.
+ */
+function useDeviceLastSeen(enabled: boolean) {
+  const [lastSeen, setLastSeen] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(LAST_SEEN_KEY);
+      if (!stored) localStorage.setItem(LAST_SEEN_KEY, LATEST_UPDATE_ID);
+    } catch {
+      // Storage blocked: never auto-open rather than open every visit.
+    }
+    setLastSeen(stored ?? LATEST_UPDATE_ID);
+  }, [enabled]);
+
+  const markSeen = () => {
+    try {
+      localStorage.setItem(LAST_SEEN_KEY, LATEST_UPDATE_ID);
+    } catch {
+      // Nothing to do.
+    }
+    setLastSeen(LATEST_UPDATE_ID);
+  };
+  return { lastSeen, markSeen };
+}
+
 /**
  * Header button for the "What's new" dialog. Opens on its own once when there
- * are updates this account hasn't seen, and marks them seen when closed.
+ * are updates this owner account (or staff device) hasn't seen, and marks them
+ * seen when closed.
  */
 export function WhatsNew() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const isStaff = useCafeRole() === 'staff';
   const [open, setOpen] = useState(false);
   const autoOpened = useRef(false);
 
   const userRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || isStaff) return null;
     return userDoc(firestore, user.uid);
-  }, [firestore, user]);
+  }, [firestore, user, isStaff]);
 
-  const { data: account, isLoading } = useDoc<{ lastSeenUpdate?: string }>(userRef);
+  const { data: account, isLoading: isAccountLoading } = useDoc<{ lastSeenUpdate?: string }>(userRef);
+  const device = useDeviceLastSeen(isStaff);
 
-  const unseen = useMemo(
-    () => (account ? unseenUpdates(account.lastSeenUpdate) : []),
-    [account],
-  );
+  const isLoading = isStaff ? device.lastSeen === null : isAccountLoading;
+  const unseen = useMemo(() => {
+    if (isStaff) return device.lastSeen ? unseenUpdates(device.lastSeen) : [];
+    return account ? unseenUpdates(account.lastSeenUpdate) : [];
+  }, [isStaff, device.lastSeen, account]);
   const unseenIds = useMemo(() => new Set(unseen.map((update) => update.id)), [unseen]);
 
   useEffect(() => {
@@ -48,7 +85,10 @@ export function WhatsNew() {
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next && userRef && unseen.length > 0) {
+    if (next || unseen.length === 0) return;
+    if (isStaff) {
+      device.markSeen();
+    } else if (userRef) {
       updateDoc(userRef, { lastSeenUpdate: LATEST_UPDATE_ID }).catch((e) => {
         console.error('Failed to mark updates as seen:', e);
       });

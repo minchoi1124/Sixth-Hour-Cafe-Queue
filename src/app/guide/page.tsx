@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 // Public on purpose: people read it before they have an account or have
-// joined a location. Keep it in step with the app when features change.
+// signed in to a location. Keep it in step with the app when features change.
 
 const OwnerOnly = () => (
   <Badge variant="secondary" className="text-sm font-normal">
@@ -61,8 +61,9 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
           customer screen says you’re closed and shows when you open next.
         </p>
         <p>
-          There are two roles. <strong>Owners</strong> create a location and control its settings
-          and staff. <strong>Staff</strong> run the queue and edit the menu.
+          There are two roles. <strong>Owners</strong> sign in with an account, create a location
+          and control its settings and staff passcode. <strong>Staff</strong> don’t need an account: they
+          sign in with the location’s passcode, run the queue and edit the menu.
         </p>
       </>
     ),
@@ -74,16 +75,16 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
       <>
         <p className="font-semibold">If you’re starting a new location</p>
         <Steps>
-          <li>Go to the app, choose <strong>Get started</strong> and sign in with Google or an email and password.</li>
+          <li>Go to the app, choose <strong>Start a new location</strong> and sign in with Google or an email and password.</li>
           <li>Name your location (for example “MSU Campus”) and pick a short public link. Customers never need to type it; you’ll scan a QR code instead.</li>
+          <li>Open <strong>Settings</strong> and change the <strong>Staff passcode</strong> from 000000 to your own (see “Giving staff access”).</li>
           <li>Open <strong>Menu</strong> and add your drinks (see “Building your menu” below).</li>
-          <li>Invite your helpers from <strong>Settings</strong> (see “Adding staff”).</li>
         </Steps>
-        <p className="font-semibold">If you’re joining as staff</p>
+        <p className="font-semibold">If you’re working a shift</p>
         <Steps>
-          <li>Ask the owner for an invite code or join link.</li>
-          <li>Sign in with your own account.</li>
-          <li>Open the join link, or choose <strong>Enter an invite code</strong> and type the code.</li>
+          <li>Ask the owner for your location’s staff passcode.</li>
+          <li>On your phone, open the app’s main page, pick your location and type the passcode.</li>
+          <li>Your phone stays signed in, so next time it opens straight to the queue.</li>
         </Steps>
       </>
     ),
@@ -217,17 +218,25 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
     id: 'staff',
     title: (
       <>
-        Adding and removing staff
+        Giving staff access
         <OwnerOnly />
       </>
     ),
     body: (
-      <Steps>
-        <li>Open <strong>Settings</strong> and tap <strong>Create invite code</strong>.</li>
-        <li>Send your helper the code, or copy the join link and send that.</li>
-        <li>They sign in with their own account and enter the code. They then appear under <strong>Current staff</strong>.</li>
-        <li>To take away someone’s access, remove them from Current staff.</li>
-      </Steps>
+      <>
+        <Steps>
+          <li>Open <strong>Settings</strong>. Under <strong>Staff passcode</strong>, tap the eye to see the current passcode.</li>
+          <li>Text the passcode to whoever is working. They pick your location on the main page and type it in.</li>
+          <li>
+            To take away access, type a new passcode (or tap <strong>Make one up</strong>) and tap{' '}
+            <strong>Change passcode</strong>. Every phone that used the old passcode is signed out.
+          </li>
+        </Steps>
+        <Tip>
+          Every location starts with the passcode 000000, which anyone can guess. Change it before your
+          first service.
+        </Tip>
+      </>
     ),
   },
   {
@@ -285,6 +294,14 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
         <div>
           <p className="font-semibold">The customer iPad shows “page not found”.</p>
           <p>The ordering link was probably changed in Settings. Scan the QR code from Customer screen again.</p>
+        </div>
+        <div>
+          <p className="font-semibold">My phone signed me out of the queue.</p>
+          <p>The owner changed the staff passcode. Ask them for the new one and sign in again from the main page.</p>
+        </div>
+        <div>
+          <p className="font-semibold">It says “Too many wrong passcodes”.</p>
+          <p>Wait 10 minutes and try again, and check the passcode with your owner.</p>
         </div>
         <div>
           <p className="font-semibold">I can’t see Settings.</p>

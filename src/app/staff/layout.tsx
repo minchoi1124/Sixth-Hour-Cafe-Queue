@@ -22,6 +22,8 @@ import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
 import { useWakeLock } from '@/hooks/use-wake-lock';
+import { toast } from '@/hooks/use-toast';
+import { passcodeVersionOf } from '@/lib/staff-passcode';
 import {
   Dialog,
   DialogContent,
@@ -93,7 +95,7 @@ export default function StaffLayout({
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const { cafeId, role, loading: isResolving } = useResolveCafe();
+  const { cafeId, role, passcodeVersion, loading: isResolving } = useResolveCafe();
   const [isFullScreen, setIsFullScreen] = useState(false);
   useWakeLock();
 
@@ -104,15 +106,16 @@ export default function StaffLayout({
 
   const { data: cafe } = useDoc<Cafe>(cafeRef);
 
-  // Auth gate: only signed-in users may stay here.
+  // Auth gate: only signed-in users may stay here. The main page has both the
+  // staff passcode sign-in and the link to the owner login.
   useEffect(() => {
     if (isUserLoading) return;
     if (!user || user.isAnonymous) {
-      router.replace('/login');
+      router.replace('/');
     }
   }, [user, isUserLoading, router]);
 
-  // A signed-in user who is neither an owner nor staff must onboard or join.
+  // A signed-in account that doesn't own a location must onboard.
   useEffect(() => {
     if (isUserLoading || isResolving) return;
     if (user && !user.isAnonymous && role === null) {
@@ -120,13 +123,27 @@ export default function StaffLayout({
     }
   }, [user, isUserLoading, isResolving, role, router]);
 
+  // The owner changed the passcode: this staff device's sign-in no longer works, so
+  // sign it out rather than let every screen fail.
+  const passcodeChanged = role === 'staff' && cafe != null && passcodeVersionOf(cafe) !== passcodeVersion;
+  useEffect(() => {
+    if (!passcodeChanged) return;
+    signOut(auth).then(() => {
+      toast({
+        title: 'The staff passcode was changed',
+        description: 'Ask your location owner for the new passcode to sign back in.',
+      });
+      router.replace('/');
+    });
+  }, [passcodeChanged, auth, router]);
+
   const handleSignOut = async () => {
     await signOut(auth);
-    router.replace('/login');
+    router.replace(role === 'staff' ? '/' : '/login');
   };
 
   // Block rendering until we've confirmed a valid member with a loaded cafe.
-  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe) {
+  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe || passcodeChanged) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -188,7 +205,13 @@ export default function StaffLayout({
             <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
                 <Maximize className="w-8 h-8"/>
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              aria-label={isOwner ? 'Sign out' : 'Leave location'}
+              title={isOwner ? 'Sign out' : 'Leave location (you’ll need the passcode to come back)'}
+            >
                 <LogOut className="w-7 h-7"/>
             </Button>
           </div>

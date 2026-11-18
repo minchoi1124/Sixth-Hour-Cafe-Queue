@@ -82,34 +82,20 @@ export async function addDocWithReadableId(
 export const slugDoc = (db: Firestore, slug: string) =>
   doc(db, 'slugs', slug);
 
-// --- Membership ---
-// Everyone with access to a location — owners and staff alike — has a
-// `locations/{locationId}/members/{uid}` doc, and that doc is what the rules
-// check. `users/{uid}` is only a pointer from a signed-in account to its
-// location, so login can find it without a query. Invite codes map a shared
-// code to a location so staff can join. The owner's current code is kept in a
-// private subdoc that only owners can read.
+// --- Access ---
+// The owner has a `locations/{locationId}/members/{uid}` doc, and that doc is
+// what the rules check. `users/{uid}` is only a pointer from the owner's
+// account to its location, so login can find it without a query. Staff have no
+// account: they sign in with the location's passcode (see `staff-passcode.ts`), which the
+// owner can read from a private subdoc.
 export const membersCol = (db: Firestore, cafeId: string) =>
   collection(db, 'locations', cafeId, 'members');
 export const memberDoc = (db: Firestore, cafeId: string, uid: string) =>
   doc(db, 'locations', cafeId, 'members', uid);
 export const userDoc = (db: Firestore, uid: string) =>
   doc(db, 'users', uid);
-export const inviteCodeDoc = (db: Firestore, code: string) =>
-  doc(db, 'inviteCodes', code);
-export const cafeInviteDoc = (db: Firestore, cafeId: string) =>
-  doc(db, 'locations', cafeId, 'private', 'invite');
-
-/** Generate a random, unambiguous invite code (e.g. "7K2PQX9R"). */
-export function generateInviteCode(length = 8): string {
-  // No 0/O/1/I to avoid confusion when read aloud or typed.
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  const values = new Uint32Array(length);
-  crypto.getRandomValues(values);
-  for (let i = 0; i < length; i++) code += alphabet[values[i] % alphabet.length];
-  return code;
-}
+export const staffPasscodeDoc = (db: Firestore, cafeId: string) =>
+  doc(db, 'locations', cafeId, 'private', 'staffPasscode');
 
 // --- Slug validation ---
 

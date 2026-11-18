@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/firebase/non-blocking-login';
+import { STAFF_LOCATION_CLAIM } from '@/lib/staff-passcode';
 
 function authErrorMessage(error: unknown): string {
   if (error instanceof FirebaseError) {
@@ -45,11 +46,23 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Once a real (non-anonymous) owner is signed in, leave the login page.
-  // /staff decides whether they still need onboarding.
+  // /staff decides whether they still need onboarding. A phone signed in with
+  // a staff passcode stays here, so an owner can sign in on it; doing so replaces
+  // the staff sign-in.
   useEffect(() => {
-    if (!isUserLoading && user && !user.isAnonymous) {
-      router.replace('/staff');
-    }
+    if (isUserLoading || !user || user.isAnonymous) return;
+    let cancelled = false;
+    user
+      .getIdTokenResult()
+      .then(({ claims }) => {
+        if (!cancelled && typeof claims[STAFF_LOCATION_CLAIM] !== 'string') {
+          router.replace('/staff');
+        }
+      })
+      .catch((e) => console.error('Failed to read sign-in:', e));
+    return () => {
+      cancelled = true;
+    };
   }, [user, isUserLoading, router]);
 
   const handleEmail = async (

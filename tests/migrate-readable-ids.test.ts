@@ -39,6 +39,8 @@ function migrate(...flags: string[]) {
   return execFileSync('npx', ['tsx', 'scripts/migrate-readable-ids.ts', ...flags], {
     encoding: 'utf8',
     env: process.env,
+    // npx is npx.cmd on Windows, which only runs through a shell.
+    shell: process.platform === 'win32',
   });
 }
 
@@ -207,10 +209,13 @@ describe('migrate-readable-ids', () => {
     const owner = env.authenticatedContext(OWNER_A, { email: 'owner-a@example.com' }).firestore() as unknown as Firestore;
     const ownerC = env.authenticatedContext(OWNER_C, { email: 'owner-c@example.com' }).firestore() as unknown as Firestore;
 
+    // Staff accounts carried over from invites no longer grant access: staff
+    // now sign in with the location PIN instead (see src/lib/staff-pin.ts).
     await assertSucceeds(getDoc(memberDoc(staff, 'msu-campus', STAFF_B)));
-    await assertSucceeds(setDoc(drinkDoc(staff, 'msu-campus', 'hojicha'), { name: 'Hojicha' }));
+    await assertFails(setDoc(drinkDoc(staff, 'msu-campus', 'hojicha'), { name: 'Hojicha' }));
+    await assertSucceeds(setDoc(drinkDoc(owner, 'msu-campus', 'hojicha'), { name: 'Hojicha' }));
     await assertSucceeds(
-      startSession(staff, 'msu-campus', { location: 'Union', startsAt: new Date(), menuIds: ['hojicha'] }),
+      startSession(owner, 'msu-campus', { location: 'Union', startsAt: new Date(), menuIds: ['hojicha'] }),
     );
     await assertSucceeds(getDocs(membersCol(owner, 'msu-campus')));
     // Same name, different location: no access across.

@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { updateDoc, runTransaction, writeBatch, query, where } from 'firebase/firestore';
+import { updateDoc, runTransaction, writeBatch, increment } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   useDoc,
-  useCollection,
   useFirestore,
   useMemoFirebase,
   useCafeId,
@@ -16,14 +15,17 @@ import {
   slugDoc,
   isValidSlug,
   slugify,
-  cafeInviteDoc,
-  inviteCodeDoc,
-  membersCol,
-  memberDoc,
-  userDoc,
-  generateInviteCode,
+  staffPasscodeDoc,
 } from '@/lib/cafe-paths';
-import type { Cafe, Member } from '@/lib/definitions';
+import {
+  DEFAULT_STAFF_PASSCODE,
+  PASSCODE_MAX_LENGTH,
+  PASSCODE_MIN_LENGTH,
+  generateStaffPasscode,
+  normalizePasscode,
+  passcodeProblem,
+} from '@/lib/staff-passcode';
+import type { Cafe } from '@/lib/definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +41,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { COMMON_TIMEZONES, cafeTimezone } from '@/lib/timezone';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, AlertTriangle, Copy, RefreshCw, Trash2, UserPlus } from 'lucide-react';
+import { Loader2, AlertTriangle, Copy, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 /** Prefix a bare domain with https:// so QR codes resolve correctly. */
 function normalizeUrl(input: string): string {
@@ -48,127 +50,143 @@ function normalizeUrl(input: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-function StaffManager({ cafeId }: { cafeId: string }) {
+function StaffPasscodeCard({ cafeId }: { cafeId: string }) {
   const firestore = useFirestore();
-  const [isWorking, setIsWorking] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [newPasscode, setNewPasscode] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const inviteRef = useMemoFirebase(() => cafeInviteDoc(firestore, cafeId), [firestore, cafeId]);
-  const { data: invite } = useDoc<{ code: string }>(inviteRef);
+  const passcodeRef = useMemoFirebase(() => staffPasscodeDoc(firestore, cafeId), [firestore, cafeId]);
+  const { data: saved, isLoading } = useDoc<{ passcode: string }>(passcodeRef);
 
-  const staffQuery = useMemoFirebase(
-    () => query(membersCol(firestore, cafeId), where('role', '==', 'staff')),
-    [firestore, cafeId],
-  );
-  const { data: staff } = useCollection<Member>(staffQuery);
+  const currentPasscode = saved?.passcode ?? DEFAULT_STAFF_PASSCODE;
+  const isDefault = normalizePasscode(currentPasscode) === DEFAULT_STAFF_PASSCODE;
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const code = invite?.code ?? null;
-  const joinLink = code ? `${origin}/join?code=${code}` : '';
+  // Shown only once they've typed something.
+  const typed = newPasscode.trim().length > 0;
+  const problem = !typed
+    ? null
+    : normalizePasscode(newPasscode) === DEFAULT_STAFF_PASSCODE
+      ? 'Pick something other than 000000.'
+      : normalizePasscode(newPasscode) === normalizePasscode(currentPasscode)
+        ? 'That’s already the passcode.'
+        : passcodeProblem(newPasscode);
+  const newPasscodeValid = typed && problem === null;
 
-  const handleGenerate = async () => {
-    setIsWorking(true);
+  const handleCopy = async () => {
     try {
-      const newCode = generateInviteCode();
-      const batch = writeBatch(firestore);
-      if (invite?.code) batch.delete(inviteCodeDoc(firestore, invite.code));
-      batch.set(inviteCodeDoc(firestore, newCode), { locationId: cafeId });
-      batch.set(cafeInviteDoc(firestore, cafeId), { code: newCode });
-      await batch.commit();
-      toast({
-        title: code ? 'New code generated' : 'Invite code created',
-        description: code ? 'The old code no longer works for new staff.' : undefined,
-      });
-    } catch (e) {
-      console.error('Failed to generate invite code:', e);
-      toast({ variant: 'destructive', title: 'Could not generate code', description: 'Please try again.' });
-    } finally {
-      setIsWorking(false);
-    }
-  };
-
-  const handleCopy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast({ title: 'Copied', description: text });
+      await navigator.clipboard.writeText(currentPasscode);
+      toast({ title: 'Passcode copied' });
     } catch {
       toast({ variant: 'destructive', title: 'Could not copy' });
     }
   };
 
-  const handleRemove = async (uid: string, email: string | null) => {
+  const handleSave = async () => {
+    if (!newPasscodeValid) return;
+    setIsSaving(true);
     try {
-      // The member doc is what grants access; the pointer goes with it so the
-      // account can join somewhere else later.
+      // Saving the passcode and bumping the version together is what signs
+      // out every staff device that used the old one (see src/lib/staff-passcode.ts).
       const batch = writeBatch(firestore);
-      batch.delete(memberDoc(firestore, cafeId, uid));
-      batch.delete(userDoc(firestore, uid));
+      batch.set(passcodeRef, { passcode: newPasscode.trim().replace(/\s+/g, ' ') });
+      batch.update(cafeDoc(firestore, cafeId), { staffPasscodeVersion: increment(1) });
       await batch.commit();
-      toast({ title: 'Staff removed', description: `${email ?? 'They'} can no longer access this location.` });
+      setNewPasscode('');
+      setIsRevealed(true);
+      toast({
+        title: 'Staff passcode changed',
+        description: 'Phones signed in with the old passcode have been signed out. Share the new one with your staff.',
+      });
     } catch (e) {
-      console.error('Failed to remove staff:', e);
-      toast({ variant: 'destructive', title: 'Could not remove', description: 'Please try again.' });
+      console.error('Failed to change staff passcode:', e);
+      toast({ variant: 'destructive', title: 'Could not save', description: 'Please try again.' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-3xl">Staff</CardTitle>
+        <CardTitle className="text-3xl">Staff passcode</CardTitle>
         <CardDescription className="text-lg">
-          Share the invite code so staff can sign up and access this location’s queue and menu.
+          Staff don’t need accounts. On the main page they pick this location and enter this
+          passcode. Their phone stays signed in until they leave or you change the passcode.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-3">
-          <Label className="text-lg">Invite code</Label>
-          {code ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <code className="rounded-md bg-muted px-4 py-3 text-2xl font-bold tracking-widest">{code}</code>
-                <Button variant="outline" size="icon" onClick={() => handleCopy(code)} aria-label="Copy code">
-                  <Copy className="h-5 w-5" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input readOnly value={joinLink} className="text-base" />
-                <Button variant="outline" size="icon" onClick={() => handleCopy(joinLink)} aria-label="Copy join link">
-                  <Copy className="h-5 w-5" />
-                </Button>
-              </div>
-              <Button variant="ghost" onClick={handleGenerate} disabled={isWorking} className="text-base">
-                <RefreshCw className="mr-2 h-4 w-4" /> Generate a new code
-              </Button>
-            </div>
-          ) : (
-            <Button onClick={handleGenerate} disabled={isWorking}>
-              {isWorking ? <Loader2 className="h-5 w-5 animate-spin" /> : (<><UserPlus className="mr-2 h-5 w-5" /> Create invite code</>)}
+        {isDefault && !isLoading && (
+          <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-base text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <span>
+              Your passcode is still the default, <strong>000000</strong>. Anyone can guess it and get
+              into your queue and menu. Change it below.
+            </span>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label className="text-lg">Current passcode</Label>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 break-all rounded-md bg-muted px-4 py-3 text-2xl font-bold">
+              {isLoading ? '······' : isRevealed ? currentPasscode : '••••••'}
+            </code>
+            <Button
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0"
+              onClick={() => setIsRevealed((shown) => !shown)}
+              aria-label={isRevealed ? 'Hide passcode' : 'Show passcode'}
+              disabled={isLoading}
+            >
+              {isRevealed ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0"
+              onClick={handleCopy}
+              aria-label="Copy passcode"
+              disabled={isLoading}
+            >
+              <Copy className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-lg">Current staff</Label>
-          {!staff || staff.length === 0 ? (
-            <p className="text-muted-foreground">No staff have joined yet.</p>
-          ) : (
-            <ul className="divide-y rounded-md border">
-              {staff.map((member) => (
-                <li key={member.id} className="flex items-center justify-between gap-2 p-3">
-                  <span className="break-all text-lg">{member.email}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => handleRemove(member.id, member.email)}
-                    aria-label={`Remove ${member.email}`}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <Label htmlFor="new-passcode" className="text-lg">New passcode</Label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              id="new-passcode"
+              value={newPasscode}
+              onChange={(e) => setNewPasscode(e.target.value.slice(0, PASSCODE_MAX_LENGTH))}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="e.g. password123"
+              className="h-12 text-xl"
+            />
+            <Button
+              variant="ghost"
+              onClick={() => setNewPasscode(generateStaffPasscode())}
+              className="flex-shrink-0 text-base"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" /> Make one up
+            </Button>
+          </div>
+          {problem && <p className="text-base text-destructive">{problem}</p>}
+          <p className="text-base text-muted-foreground">
+            Pick a few words that are easy to say and remember, at least {PASSCODE_MIN_LENGTH} characters.
+            Capital letters don’t matter. Changing it signs out every staff phone; they’ll need the new
+            passcode to get back in.
+          </p>
         </div>
+        <Button onClick={handleSave} disabled={!newPasscodeValid || isSaving} className="py-6 text-xl">
+          {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Change passcode'}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -347,6 +365,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Staff passcode */}
+      <StaffPasscodeCard cafeId={cafe.id} />
+
       {/* Location name */}
       <Card>
         <CardHeader>
@@ -489,9 +510,6 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
-
-      {/* Staff management */}
-      <StaffManager cafeId={cafe.id} />
 
       {/* Read-only current link reference */}
       <p className="text-center text-base text-muted-foreground break-all">

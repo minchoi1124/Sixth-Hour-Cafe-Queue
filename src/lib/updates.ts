@@ -16,6 +16,17 @@ export type Update = {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-11-18-staff-passcode',
+    date: '2026-11-18',
+    title: 'Staff sign in with a passcode, no account needed',
+    points: [
+      'Staff now pick their location on the main page and enter its staff passcode. Their phone stays signed in after that.',
+      'Every location starts with the passcode 000000. Owners: change it in Settings → Staff passcode as soon as you can, since anyone can guess the default.',
+      'Changing the passcode signs out every phone that used the old one.',
+      'Invite codes and staff accounts have been removed.',
+    ],
+  },
+  {
     id: '2026-10-25-order-numbers',
     date: '2026-10-25',
     title: 'Order numbers',

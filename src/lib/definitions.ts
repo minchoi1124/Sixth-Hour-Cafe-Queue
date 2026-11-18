@@ -186,24 +186,28 @@ export type Cafe = {
   timezone?: string;
   /** Public mirror of the active session's menu; null/absent means closed. */
   liveMenu?: LiveMenu | null;
+  /**
+   * Bumped each time the owner changes the staff passcode. Staff sign-ins carry the
+   * version they signed in under and stop working once it moves on. Absent = 0.
+   */
+  staffPasscodeVersion?: number;
 };
 
+/** 'owner' signs in with an account; 'staff' signs in with the location passcode. */
 export type MemberRole = 'owner' | 'staff';
 
 /**
- * Someone with access to a location, at `locations/{locationId}/members/{uid}`.
- * The security rules decide access from this doc alone.
+ * The owner's access to a location, at `locations/{locationId}/members/{uid}`.
+ * The security rules decide owner access from this doc alone.
  */
 export type Member = {
   id: string; // == the member's Auth uid
   email: string | null;
   role: MemberRole;
-  /** The invite code redeemed to join. Staff only. */
-  code?: string;
   joinedAt?: Timestamp;
 };
 
-/** `users/{uid}`: which location a signed-in account belongs to. */
+/** `users/{uid}`: which location an owner's account belongs to. */
 export type UserLocation = {
   locationId: string;
   role: MemberRole;

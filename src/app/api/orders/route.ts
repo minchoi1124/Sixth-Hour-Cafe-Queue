@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { rejectWithoutAppCheck } from '@/lib/app-check-server';
 import { orderDocId } from '@/lib/readable-ids';
 import { cafeTimezone, zonedDateKey } from '@/lib/timezone';
 
@@ -10,10 +10,6 @@ import { cafeTimezone, zonedDateKey } from '@/lib/timezone';
 // reCAPTCHA latency to every read). Bot protection is preserved here by verifying
 // the App Check token before writing. Firestore rules deny client-side order
 // creates entirely, so this route is the only path to place an order.
-//
-// We verify the App Check JWT with `jose` directly rather than the firebase-admin
-// app-check SDK: that SDK pulls in jwks-rsa/jose via require(), which breaks in
-// the serverless ESM runtime (ERR_REQUIRE_ESM).
 
 type IncomingItem = {
   id: unknown;
@@ -21,45 +17,10 @@ type IncomingItem = {
   modifications: unknown;
 };
 
-// Google's public keys for App Check tokens. createRemoteJWKSet caches them.
-const APP_CHECK_JWKS = createRemoteJWKSet(
-  new URL('https://firebaseappcheck.googleapis.com/v1/jwks')
-);
-
-// The Firebase project number is the same value as the messaging sender ID.
-const PROJECT_NUMBER = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
-
-async function isValidAppCheckToken(token: string): Promise<boolean> {
-  if (!PROJECT_NUMBER) {
-    console.error('[orders] App Check skipped: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID (project number) is not set');
-    return false;
-  }
-  try {
-    await jwtVerify(token, APP_CHECK_JWKS, {
-      issuer: `https://firebaseappcheck.googleapis.com/${PROJECT_NUMBER}`,
-      audience: `projects/${PROJECT_NUMBER}`,
-      algorithms: ['RS256'],
-    });
-    return true;
-  } catch (e) {
-    console.error('[orders] App Check token verification failed:', (e as Error)?.message);
-    return false;
-  }
-}
-
 export async function POST(req: NextRequest) {
   // --- App Check verification (bot protection) ---
-  // Enforced in production only, so local dev works without a reCAPTCHA key.
-  if (process.env.NODE_ENV === 'production') {
-    const appCheckToken = req.headers.get('X-Firebase-AppCheck');
-    if (!appCheckToken) {
-      console.error('[orders] Missing X-Firebase-AppCheck header');
-      return NextResponse.json({ error: 'Missing App Check token' }, { status: 401 });
-    }
-    if (!(await isValidAppCheckToken(appCheckToken))) {
-      return NextResponse.json({ error: 'Invalid App Check token' }, { status: 401 });
-    }
-  }
+  const rejected = await rejectWithoutAppCheck(req, 'orders');
+  if (rejected) return rejected;
 
   // --- Parse + validate the order payload ---
   let body: { cafeId?: unknown; customerName?: unknown; items?: unknown };

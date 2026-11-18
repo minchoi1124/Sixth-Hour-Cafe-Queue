@@ -2,8 +2,9 @@
  * Security rules for the `locations/` layout, run against the Firestore
  * emulator. Where the app's own write helpers can run outside React
  * (`startSession`, `createPreset`, `addDocWithReadableId`) they're called
- * directly; the onboarding, join and settings writes live in page components,
- * so those are reproduced here with the same shape.
+ * directly; the onboarding and settings writes live in page components, so
+ * those are reproduced here with the same shape. Staff devices are signed in
+ * with the claims /api/staff-signin puts on their token.
  *
  *   npm run test:emulator
  */
@@ -21,38 +22,37 @@ import {
   deleteDoc,
   getDoc,
   getDocs,
-  query,
+  increment,
   runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
-  where,
   writeBatch,
 } from 'firebase/firestore';
 import {
   addDocWithReadableId,
   cafeDoc,
-  cafeInviteDoc,
   drinkDoc,
   drinksCol,
-  inviteCodeDoc,
   memberDoc,
   membersCol,
   orderDoc,
   sessionsCol,
   slugDoc,
+  staffPasscodeDoc,
   userDoc,
 } from '@/lib/cafe-paths';
 import { startSession } from '@/lib/sessions';
 import { createPreset } from '@/lib/presets';
 import { LATEST_UPDATE_ID } from '@/lib/updates';
+import { STAFF_LOCATION_CLAIM, STAFF_PASSCODE_VERSION_CLAIM } from '@/lib/staff-passcode';
 
 const PROJECT_ID = 'demo-sixth-hour';
 const LOCATION = 'msu-campus';
-const CODE = 'K7Q2PX9R';
 
 const OWNER = { uid: 'owner-uid', email: 'owner@example.com' };
-const STAFF = { uid: 'staff-uid', email: 'staff@example.com' };
+/** An account left over from the old invite system. */
+const OLD_STAFF = { uid: 'staff-uid', email: 'staff@example.com' };
 const OUTSIDER = { uid: 'outsider-uid', email: 'outsider@example.com' };
 
 let env: RulesTestEnvironment;
@@ -61,6 +61,23 @@ let env: RulesTestEnvironment;
 const dbFor = (user: { uid: string; email: string }) =>
   env.authenticatedContext(user.uid, { email: user.email }).firestore() as unknown as Firestore;
 const anonDb = () => env.unauthenticatedContext().firestore() as unknown as Firestore;
+
+/** A phone signed in with a location's passcode, as /api/staff-signin does it. */
+const passcodeDb = (locationId = LOCATION, passcodeVersion = 0) =>
+  env
+    .authenticatedContext('staff-device', {
+      [STAFF_LOCATION_CLAIM]: locationId,
+      [STAFF_PASSCODE_VERSION_CLAIM]: passcodeVersion,
+    })
+    .firestore() as unknown as Firestore;
+
+/** The owner changing the passcode, as in src/app/staff/settings/page.tsx. */
+function changePasscode(db: Firestore, passcode: string) {
+  const batch = writeBatch(db);
+  batch.set(staffPasscodeDoc(db, LOCATION), { passcode });
+  batch.update(cafeDoc(db, LOCATION), { staffPasscodeVersion: increment(1) });
+  return batch.commit();
+}
 
 /** The onboarding transaction, as in src/app/onboarding/page.tsx. */
 async function onboard(db: Firestore, user: { uid: string; email: string }, locationId: string, slug: string) {
@@ -74,28 +91,21 @@ async function onboard(db: Firestore, user: { uid: string; email: string }, loca
   });
 }
 
-/** The join batch, as in src/app/join/page.tsx. */
-function join(db: Firestore, user: { uid: string; email: string }, locationId: string, code: string, role = 'staff') {
-  const batch = writeBatch(db);
-  batch.set(memberDoc(db, locationId, user.uid), { email: user.email, role, code, joinedAt: serverTimestamp() });
-  batch.set(userDoc(db, user.uid), { locationId, role, email: user.email, lastSeenUpdate: LATEST_UPDATE_ID });
-  return batch.commit();
-}
-
-/** A location with an owner, an invite code and a staff member, written past the rules. */
+/**
+ * A location with an owner, plus a staff account left over from the old
+ * invite system, written past the rules. No passcode is saved, so it's the default,
+ * and no `staffPasscodeVersion`, so it's 0.
+ */
 async function seedLocation() {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore() as unknown as Firestore;
     await setDoc(cafeDoc(db, LOCATION), { location: 'MSU Campus', slug: 'msu' });
     await setDoc(memberDoc(db, LOCATION, OWNER.uid), { email: OWNER.email, role: 'owner' });
     await setDoc(userDoc(db, OWNER.uid), { locationId: LOCATION, role: 'owner', email: OWNER.email });
-    await setDoc(memberDoc(db, LOCATION, STAFF.uid), { email: STAFF.email, role: 'staff', code: CODE });
-    await setDoc(userDoc(db, STAFF.uid), { locationId: LOCATION, role: 'staff', email: STAFF.email });
+    await setDoc(memberDoc(db, LOCATION, OLD_STAFF.uid), { email: OLD_STAFF.email, role: 'staff', code: 'K7Q2PX9R' });
+    await setDoc(userDoc(db, OLD_STAFF.uid), { locationId: LOCATION, role: 'staff', email: OLD_STAFF.email });
     await setDoc(slugDoc(db, 'msu'), { locationId: LOCATION });
-    await setDoc(inviteCodeDoc(db, CODE), { locationId: LOCATION });
-    await setDoc(cafeInviteDoc(db, LOCATION), { code: CODE });
     await setDoc(cafeDoc(db, 'other-place'), { location: 'Other', slug: 'other' });
-    await setDoc(inviteCodeDoc(db, 'OTHERCODE'), { locationId: 'other-place' });
   });
 }
 
@@ -143,36 +153,44 @@ describe('onboarding', () => {
   });
 });
 
-describe('joining as staff', () => {
-  const NEW = { uid: 'new-staff', email: 'new@example.com' };
+describe('staff passcode sign-in', () => {
+  beforeEach(seedLocation);
 
-  test('a valid invite code joins the location', async () => {
-    await seedLocation();
-    await assertSucceeds(join(dbFor(NEW), NEW, LOCATION, CODE));
+  test('a passcode sign-in works only at its own location', async () => {
+    await assertSucceeds(getDocs(sessionsCol(passcodeDb(), LOCATION)));
+    await assertFails(getDocs(sessionsCol(passcodeDb('other-place'), LOCATION)));
+    await assertFails(setDoc(drinkDoc(passcodeDb('other-place'), LOCATION, 'x'), { name: 'x' }));
   });
 
-  test('a made-up code, or one for another location, is rejected', async () => {
-    await seedLocation();
-    await assertFails(join(dbFor(NEW), NEW, LOCATION, 'NOPE1234'));
-    await assertFails(join(dbFor(NEW), NEW, LOCATION, 'OTHERCODE'));
+  test('changing the passcode signs out older sign-ins', async () => {
+    await assertSucceeds(changePasscode(dbFor(OWNER), '482913'));
+    await assertFails(getDocs(sessionsCol(passcodeDb(LOCATION, 0), LOCATION)));
+    await assertFails(setDoc(drinkDoc(passcodeDb(LOCATION, 0), LOCATION, 'x'), { name: 'x' }));
+    await assertSucceeds(getDocs(sessionsCol(passcodeDb(LOCATION, 1), LOCATION)));
   });
 
-  test('cannot join as owner with a staff code', async () => {
-    await seedLocation();
-    await assertFails(join(dbFor(NEW), NEW, LOCATION, CODE, 'owner'));
+  test('only the owner sees or changes the passcode', async () => {
+    await assertFails(getDoc(staffPasscodeDoc(passcodeDb(), LOCATION)));
+    await assertFails(changePasscode(passcodeDb(), '111111'));
+    await assertFails(updateDoc(cafeDoc(passcodeDb(), LOCATION), { staffPasscodeVersion: 5 }));
+    await assertFails(getDoc(staffPasscodeDoc(dbFor(OUTSIDER), LOCATION)));
+    await assertSucceeds(getDoc(staffPasscodeDoc(dbFor(OWNER), LOCATION)));
   });
 
-  test('a user pointer alone, without a membership, is rejected', async () => {
-    await seedLocation();
-    await assertFails(setDoc(userDoc(dbFor(NEW), NEW.uid), { locationId: LOCATION, role: 'staff', email: NEW.email }));
+  test('accounts from the old invite system no longer get in', async () => {
+    const db = dbFor(OLD_STAFF);
+    await assertFails(getDocs(sessionsCol(db, LOCATION)));
+    await assertFails(setDoc(drinkDoc(db, LOCATION, 'x'), { name: 'x' }));
+    await assertFails(updateDoc(cafeDoc(db, LOCATION), { activeSessionId: null }));
   });
 
-  test('someone removed from one location can join another', async () => {
-    await seedLocation();
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await deleteDoc(memberDoc(ctx.firestore() as unknown as Firestore, LOCATION, STAFF.uid));
-    });
-    await assertSucceeds(join(dbFor(STAFF), STAFF, 'other-place', 'OTHERCODE'));
+  test('a staff pointer or membership can no longer be created', async () => {
+    const NEW = { uid: 'new-staff', email: 'new@example.com' };
+    const db = dbFor(NEW);
+    await assertFails(
+      setDoc(memberDoc(db, LOCATION, NEW.uid), { email: NEW.email, role: 'staff', joinedAt: serverTimestamp() }),
+    );
+    await assertFails(setDoc(userDoc(db, NEW.uid), { locationId: LOCATION, role: 'staff', email: NEW.email }));
   });
 });
 
@@ -180,7 +198,7 @@ describe('working a location', () => {
   beforeEach(seedLocation);
 
   test('staff add drinks and presets with readable ids', async () => {
-    const db = dbFor(STAFF);
+    const db = passcodeDb();
     const drinkId = await addDocWithReadableId(db, drinksCol(db, LOCATION), 'Matcha Latte', { name: 'Matcha Latte' });
     assert.equal(drinkId, 'matcha-latte');
     const again = await addDocWithReadableId(db, drinksCol(db, LOCATION), 'Matcha Latte', { name: 'Matcha Latte' });
@@ -189,7 +207,7 @@ describe('working a location', () => {
   });
 
   test('staff start a session, which gets a date-prefixed id', async () => {
-    const db = dbFor(STAFF);
+    const db = passcodeDb();
     const { sessionId, started } = await startSession(db, LOCATION, {
       location: 'Library 2nd Floor',
       startsAt: new Date(),
@@ -202,7 +220,7 @@ describe('working a location', () => {
   });
 
   test('staff cannot change location settings', async () => {
-    await assertFails(updateDoc(cafeDoc(dbFor(STAFF), LOCATION), { slug: 'hijacked' }));
+    await assertFails(updateDoc(cafeDoc(passcodeDb(), LOCATION), { slug: 'hijacked' }));
     await assertSucceeds(updateDoc(cafeDoc(dbFor(OWNER), LOCATION), { slug: 'msu-2' }));
   });
 
@@ -217,67 +235,42 @@ describe('working a location', () => {
   });
 
   test('nobody creates orders from the client', async () => {
-    await assertFails(setDoc(orderDoc(dbFor(STAFF), LOCATION, 'o1'), { customerName: 'x' }));
+    await assertFails(setDoc(orderDoc(passcodeDb(), LOCATION, 'o1'), { customerName: 'x' }));
     await assertFails(setDoc(orderDoc(anonDb(), LOCATION, 'o1'), { customerName: 'x' }));
   });
 });
 
-describe('the roster', () => {
+describe('the owner membership', () => {
   beforeEach(seedLocation);
 
-  test('only owners see the roster; staff see only themselves', async () => {
-    const staffQuery = (db: Firestore) => query(membersCol(db, LOCATION), where('role', '==', 'staff'));
-    const roster = await assertSucceeds(getDocs(staffQuery(dbFor(OWNER))));
-    assert.deepEqual(roster.docs.map((d) => d.id), [STAFF.uid]);
-    await assertFails(getDocs(staffQuery(dbFor(STAFF))));
-    await assertSucceeds(getDoc(memberDoc(dbFor(STAFF), LOCATION, STAFF.uid)));
-    await assertFails(getDoc(memberDoc(dbFor(STAFF), LOCATION, OWNER.uid)));
+  test('only owners see the roster; others see only their own', async () => {
+    await assertSucceeds(getDocs(membersCol(dbFor(OWNER), LOCATION)));
+    await assertFails(getDocs(membersCol(passcodeDb(), LOCATION)));
+    await assertSucceeds(getDoc(memberDoc(dbFor(OWNER), LOCATION, OWNER.uid)));
+    await assertFails(getDoc(memberDoc(dbFor(OUTSIDER), LOCATION, OWNER.uid)));
   });
 
-  test('the invite code is owner-only', async () => {
-    await assertFails(getDoc(cafeInviteDoc(dbFor(STAFF), LOCATION)));
-    const db = dbFor(OWNER);
-    const batch = writeBatch(db);
-    batch.delete(inviteCodeDoc(db, CODE));
-    batch.set(inviteCodeDoc(db, 'NEWCODE2'), { locationId: LOCATION });
-    batch.set(cafeInviteDoc(db, LOCATION), { code: 'NEWCODE2' });
-    await assertSucceeds(batch.commit());
-  });
-
-  test('removing staff revokes their access', async () => {
-    const db = dbFor(OWNER);
-    const batch = writeBatch(db);
-    batch.delete(memberDoc(db, LOCATION, STAFF.uid));
-    batch.delete(userDoc(db, STAFF.uid));
-    await assertSucceeds(batch.commit());
-    await assertFails(setDoc(drinkDoc(dbFor(STAFF), LOCATION, 'x'), { name: 'x' }));
-  });
-
-  test('staff may leave, but an owner cannot remove themselves', async () => {
+  test('an owner cannot remove themselves', async () => {
     await assertFails(deleteDoc(memberDoc(dbFor(OWNER), LOCATION, OWNER.uid)));
-    await assertFails(deleteDoc(memberDoc(dbFor(STAFF), LOCATION, OWNER.uid)));
-    await assertSucceeds(deleteDoc(memberDoc(dbFor(STAFF), LOCATION, STAFF.uid)));
+    await assertFails(deleteDoc(memberDoc(passcodeDb(), LOCATION, OWNER.uid)));
   });
 });
 
 describe("what's new", () => {
   beforeEach(seedLocation);
 
-  test('staff mark updates seen on their own account only', async () => {
-    await assertSucceeds(updateDoc(userDoc(dbFor(STAFF), STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
-    await assertFails(updateDoc(userDoc(dbFor(STAFF), OWNER.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+  test('owners mark updates seen on their own account only', async () => {
+    await assertSucceeds(updateDoc(userDoc(dbFor(OWNER), OWNER.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+    await assertFails(updateDoc(userDoc(dbFor(OUTSIDER), OWNER.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
   });
 
   test('lastSeenUpdate must be a short string', async () => {
-    const ref = userDoc(dbFor(STAFF), STAFF.uid);
+    const ref = userDoc(dbFor(OWNER), OWNER.uid);
     await assertFails(updateDoc(ref, { lastSeenUpdate: 42 }));
     await assertFails(updateDoc(ref, { lastSeenUpdate: 'x'.repeat(101) }));
   });
 
-  test('someone removed from their location cannot write it', async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await deleteDoc(memberDoc(ctx.firestore() as unknown as Firestore, LOCATION, STAFF.uid));
-    });
-    await assertFails(updateDoc(userDoc(dbFor(STAFF), STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+  test('an old staff account cannot write its pointer', async () => {
+    await assertFails(updateDoc(userDoc(dbFor(OLD_STAFF), OLD_STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
   });
 });

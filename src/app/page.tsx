@@ -2,10 +2,18 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Coffee, QrCode, ListChecks } from 'lucide-react';
+import { StaffSignIn } from '@/components/StaffSignIn';
+import { PasscodeAnnouncement } from '@/components/PasscodeAnnouncement';
+import { listLocations } from '@/lib/data';
 
-export default function LandingPage() {
+// The staff sign-in lists locations, so a new one shows up right away.
+export const dynamic = 'force-dynamic';
+
+export default async function LandingPage() {
+  const locations = await listLocations();
+
   return (
-    <main className="container mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-6 text-center">
+    <main className="container mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-4 text-center sm:p-6">
       <Logo className="mb-6 h-24 w-24" />
       <h1 className="text-5xl font-bold tracking-tighter md:text-6xl">
         Sixth Hour Cafe
@@ -16,13 +24,23 @@ export default function LandingPage() {
         sync.
       </p>
 
-      <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-        <Button asChild className="text-xl" size="lg">
-          <Link href="/login">Get started</Link>
-        </Button>
-        <Button asChild variant="outline" className="text-xl" size="lg">
-          <Link href="/login">Log in</Link>
-        </Button>
+      <div className="mt-8 w-full max-w-md">
+        <StaffSignIn locations={locations} />
+      </div>
+      <div className="mt-3">
+        <PasscodeAnnouncement />
+      </div>
+
+      <div className="mt-8 flex flex-col items-center gap-3">
+        <p className="text-lg text-muted-foreground">Own a location?</p>
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <Button asChild variant="outline" className="text-xl" size="lg">
+            <Link href="/login">Owner log in</Link>
+          </Button>
+          <Button asChild variant="ghost" className="text-xl" size="lg">
+            <Link href="/login">Start a new location</Link>
+          </Button>
+        </div>
       </div>
       <Link href="/guide" className="mt-4 text-lg text-muted-foreground underline">
         How does it work?

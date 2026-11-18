@@ -2,8 +2,8 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore'
 import { initializeAppCheck, ReCaptchaV3Provider, getToken, type AppCheck } from 'firebase/app-check';
 
 let appCheckInstance: AppCheck | null = null;
@@ -63,11 +63,21 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
-  };
+  const auth = getAuth(firebaseApp);
+  const firestore = getFirestore(firebaseApp);
+  connectEmulatorsOnce(auth, firestore);
+  return { firebaseApp, auth, firestore };
+}
+
+// Local preview against the Firebase emulators (`npm run dev:emulator`). Off
+// unless NEXT_PUBLIC_USE_EMULATORS is 'true', so it never affects production.
+function connectEmulatorsOnce(auth: Auth, firestore: Firestore) {
+  if (process.env.NEXT_PUBLIC_USE_EMULATORS !== 'true' || typeof window === 'undefined') return;
+  const w = window as unknown as { __emulatorsConnected?: boolean };
+  if (w.__emulatorsConnected) return;
+  w.__emulatorsConnected = true;
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
 }
 
 export * from './provider';

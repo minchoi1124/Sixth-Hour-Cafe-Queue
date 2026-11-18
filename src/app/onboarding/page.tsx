@@ -11,13 +11,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { useFirestore, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { cafeDoc, memberDoc, slugDoc, userDoc, isValidSlug, slugify } from '@/lib/cafe-paths';
 import { LATEST_UPDATE_ID } from '@/lib/updates';
+import { STAFF_LOCATION_CLAIM } from '@/lib/staff-passcode';
 import { idPart, pickFreeId } from '@/lib/readable-ids';
 
 export default function OnboardingPage() {
   const firestore = useFirestore();
+  const auth = useAuth();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
 
@@ -28,7 +31,9 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Send unauthenticated visitors to login; send owners who already have a
-  // cafe straight to the dashboard.
+  // cafe, and staff phones signed in with a passcode, straight to the dashboard. A
+  // pointer with role 'staff' is left over from the old invites and doesn't
+  // count, or /staff would send it straight back here.
   useEffect(() => {
     if (isUserLoading) return;
     if (!user || user.isAnonymous) {
@@ -36,11 +41,18 @@ export default function OnboardingPage() {
       return;
     }
     let cancelled = false;
-    getDoc(userDoc(firestore, user.uid)).then((snap) => {
-      if (!cancelled && snap.exists()) {
+    (async () => {
+      const { claims } = await user.getIdTokenResult();
+      if (cancelled) return;
+      if (typeof claims[STAFF_LOCATION_CLAIM] === 'string') {
+        router.replace('/staff');
+        return;
+      }
+      const snap = await getDoc(userDoc(firestore, user.uid));
+      if (!cancelled && snap.exists() && snap.get('role') === 'owner') {
         router.replace('/staff');
       }
-    });
+    })().catch((e) => console.error('Failed to check for an existing location:', e));
     return () => {
       cancelled = true;
     };
@@ -191,8 +203,14 @@ export default function OnboardingPage() {
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Joining an existing location?{' '}
-            <Link href="/join" className="underline">Enter an invite code</Link>
+            Working at an existing location? You don’t need an account.{' '}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => signOut(auth).then(() => router.replace('/'))}
+            >
+              Sign out and use the staff passcode instead
+            </button>
           </p>
           <p className="mt-2 text-center text-sm text-muted-foreground">
             New to the app? <Link href="/guide" className="underline">Read how it works</Link>

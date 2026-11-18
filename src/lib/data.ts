@@ -21,6 +21,21 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
   }
 };
 
+export type LocationChoice = { id: string; name: string };
+
+/** Every location, by name, for the staff sign-in picker on the main page. */
+export const listLocations = async (): Promise<LocationChoice[]> => {
+  try {
+    const snap = await getAdminDb().collection('locations').select('location').get();
+    return snap.docs
+      .map((doc) => ({ id: doc.id, name: (doc.get('location') as string | undefined) || doc.id }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error('Failed to list locations:', error);
+    return [];
+  }
+};
+
 export const getMenuForCafe = async (cafeId: string): Promise<MenuItem[]> => {
   try {
     const snapshot = await getAdminDb()

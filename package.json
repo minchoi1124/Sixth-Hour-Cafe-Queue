@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002 --hostname 0.0.0.0",
+    "dev:emulator": "firebase emulators:exec --only firestore,auth --project demo-sixth-hour \"tsx scripts/dev-emulator.ts\"",
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,6 +12,7 @@
     "backfill-sessions": "tsx scripts/backfill-sessions.ts",
     "backfill-menus": "tsx scripts/backfill-menus.ts",
     "migrate-readable-ids": "tsx scripts/migrate-readable-ids.ts",
+    "remove-staff-invites": "tsx scripts/remove-staff-invites.ts",
     "test:emulator": "firebase emulators:exec --only firestore,auth --project demo-sixth-hour \"tsx --test --test-concurrency=1 tests/*.test.ts\""
   },
   "dependencies": {

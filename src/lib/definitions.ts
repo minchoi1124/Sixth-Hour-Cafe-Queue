@@ -142,6 +142,12 @@ export type Session = {
    * `endedAt` is then the last order rather than when it was ended.
    */
   autoEnded?: boolean;
+  /**
+   * Set by scripts/fix-idle-session-times.ts on past sessions left running:
+   * `endedAt` was moved back to the last order; `originalEndedAt` is the old one.
+   */
+  endedAtCorrected?: boolean;
+  originalEndedAt?: Timestamp;
 };
 
 /** The fields the start-session dialog collects. */

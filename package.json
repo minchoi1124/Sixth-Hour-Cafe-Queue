@@ -14,6 +14,7 @@
     "migrate-readable-ids": "tsx scripts/migrate-readable-ids.ts",
     "remove-staff-invites": "tsx scripts/remove-staff-invites.ts",
     "promote-staff": "tsx scripts/promote-staff-to-owners.ts",
+    "fix-session-times": "tsx scripts/fix-idle-session-times.ts",
     "test:emulator": "firebase emulators:exec --only firestore,auth --project demo-sixth-hour \"tsx --test --test-concurrency=1 tests/*.test.ts\""
   },
   "dependencies": {

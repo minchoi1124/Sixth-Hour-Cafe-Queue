@@ -186,6 +186,15 @@ function SessionCard({
                 Ended automatically
               </Badge>
             )}
+            {session.endedAtCorrected && (
+              <Badge
+                variant="outline"
+                className="text-base"
+                title="It was left running after the last order, so its end time was moved back to the last order."
+              >
+                End time corrected
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>

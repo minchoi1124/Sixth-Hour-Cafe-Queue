@@ -154,6 +154,8 @@ Access is enforced by [`firestore.rules`](firestore.rules): the owner by their m
 
 **Removing old invite codes** — [`scripts/remove-staff-invites.ts`](scripts/remove-staff-invites.ts) deletes `private/invite` and `inviteCodes/` (dry run by default, `--commit` to delete). It leaves accounts alone.
 
+**Correcting forgotten sessions** — [`scripts/fix-idle-session-times.ts`](scripts/fix-idle-session-times.ts) moves the end time of past sessions that ended 3+ hours after their last order back to that order, keeping the old value in `originalEndedAt` (dry run by default, `--commit` to apply; `npm run fix-session-times`).
+
 **Moving from the old `cafes/{uid}` layout** — [`scripts/migrate-readable-ids.ts`](scripts/migrate-readable-ids.ts) copies every cafe into `locations/`, assigns readable ids, rewrites every reference to them, and builds `members` and `users`. See the header of the script for the run order (dry run → copy → deploy → catch-up → cleanup).
 
 **Testing rules and the migration** — `npm run test:emulator` runs [`tests/`](tests/) against the Firestore and Auth emulators: the security rules, and a full migration of seeded old-layout data. Needs Java on `PATH` (e.g. `brew install openjdk`).

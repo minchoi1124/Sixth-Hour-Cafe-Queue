@@ -7,6 +7,7 @@ Pop-ups kept stalling when the person with the login wasn't there, and inviting 
 - **Default `000000`** until the owner changes it in **Settings → Staff passcode**, which also has a **Make one up** button. Changing it signs out every phone that used the old one.
 - **Helpers can look it up** under **Passcode** at the top of the screen, to let others in when the owner isn't there. Only owners can change it.
 - **Guessing is limited.** After 10 wrong passcodes, sign-in for that location pauses for 10 minutes.
+- **Open the customer screen from the main page.** Pick a location and tap **Open customer screen** to set up the customer iPad, no passcode needed.
 - A one-time announcement on the main page explains the change.
 
 ## Staff accounts are now co-owners

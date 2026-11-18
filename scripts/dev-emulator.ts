@@ -14,11 +14,12 @@
  *   - "Downtown"  (link /order/downtown), so the picker has a choice
  *   - owner login for MSU Campus: owner@example.com / password123
  *   - an account from the old invite system: staff@example.com / password123
+ *   - a forgotten session at MSU Campus, idle for 4 hours (see below)
  */
 import { spawn } from 'node:child_process';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 const PROJECT_ID = 'demo-sixth-hour';
 
@@ -70,6 +71,37 @@ async function seed() {
     batch.set(loc.collection('drinks').doc(id), { ...rest, inStock: true, order, modifications: [] });
   });
 
+  // A session someone forgot to end: started 5 hours ago, last order 4 hours
+  // ago. Placing an order on /order/msu ends it automatically, back-dated to
+  // that last order (src/lib/auto-end-session.ts).
+  const HOUR = 60 * 60 * 1000;
+  const hoursAgo = (h: number) => Timestamp.fromDate(new Date(Date.now() - h * HOUR));
+  const sessionId = `${new Date().toISOString().slice(0, 10)}_library_demo`;
+  const menuIds = drinks.map((drink) => drink.id);
+  batch.set(loc.collection('sessions').doc(sessionId), {
+    location: 'Library',
+    startsAt: hoursAgo(5),
+    endedAt: null,
+    status: 'active',
+    menuIds,
+    soldOutIds: [],
+    lastOrderAt: hoursAgo(4),
+  });
+  batch.update(loc, { activeSessionId: sessionId, liveMenu: { drinkIds: menuIds, soldOutIds: [] } });
+  [
+    { id: 'demo-1', name: 'Sam', drink: 'Matcha Latte', at: 4.5, status: 'completed', number: 1 },
+    { id: 'demo-2', name: 'Alex', drink: 'Iced Latte', at: 4, status: 'completed', number: 2 },
+  ].forEach((order) => {
+    batch.set(loc.collection('orders').doc(order.id), {
+      customerName: order.name,
+      items: [{ id: order.drink, name: order.drink, modifications: [] }],
+      status: order.status,
+      sessionId,
+      number: order.number,
+      createdAt: hoursAgo(order.at),
+    });
+  });
+
   const downtown = db.doc('locations/downtown');
   batch.set(downtown, { location: 'Downtown', slug: 'downtown', timezone: 'America/New_York', createdAt: FieldValue.serverTimestamp() });
   batch.set(db.doc('slugs/downtown'), { locationId: 'downtown' });
@@ -85,7 +117,8 @@ async function main() {
   │  App:          http://localhost:9002                        │
   │  Staff:        MSU Campus, passcode 000000                  │
   │  Owner login:  owner@example.com / password123              │
-  │  Old staff:    staff@example.com / password123 (role staff)     │
+  │  Old staff:    staff@example.com / password123 (role staff) │
+  │  Forgotten session at MSU: order on /order/msu to end it    │
   └─────────────────────────────────────────────────────────────┘
 `);
 

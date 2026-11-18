@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { endIdleSessions } from '@/lib/auto-end-session';
 
-// Scheduled cleanup of soft-deleted (cancelled) orders older than a week, run by
-// a Vercel Cron job (see vercel.json). Cancelled orders are hidden from every
-// queue and excluded from sales totals, so purging old ones just reclaims space.
+// Nightly job, run by a Vercel Cron (see vercel.json):
+//  - ends sessions left running with no orders for 3 hours;
+//  - purges soft-deleted (cancelled) orders older than a week. Cancelled orders
+//    are hidden from every queue and excluded from sales totals, so purging old
+//    ones just reclaims space.
 //
 // Protected by CRON_SECRET: Vercel automatically sends `Authorization: Bearer
 // <CRON_SECRET>` with cron invocations when that env var is set.
@@ -24,6 +27,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // End sessions left running (see src/lib/auto-end-session.ts). Its own
+  // try, so a problem here never stops the purge below, or the reverse.
+  let autoEnded: string[] = [];
+  try {
+    autoEnded = await endIdleSessions(getAdminDb());
+  } catch (e) {
+    console.error('[cron/cleanup] Failed to end idle sessions:', (e as Error)?.message ?? e);
+  }
+
   const cutoff = new Date(Date.now() - ONE_WEEK_MS);
 
   try {
@@ -40,7 +52,7 @@ export async function GET(req: NextRequest) {
       await batch.commit();
     }
 
-    return NextResponse.json({ deleted: docs.length, cutoff: cutoff.toISOString() });
+    return NextResponse.json({ deleted: docs.length, cutoff: cutoff.toISOString(), autoEnded });
   } catch (e) {
     // Name the reason. This job silently 500'd nightly for seven weeks because
     // its collection-group index was declared in firestore.indexes.json but

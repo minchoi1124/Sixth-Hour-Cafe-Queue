@@ -177,6 +177,15 @@ function SessionCard({
                 Backfilled
               </Badge>
             )}
+            {session.autoEnded && (
+              <Badge
+                variant="outline"
+                className="text-base"
+                title="Nobody ended it, so it ended on its own after 3 hours without orders. The end time is the last order."
+              >
+                Ended automatically
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>

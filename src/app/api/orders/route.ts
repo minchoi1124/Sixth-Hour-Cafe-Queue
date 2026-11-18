@@ -4,6 +4,9 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { rejectWithoutAppCheck } from '@/lib/app-check-server';
 import { orderDocId } from '@/lib/readable-ids';
 import { cafeTimezone, zonedDateKey } from '@/lib/timezone';
+import { endSessionIfIdle } from '@/lib/auto-end-session';
+import { isIdle } from '@/lib/session-idle';
+import { toDate } from '@/lib/sessions';
 
 // Order creation runs server-side via the Admin SDK so the public real-time
 // listeners no longer need App Check enforcement on Firestore (which was adding
@@ -83,6 +86,25 @@ export async function POST(req: NextRequest) {
   const name = customerName.trim();
   const tz = cafeTimezone(cafeSnap.get('timezone') as string | undefined);
   const now = new Date();
+
+  // A session left running with no orders for hours was forgotten: end it
+  // rather than take an order nobody is there to make. Ending it clears
+  // `liveMenu`, which flips the customer's screen to closed.
+  const sessionRef = activeSessionId
+    ? adminDb.doc(`locations/${cafeId}/sessions/${activeSessionId}`)
+    : null;
+  const sessionSnap = sessionRef ? await sessionRef.get() : null;
+  if (sessionSnap?.exists && sessionSnap.get('status') === 'active') {
+    const startsAt = toDate(sessionSnap.get('startsAt'));
+    if (
+      startsAt
+      && isIdle(startsAt, toDate(sessionSnap.get('lastOrderAt')), now)
+      && (await endSessionIfIdle(adminDb, cafeId, now))
+    ) {
+      return NextResponse.json({ error: 'This location has closed for now.' }, { status: 409 });
+    }
+  }
+
   const ref = adminDb.doc(`locations/${cafeId}/orders/${orderDocId(now, name, tz)}`);
 
   // Order numbers count up from 1 each day in the cafe's timezone, so two
@@ -103,6 +125,10 @@ export async function POST(req: NextRequest) {
       number: next,
       createdAt: FieldValue.serverTimestamp(),
     });
+    // How the idle check knows the session is still busy.
+    if (sessionRef && sessionSnap?.exists) {
+      tx.update(sessionRef, { lastOrderAt: FieldValue.serverTimestamp() });
+    }
     return next;
   });
 

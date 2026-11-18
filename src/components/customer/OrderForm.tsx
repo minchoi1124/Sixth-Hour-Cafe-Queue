@@ -222,6 +222,12 @@ export default function OrderForm({
         }),
       });
 
+      if (response.status === 409) {
+        // The session had been left running and was just ended; the page
+        // switches to the closed screen on its own.
+        toast({ title: 'Sorry, we’ve closed for now', description: 'Your order wasn’t placed.' });
+        return;
+      }
       if (!response.ok) {
         const detail = await response.json().catch(() => ({}));
         console.error('Order request failed', response.status, detail);

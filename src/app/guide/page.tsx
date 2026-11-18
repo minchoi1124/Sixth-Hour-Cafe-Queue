@@ -141,7 +141,9 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
         </Points>
         <Tip>
           When you close, tap <strong>End session</strong>. The customer screen switches to
-          “closed” and the session’s totals are saved to History and Stats.
+          “closed” and the session’s totals are saved to History and Stats. If you forget, the
+          session ends on its own after 3 hours without orders, with its end time set to the last
+          order. History marks it “Ended automatically”.
         </Tip>
       </>
     ),

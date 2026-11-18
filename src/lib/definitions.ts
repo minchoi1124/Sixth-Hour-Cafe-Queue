@@ -135,6 +135,13 @@ export type Session = {
   statsUpdatedAt?: Timestamp;
   /** True for sessions reconstructed from pre-sessions order history. */
   backfilled?: boolean;
+  /** When the latest order came in; stamped by /api/orders for the idle check. */
+  lastOrderAt?: Timestamp;
+  /**
+   * Ended by the server after sitting idle (src/lib/auto-end-session.ts);
+   * `endedAt` is then the last order rather than when it was ended.
+   */
+  autoEnded?: boolean;
 };
 
 /** The fields the start-session dialog collects. */

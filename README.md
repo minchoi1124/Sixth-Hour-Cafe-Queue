@@ -38,6 +38,7 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 - **Optimistic UI** — Menu changes reflect in the UI immediately and save to Firestore in the background, with a visible auto-save status indicator.
 - **Session-scoped stats** — Ending a session freezes its totals onto the session document, so History and the all-time counter read one small doc per session instead of subscribing to every order ever completed.
 - **Reversible deletes** — Deleting a queued order is a soft delete (`status: 'cancelled'`) with an Undo toast; a daily Vercel Cron job purges cancelled orders older than a week.
+- **Forgotten sessions end themselves** — a session with no orders for 3 hours is ended by the server (from the nightly cron, or when the next order comes in), with `endedAt` set back to the last order and `autoEnded: true`. Each order stamps `lastOrderAt` on its session so the check is a single read.
 - **Server-side order creation** — Customers place orders through a Next.js API route (`/api/orders`) that writes via the Firebase Admin SDK. Security Rules deny client-side order creates entirely, so the route is the only path in. This keeps the customer screen login-free and lets App Check stay off Firestore reads so real-time updates stay instant.
 - **Abuse protection** — The order route verifies a Firebase App Check (reCAPTCHA v3) token before writing — validated directly with `jose` to avoid the firebase-admin app-check ESM/serverless issue — and validates the order's shape and size.
 - **Public reads via Admin SDK** — Server components resolve slug → cafe and load the initial menu with the Admin SDK, so public pages render without exposing client credentials or depending on App Check.
@@ -77,7 +78,7 @@ src/
     /order/[slug]      — Public customer ordering screen (per cafe)
     /api/orders        — Server route: verifies App Check + writes orders (Admin SDK)
     /api/staff-signin  — Server route: checks a location passcode, returns a custom token
-    /api/cron/cleanup  — Scheduled purge of old cancelled orders (Admin SDK)
+    /api/cron/cleanup  — Nightly: ends idle sessions, purges old cancelled orders (Admin SDK)
     /staff             — Queue dashboard (auth-gated; owner or staff)
     /staff/menu        — Menu and category management
     /staff/settings    — Location, link, Instagram, and staff passcode (owner-only)
@@ -137,7 +138,7 @@ Document ids are chosen to read well in the Firebase console ([`src/lib/readable
 | `locations/{locationId}` e.g. `msu-campus` | `location`, `slug`, `createdAt`, `activeSessionId?`, `liveMenu?`, `timezone?`, `instagramEnabled?`, `instagramUrl?`, `staffPasscodeVersion?` |
 | `…/members/{uid}` | `email`, `role` (`owner`), `joinedAt` — the owner's access |
 | `…/orders/{id}` e.g. `2026-10-24_14-32-05_min_a1b2` | `customerName`, `items[]`, `status` (`pending` / `completed` / `cancelled`; `archived` is legacy), `sessionId`, `createdAt` |
-| `…/sessions/{id}` e.g. `2026-10-24_library_k3f9` | `location`, `startsAt`, `endedAt?`, `status` (`scheduled` / `active` / `ended`), `notes?`, `menuIds`, `soldOutIds`, `presetId?`, and the stats frozen on end: `drinkCount`, `orderCount`, `itemCounts` |
+| `…/sessions/{id}` e.g. `2026-10-24_library_k3f9` | `location`, `startsAt`, `endedAt?`, `status` (`scheduled` / `active` / `ended`), `notes?`, `menuIds`, `soldOutIds`, `presetId?`, and the stats frozen on end: `drinkCount`, `orderCount`, `itemCounts`; `lastOrderAt` (stamped by each order), `autoEnded?` |
 | `…/drinks/{id}` e.g. `matcha-latte` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
 | `…/categories/{id}` | `name` |
 | `…/presets/{id}` | `name`, `drinkIds[]` |
@@ -181,7 +182,7 @@ The app is deployed on Vercel with Firebase as the backend. To deploy your own i
 6. Add the variables from `.env.example` to your Vercel project settings (for **all** environments you deploy, including Preview). Set `CRON_SECRET` to any random string so the cleanup cron is authenticated.
 7. Push the repo — Vercel builds and deploys automatically.
 
-A **Vercel Cron** job (see [`vercel.json`](vercel.json)) calls `/api/cron/cleanup` daily to purge soft-deleted (`cancelled`) orders older than a week.
+A **Vercel Cron** job (see [`vercel.json`](vercel.json)) calls `/api/cron/cleanup` daily at 09:00 UTC (4 AM Eastern) to end sessions left idle for 3 hours and purge soft-deleted (`cancelled`) orders older than a week.
 
 ### Migrating existing single-cafe data
 

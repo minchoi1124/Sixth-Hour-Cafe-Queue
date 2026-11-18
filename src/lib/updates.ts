@@ -16,6 +16,16 @@ export type Update = {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-11-18-auto-end-sessions',
+    date: '2026-11-18',
+    title: 'Forgotten sessions end on their own',
+    points: [
+      'If a session has no new orders for 3 hours, it ends automatically and the customer screen switches to closed.',
+      'Its end time is set to the last order, so History and Stats show when you actually finished. History marks it “Ended automatically”.',
+      'Orders still waiting in the queue are left as they are.',
+    ],
+  },
+  {
     id: '2026-11-18-staff-passcode',
     date: '2026-11-18',
     title: 'Staff sign in with a passcode, no account needed',

@@ -16,11 +16,20 @@ Accounts from the old invite system keep working and now have the same access as
 - `scripts/promote-staff-to-owners.ts` gives every staff account the owner role (dry run by default).
 - `scripts/remove-staff-invites.ts` deletes the leftover invite codes and leaves accounts alone.
 
+## Forgotten sessions end on their own
+
+People often forget to tap **End session** after packing up, which left the ordering page open and stretched the session's end time.
+
+- A running session with **no new orders for 3 hours** ends automatically, and the customer screen switches to closed.
+- Its **end time is set back to the last order** (or its start, if nobody ordered), so History and Stats show when you actually finished. History marks it **Ended automatically**.
+- Orders still waiting in the queue are left as they are. Scheduled sessions are never touched.
+- It's checked by the nightly job (now at 4 AM Eastern) and whenever a new order comes in, so a customer can't order into a forgotten session. Each order stamps `lastOrderAt` on its session, so the check costs one read.
+
 ## Under the hood
 
 - Passcode sign-in goes through `/api/staff-signin` (App Check protected), which issues a Firebase custom token naming the location and its passcode version. The Firestore rules accept it only while that version matches the location's, so changing the passcode revokes every device at once.
 - `npm run dev:emulator` runs a full local preview against the Firebase emulators with test data, isolated from production.
-- Rules tests cover passcode sign-in, revocation, helper permissions and promoted accounts.
+- Tests cover passcode sign-in, revocation, helper permissions, promoted accounts and ending idle sessions.
 
 ## Also since v1.2.0
 

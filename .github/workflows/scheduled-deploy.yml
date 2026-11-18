@@ -114,6 +114,6 @@ jobs:
         run: |
           gh release create v1.3.0 \
             --target "$(git rev-parse HEAD)" \
-            --title "v1.3.0 — Staff passcode sign-in" \
+            --title "v1.3.0 — Staff passcode sign-in, sessions that end themselves" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --latest

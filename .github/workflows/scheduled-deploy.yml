@@ -20,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'check = test only; promote-staff = make every staff account an owner; deploy = deploy now'
+        description: 'check = test only; promote-staff = make every staff account an owner; fix-session-times = correct past forgotten sessions; deploy = deploy now'
         type: choice
-        options: [check, promote-staff, deploy]
+        options: [check, promote-staff, fix-session-times, deploy]
         default: check
 
 permissions:
@@ -82,6 +82,17 @@ jobs:
         if: env.DEPLOY != 'yes'
         run: npx tsx scripts/promote-staff-to-owners.ts
 
+      # Past sessions left running: end time moved back to the last order.
+      # Previewed on every non-deploy run; applied by fix-session-times, and
+      # by the deploy itself (below) once the app is out.
+      - name: Fix past forgotten sessions
+        if: inputs.mode == 'fix-session-times'
+        run: npx tsx scripts/fix-idle-session-times.ts --commit
+
+      - name: Past sessions whose end time would be corrected
+        if: env.DEPLOY != 'yes'
+        run: npx tsx scripts/fix-idle-session-times.ts
+
       # Never go live while a staff account would lose access.
       - name: Check every staff account has been promoted
         if: env.DEPLOY == 'yes'
@@ -105,6 +116,11 @@ jobs:
       - name: Deploy Firestore rules
         if: env.DEPLOY == 'yes'
         run: npx --yes firebase-tools@15.36.0 deploy --only firestore:rules --project "$FIREBASE_PROJECT" --non-interactive
+
+      # Safe to repeat: does nothing if fix-session-times already ran.
+      - name: Fix past forgotten sessions
+        if: env.DEPLOY == 'yes'
+        run: npx tsx scripts/fix-idle-session-times.ts --commit
 
       # Only once the app and rules are both out.
       - name: Publish the v1.3.0 release

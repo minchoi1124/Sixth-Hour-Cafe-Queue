@@ -24,6 +24,7 @@ People often forget to tap **End session** after packing up, which left the orde
 - A running session with **no new orders for 3 hours** ends automatically, and the customer screen switches to closed.
 - Its **end time is set back to the last order** (or its start, if nobody ordered), so History and Stats show when you actually finished. History marks it **Ended automatically**.
 - Orders still waiting in the queue are left as they are. Scheduled sessions are never touched.
+- **Past sessions were fixed too.** Sessions that ended 3 or more hours after their last order had their end time moved back to that order, and History marks them **End time corrected**. The original end time is kept on the session.
 - It's checked by the nightly job (now at 4 AM Eastern) and whenever a new order comes in, so a customer can't order into a forgotten session. Each order stamps `lastOrderAt` on its session, so the check costs one read.
 
 ## Under the hood

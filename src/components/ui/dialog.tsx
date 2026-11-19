@@ -29,14 +29,70 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+const TEXT_FIELD = 'input, textarea, select, [contenteditable="true"]'
+
+/**
+ * iPhone Safari scrolls the page behind a pop-up to make room for the
+ * keyboard, and often leaves it scrolled when the keyboard closes. From then
+ * on taps in the pop-up land below where things are drawn: you had to tap
+ * above a button to press it. So when focus leaves the pop-up's text fields,
+ * or the keyboard closes, put the page back where it was when the pop-up
+ * opened. Does nothing where the page never moved (desktops, Android).
+ */
+function useKeyboardScrollRestore(node: HTMLElement | null) {
+  React.useEffect(() => {
+    if (!node || typeof window === "undefined") return
+    const savedX = window.scrollX
+    const savedY = window.scrollY
+    const restore = () => {
+      if (window.scrollX !== savedX || window.scrollY !== savedY) window.scrollTo(savedX, savedY)
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onFocusOut = () => {
+      clearTimeout(timer)
+      // Moving to another field in the pop-up keeps the keyboard up.
+      timer = setTimeout(() => {
+        const active = document.activeElement
+        if (!(active && node.contains(active) && active.matches(TEXT_FIELD))) restore()
+      }, 100)
+    }
+    const viewport = window.visualViewport
+    let lastHeight = viewport?.height ?? 0
+    const onViewportResize = () => {
+      if (!viewport) return
+      // Grew by a keyboard's worth: the keyboard just closed.
+      if (viewport.height > lastHeight + 100) restore()
+      lastHeight = viewport.height
+    }
+    node.addEventListener("focusout", onFocusOut)
+    viewport?.addEventListener("resize", onViewportResize)
+    return () => {
+      clearTimeout(timer)
+      node.removeEventListener("focusout", onFocusOut)
+      viewport?.removeEventListener("resize", onViewportResize)
+    }
+  }, [node])
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => {
+  const [node, setNode] = React.useState<HTMLDivElement | null>(null)
+  useKeyboardScrollRestore(node)
+  const setRefs = React.useCallback(
+    (el: HTMLDivElement | null) => {
+      setNode(el)
+      if (typeof ref === "function") ref(el)
+      else if (ref) ref.current = el
+    },
+    [ref]
+  )
+  return (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
-      ref={ref}
+      ref={setRefs}
       className={cn(
         // A frame that never scrolls, around a body that does. On phones:
         //  - the height is capped to the screen you can actually see (dvh
@@ -61,7 +117,8 @@ const DialogContent = React.forwardRef<
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
-))
+  )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({

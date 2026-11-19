@@ -111,9 +111,12 @@ export function StaffSignIn({ locations, preselectedId }: { locations: LocationC
       </CardHeader>
       <CardContent className="space-y-5">
         {signedIn && (
-          <Button asChild variant="secondary" className="w-full justify-between py-6 text-xl">
+          // Buttons don't wrap by default, so on a phone this sentence ran out
+          // of the card; here it wraps, with the arrow kept at the right.
+          <Button asChild variant="secondary" className="h-auto w-full justify-between gap-3 whitespace-normal py-4 text-left text-lg md:py-6 md:text-xl">
             <Link href="/staff">
-              You’re signed in. Open the queue <ArrowRight className="h-5 w-5" />
+              <span>You’re signed in. Open the queue</span>
+              <ArrowRight className="h-5 w-5 flex-shrink-0" />
             </Link>
           </Button>
         )}

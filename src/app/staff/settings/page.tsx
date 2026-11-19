@@ -443,14 +443,16 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="slug" className="text-lg">Link</Label>
-            <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap text-base text-muted-foreground">{origin}/order/</span>
+            {/* Phones: the site address on its own line (it may wrap) with the
+                box under it; side by side it ran off the screen. */}
+            <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+              <span className="break-all text-base text-muted-foreground md:whitespace-nowrap md:break-normal">{origin}/order/</span>
               <Input
                 id="slug"
                 value={slug}
                 onChange={(e) => setSlug(slugify(e.target.value))}
                 placeholder="east-lansing"
-                className="text-xl h-12"
+                className="min-w-0 text-xl h-12"
               />
             </div>
             {!linkValid && slug.length > 0 && (

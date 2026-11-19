@@ -127,7 +127,8 @@ export function MenuPicker({
           ) : (
             <ul className="divide-y">
               {selected.map((item, index) => (
-                <li key={item.id} className="flex items-center gap-2 p-2 pl-3">
+                // 44px buttons on phones (36px was easy to mis-tap side by side).
+                <li key={item.id} className="flex items-center gap-1 p-2 pl-3 md:gap-2">
                   <span className="w-6 flex-shrink-0 text-base text-muted-foreground">
                     {index + 1}
                   </span>
@@ -135,7 +136,7 @@ export function MenuPicker({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-11 w-11 md:h-9 md:w-9"
                     onClick={() => move(item.id, 'up')}
                     disabled={index === 0}
                     aria-label={`Move ${item.name} up`}
@@ -145,7 +146,7 @@ export function MenuPicker({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-11 w-11 md:h-9 md:w-9"
                     onClick={() => move(item.id, 'down')}
                     disabled={index === selected.length - 1}
                     aria-label={`Move ${item.name} down`}
@@ -155,7 +156,7 @@ export function MenuPicker({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    className="h-11 w-11 text-muted-foreground hover:text-destructive md:h-9 md:w-9"
                     onClick={() => toggle(item.id)}
                     aria-label={`Remove ${item.name}`}
                   >

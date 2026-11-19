@@ -197,7 +197,7 @@ export function PresetManager({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                      className="h-11 w-11 flex-shrink-0 text-muted-foreground hover:text-destructive md:h-10 md:w-10"
                       aria-label={`Delete ${preset.name}`}
                     >
                       <Trash2 className="h-5 w-5" />

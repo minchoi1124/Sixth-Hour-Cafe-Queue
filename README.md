@@ -26,6 +26,8 @@ It's **multi-tenant**: every cafe is a **Sixth Hour Cafe**, and each account is 
 
 **Settings (`/staff/settings`, owner-only)** — Rename the location, set the timezone used to date sessions, change the customer link, toggle and configure an Instagram QR shown after ordering, and view or change the staff passcode.
 
+**Several locations and co-owners** — One account can own several locations: **Settings → Your locations → Add another location** (`/onboarding?add=1`), then switch between them from the header. Owners invite co-owners from **Settings → Owners** with a single-use link (`/invite/{locationId}/{secret}`, expires after 7 days); anyone who opens it signed in becomes an owner. Any owner can remove another or leave, but a location always keeps at least one owner. Making, accepting and removing run on the server ([`src/lib/owners.ts`](src/lib/owners.ts), `/api/owners/*`), which verifies the caller's Firebase ID token with `jose`.
+
 **Staff passcode** — Staff don't have accounts. They pick their location on the main page and enter its passcode, which signs their phone in with access to the **queue and menu** (settings stay owner-only). The phone stays signed in until they leave or the owner changes the passcode, which signs out every staff phone. Every location starts with the passcode `000000`; owners are prompted to change it.
 
 ---
@@ -74,7 +76,9 @@ src/
   app/
     /                  — Landing page + staff passcode sign-in
     /login             — Owner sign in / sign up (email + Google)
-    /onboarding        — First-time setup (location name + public slug)
+    /onboarding        — First-time setup (location name + public slug); ?add=1 adds another
+    /invite/[locationId]/[secret] — Accept a co-owner invite link
+    /api/owners/*      — Server routes: make, preview and accept invite links; remove owners
     /order/[slug]      — Public customer ordering screen (per cafe)
     /api/orders        — Server route: verifies App Check + writes orders (Admin SDK)
     /api/staff-signin  — Server route: checks a location passcode, returns a custom token
@@ -136,7 +140,8 @@ Document ids are chosen to read well in the Firebase console ([`src/lib/readable
 | Path | Fields |
 |---|---|
 | `locations/{locationId}` e.g. `msu-campus` | `location`, `slug`, `createdAt`, `activeSessionId?`, `liveMenu?`, `timezone?`, `instagramEnabled?`, `instagramUrl?`, `staffPasscodeVersion?` |
-| `…/members/{uid}` | `email`, `role` (`owner`), `joinedAt` — the owner's access |
+| `…/members/{uid}` | `email`, `role` (`owner`), `joinedAt`, `invitedBy?` — an owner's access |
+| `…/ownerInvites/{sha256 of secret}` | `createdBy`, `createdByEmail`, `createdAt`, `expiresAt`, `usedBy?`, `usedAt?` — co-owner links (server-written; owners read and revoke) |
 | `…/orders/{id}` e.g. `2026-10-24_14-32-05_min_a1b2` | `customerName`, `items[]`, `status` (`pending` / `completed` / `cancelled`; `archived` is legacy), `sessionId`, `createdAt` |
 | `…/sessions/{id}` e.g. `2026-10-24_library_k3f9` | `location`, `startsAt`, `endedAt?`, `status` (`scheduled` / `active` / `ended`), `notes?`, `menuIds`, `soldOutIds`, `presetId?`, and the stats frozen on end: `drinkCount`, `orderCount`, `itemCounts`; `lastOrderAt` (stamped by each order), `autoEnded?` |
 | `…/drinks/{id}` e.g. `matcha-latte` | `name`, `description`, `category`, `inStock`, `order`, `modifications[]` |
@@ -145,7 +150,7 @@ Document ids are chosen to read well in the Firebase console ([`src/lib/readable
 | `…/recipes/{drinkId}` | `ingredients[]`, `instructions` (staff-only) |
 | `…/private/staffPasscode` | `passcode` (owner-only; absent means `000000`) |
 | `…/private/staffPasscodeAttempts` | `failures`, `windowStart` (server-only wrong-passcode counter) |
-| `users/{uid}` | `locationId`, `role`, `email` — pointer from an owner's account to its location |
+| `users/{uid}` | `locationId` (the one it opens to), `locationIds` (every one it owns, for the switcher), `role`, `email`, `lastSeenUpdate?` — pointers only; access comes from `members` |
 | `slugs/{slug}` | `locationId` |
 
 Access is enforced by [`firestore.rules`](firestore.rules): the owner by their member doc, staff by the claims on their passcode sign-in. Location info, menus and categories are publicly readable; client-side order **creates are denied** — orders are written only by the `/api/orders` server route (Admin SDK). Owners and staff may manage drinks, categories, presets, recipes, orders, and sessions; location settings and changing the passcode are **owner-only** (passcode staff may read `private/staffPasscode` so they can let others in) — except `activeSessionId` and `liveMenu`, the location fields staff may change, so they can run sessions.

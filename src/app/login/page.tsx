@@ -45,18 +45,24 @@ export default function LoginPage() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Once a real (non-anonymous) owner is signed in, leave the login page.
-  // /staff decides whether they still need onboarding. A phone signed in with
-  // a staff passcode stays here, so an owner can sign in on it; doing so replaces
-  // the staff sign-in.
+  // Once a real (non-anonymous) owner is signed in, leave the login page: back
+  // to `?next=` (an invite link sends people here), or /staff, which decides
+  // whether they still need onboarding. A phone signed in with a staff
+  // passcode stays here, so an owner can sign in on it; doing so replaces the
+  // staff sign-in.
   useEffect(() => {
     if (isUserLoading || !user || user.isAnonymous) return;
     let cancelled = false;
+    const next = new URLSearchParams(window.location.search).get('next');
+    // Only paths on this site.
+    const destination = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')
+      ? next
+      : '/staff';
     user
       .getIdTokenResult()
       .then(({ claims }) => {
         if (!cancelled && typeof claims[STAFF_LOCATION_CLAIM] !== 'string') {
-          router.replace('/staff');
+          router.replace(destination);
         }
       })
       .catch((e) => console.error('Failed to read sign-in:', e));

@@ -13,7 +13,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { useAuth, useFirestore, useUser } from '@/firebase';
-import { cafeDoc, memberDoc, slugDoc, userDoc, isValidSlug, slugify } from '@/lib/cafe-paths';
+import {
+  cafeDoc,
+  memberDoc,
+  slugDoc,
+  userDoc,
+  isValidSlug,
+  pointerLocationIds,
+  slugify,
+} from '@/lib/cafe-paths';
+import type { UserLocation } from '@/lib/definitions';
 import { LATEST_UPDATE_ID } from '@/lib/updates';
 import { STAFF_LOCATION_CLAIM } from '@/lib/staff-passcode';
 import { idPart, pickFreeId } from '@/lib/readable-ids';
@@ -29,13 +38,20 @@ export default function OnboardingPage() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // `/onboarding?add=1`: an owner adding another location. Read from the URL
+  // after mounting, which avoids a Suspense boundary for useSearchParams.
+  const [isAdding, setIsAdding] = useState<boolean | null>(null);
+  useEffect(() => {
+    setIsAdding(new URLSearchParams(window.location.search).get('add') === '1');
+  }, []);
 
   // Send unauthenticated visitors to login; send owners who already have a
-  // cafe, and staff phones signed in with a passcode, straight to the dashboard. A
-  // pointer with role 'staff' is left over from the old invites and doesn't
-  // count, or /staff would send it straight back here.
+  // cafe (unless they're adding another), and staff phones signed in with a
+  // passcode, straight to the dashboard. A pointer with role 'staff' is left
+  // over from the old invites and doesn't count, or /staff would send it
+  // straight back here.
   useEffect(() => {
-    if (isUserLoading) return;
+    if (isUserLoading || isAdding === null) return;
     if (!user || user.isAnonymous) {
       router.replace('/login');
       return;
@@ -48,6 +64,7 @@ export default function OnboardingPage() {
         router.replace('/staff');
         return;
       }
+      if (isAdding) return;
       const snap = await getDoc(userDoc(firestore, user.uid));
       if (!cancelled && snap.exists() && snap.get('role') === 'owner') {
         router.replace('/staff');
@@ -56,7 +73,7 @@ export default function OnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, isUserLoading, firestore, router]);
+  }, [user, isUserLoading, isAdding, firestore, router]);
 
   const effectiveSlug = useMemo(
     () => (slugTouched ? slug : slugify(location)),
@@ -95,6 +112,10 @@ export default function OnboardingPage() {
         if (existing.exists()) {
           throw new Error('SLUG_TAKEN');
         }
+        // An owner adding another location keeps the ones they have.
+        const pointerSnap = await tx.get(userDoc(firestore, user.uid));
+        const pointer = pointerSnap.exists() ? (pointerSnap.data() as UserLocation) : null;
+        const owned = pointer?.role === 'owner' ? pointerLocationIds(pointer) : [];
         // The id is readable and permanent; the slug is the changeable link.
         // All reads must come before any write in a transaction.
         const locationId = await pickFreeId(
@@ -112,12 +133,15 @@ export default function OnboardingPage() {
           role: 'owner',
           joinedAt: serverTimestamp(),
         });
-        // New accounts start caught up rather than with the whole update history.
+        // New accounts start caught up rather than with the whole update
+        // history; an existing one keeps where it was.
+        const lastSeenUpdate = pointer ? pointer.lastSeenUpdate : LATEST_UPDATE_ID;
         tx.set(userDoc(firestore, user.uid), {
           locationId,
+          locationIds: Array.from(new Set([...owned, locationId])),
           role: 'owner',
           email,
-          lastSeenUpdate: LATEST_UPDATE_ID,
+          ...(lastSeenUpdate ? { lastSeenUpdate } : {}),
         });
         tx.set(slugRef, { locationId });
       });
@@ -146,10 +170,12 @@ export default function OnboardingPage() {
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo className="mb-4 h-20 w-20" />
         <h1 className="text-4xl font-bold tracking-tight">
-          Set up your Sixth Hour Cafe location
+          {isAdding ? 'Add another location' : 'Set up your Sixth Hour Cafe location'}
         </h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          Name your location and choose a public link customers will use to order.
+          {isAdding
+            ? 'It gets its own menu, queue, history and staff passcode. Switch between your locations from the top of the screen.'
+            : 'Name your location and choose a public link customers will use to order.'}
         </p>
       </div>
 
@@ -202,6 +228,12 @@ export default function OnboardingPage() {
               {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create my location'}
             </Button>
           </form>
+          {isAdding ? (
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              <Link href="/staff" className="underline">Cancel and go back</Link>
+            </p>
+          ) : (
+          <>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Working at an existing location? You don’t need an account.{' '}
             <button
@@ -215,6 +247,11 @@ export default function OnboardingPage() {
           <p className="mt-2 text-center text-sm text-muted-foreground">
             New to the app? <Link href="/guide" className="underline">Read how it works</Link>
           </p>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Got a link to help own a location? Open it while signed in to join that one instead.
+          </p>
+          </>
+          )}
         </CardContent>
       </Card>
     </main>

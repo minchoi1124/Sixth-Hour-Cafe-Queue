@@ -107,9 +107,18 @@ service cloud.firestore {
         allow read: if isPasscodeStaff(locationId);
       }
 
-      // The owner's account. Anyone can read their own membership (login
+      // Co-owner invite links, keyed by a hash of the link's secret. Made and
+      // accepted on the server (src/lib/owners.ts); owners can see the pending
+      // ones and revoke them.
+      match /ownerInvites/{inviteId} {
+        allow read, delete: if isOwner(locationId);
+        allow create, update: if false;
+      }
+
+      // The owners' accounts. Anyone can read their own membership (login
       // resolves it). Docs with role 'staff' are left over from the old invite
-      // system and grant nothing.
+      // system and grant nothing. Co-owners join and are removed on the
+      // server (src/lib/owners.ts), which keeps at least one owner.
       match /members/{uid} {
         allow read: if isOwner(locationId)
           || (request.auth != null && request.auth.uid == uid);
@@ -121,8 +130,6 @@ service cloud.firestore {
           && request.resource.data.email == request.auth.token.get('email', null)
           && !exists(/databases/$(database)/documents/locations/$(locationId))
           && existsAfter(/databases/$(database)/documents/locations/$(locationId));
-        // An owner can't remove themselves, which would strand the location
-        // with nobody in charge.
         allow update, delete: if false;
       }
     }
@@ -138,16 +145,20 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // Which location an owner's account belongs to. Only a pointer — access
-    // comes from the member doc, which must exist (by the end of the write) for
-    // the pointer to be accepted. `lastSeenUpdate` is the newest "What's new"
-    // entry the account has dismissed (src/lib/updates.ts). Staff devices have
-    // no pointer and remember that on the device instead.
+    // Which location an owner's account opens to (`locationId`), and the
+    // locations it owns (`locationIds`, for the switcher). Only pointers —
+    // access comes from the member docs; the current one must exist (by the end
+    // of the write) for the pointer to be accepted. `lastSeenUpdate` is the
+    // newest "What's new" entry the account has dismissed (src/lib/updates.ts).
+    // Staff devices have no pointer and remember that on the device instead.
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create, update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['locationId', 'role', 'email', 'lastSeenUpdate'])
+        && request.resource.data.keys().hasOnly(['locationId', 'locationIds', 'role', 'email', 'lastSeenUpdate'])
+        && (!('locationIds' in request.resource.data)
+            || (request.resource.data.locationIds is list
+                && request.resource.data.locationIds.size() <= 50))
         && (!('lastSeenUpdate' in request.resource.data)
             || (request.resource.data.lastSeenUpdate is string
                 && request.resource.data.lastSeenUpdate.size() <= 100))

@@ -12,7 +12,9 @@
  * Seeded:
  *   - "MSU Campus" (link /order/msu) with a few drinks, no passcode saved (so 000000)
  *   - "Downtown"  (link /order/downtown), so the picker has a choice
- *   - owner login for MSU Campus: owner@example.com / password123
+ *   - owner login for both: owner@example.com / password123 (switch at the top)
+ *   - an account with no location yet: friend@example.com / password123, and a
+ *     co-owner invite link to MSU Campus printed below for it to accept
  *   - an account from the old invite system: staff@example.com / password123
  *   - a forgotten session at MSU Campus, idle for 4 hours (see below)
  */
@@ -20,6 +22,7 @@ import { spawn } from 'node:child_process';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { createOwnerInvite } from '../src/lib/owners';
 
 const PROJECT_ID = 'demo-sixth-hour';
 
@@ -54,7 +57,13 @@ async function seed() {
   batch.set(loc, { location: 'MSU Campus', slug: 'msu', timezone: 'America/New_York', createdAt: FieldValue.serverTimestamp() });
   batch.set(db.doc('slugs/msu'), { locationId: 'msu-campus' });
   batch.set(loc.collection('members').doc(owner.uid), { email: owner.email, role: 'owner', joinedAt: FieldValue.serverTimestamp() });
-  batch.set(db.doc(`users/${owner.uid}`), { locationId: 'msu-campus', role: 'owner', email: owner.email });
+  batch.set(db.doc(`users/${owner.uid}`), {
+    locationId: 'msu-campus',
+    locationIds: ['msu-campus', 'downtown'],
+    role: 'owner',
+    email: owner.email,
+  });
+  await auth.createUser({ uid: 'friend-uid', email: 'friend@example.com', password: 'password123' });
   // Left over from invites: should get no access under the new rules.
   batch.set(loc.collection('members').doc(oldStaff.uid), { email: oldStaff.email, role: 'staff', code: 'K7Q2PX9R' });
   batch.set(db.doc(`users/${oldStaff.uid}`), { locationId: 'msu-campus', role: 'staff', email: oldStaff.email });
@@ -105,11 +114,15 @@ async function seed() {
   const downtown = db.doc('locations/downtown');
   batch.set(downtown, { location: 'Downtown', slug: 'downtown', timezone: 'America/New_York', createdAt: FieldValue.serverTimestamp() });
   batch.set(db.doc('slugs/downtown'), { locationId: 'downtown' });
+  batch.set(downtown.collection('members').doc(owner.uid), { email: owner.email, role: 'owner', joinedAt: FieldValue.serverTimestamp() });
   await batch.commit();
+
+  const { token } = await createOwnerInvite(db, 'msu-campus', { uid: owner.uid, email: owner.email ?? null });
+  return `/invite/msu-campus/${token}`;
 }
 
 async function main() {
-  await seed();
+  const invitePath = await seed();
   console.log(`
   ┌─────────────────────────────────────────────────────────────┐
   │  Local preview (emulators, test data only)                  │
@@ -117,9 +130,13 @@ async function main() {
   │  App:          http://localhost:9002                        │
   │  Staff:        MSU Campus, passcode 000000                  │
   │  Owner login:  owner@example.com / password123              │
+  │                (owns MSU Campus and Downtown)               │
+  │  New account:  friend@example.com / password123             │
   │  Old staff:    staff@example.com / password123 (role staff) │
   │  Forgotten session at MSU: order on /order/msu to end it    │
   └─────────────────────────────────────────────────────────────┘
+  Co-owner invite to MSU Campus (sign in as friend@ to accept):
+  http://localhost:9002${invitePath}
 `);
 
   const child = spawn('npx', ['next', 'dev', '--turbopack', '-p', '9002'], {

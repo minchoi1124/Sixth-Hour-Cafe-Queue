@@ -39,6 +39,7 @@ import {
   memberDoc,
   membersCol,
   orderDoc,
+  ownerInvitesCol,
   sessionsCol,
   slugDoc,
   staffPasscodeDoc,
@@ -306,5 +307,102 @@ describe("what's new", () => {
 
   test('an old staff account cannot write its pointer', async () => {
     await assertFails(updateDoc(userDoc(dbFor(OLD_STAFF), OLD_STAFF.uid), { lastSeenUpdate: LATEST_UPDATE_ID }));
+  });
+});
+
+/** "Add another location", as in src/app/onboarding/page.tsx with ?add=1. */
+async function addLocation(db: Firestore, user: { uid: string; email: string }, locationId: string, slug: string) {
+  await runTransaction(db, async (tx) => {
+    await tx.get(slugDoc(db, slug));
+    await tx.get(userDoc(db, user.uid));
+    await tx.get(cafeDoc(db, locationId));
+    tx.set(cafeDoc(db, locationId), { location: 'Downtown', slug, createdAt: serverTimestamp() });
+    tx.set(memberDoc(db, locationId, user.uid), { email: user.email, role: 'owner', joinedAt: serverTimestamp() });
+    tx.set(userDoc(db, user.uid), {
+      locationId,
+      locationIds: [LOCATION, locationId],
+      role: 'owner',
+      email: user.email,
+    });
+    tx.set(slugDoc(db, slug), { locationId });
+  });
+}
+
+describe('several locations', () => {
+  beforeEach(seedLocation);
+
+  test('an owner adds another location to the same account', async () => {
+    await assertSucceeds(addLocation(dbFor(OWNER), OWNER, 'downtown', 'downtown'));
+    const pointer = await getDoc(userDoc(dbFor(OWNER), OWNER.uid));
+    assert.deepEqual(pointer.get('locationIds'), [LOCATION, 'downtown']);
+    await assertSucceeds(updateDoc(cafeDoc(dbFor(OWNER), LOCATION), { location: 'Still mine' }));
+  });
+
+  test('the account switches only between locations it owns', async () => {
+    await addLocation(dbFor(OWNER), OWNER, 'downtown', 'downtown');
+    const ref = userDoc(dbFor(OWNER), OWNER.uid);
+    await assertSucceeds(updateDoc(ref, { locationId: LOCATION }));
+    await assertSucceeds(updateDoc(ref, { locationId: 'downtown' }));
+    await assertFails(updateDoc(ref, { locationId: 'other-place' }));
+  });
+
+  test('listing a location in locationIds grants nothing', async () => {
+    const db = dbFor(OUTSIDER);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(memberDoc(admin, 'other-place', OUTSIDER.uid), { email: OUTSIDER.email, role: 'owner' });
+    });
+    await assertSucceeds(
+      setDoc(userDoc(db, OUTSIDER.uid), {
+        locationId: 'other-place',
+        locationIds: ['other-place', LOCATION],
+        role: 'owner',
+        email: OUTSIDER.email,
+      }),
+    );
+    await assertFails(getDocs(sessionsCol(db, LOCATION)));
+    await assertFails(updateDoc(cafeDoc(db, LOCATION), { location: 'Mine now' }));
+  });
+
+  test('locationIds must be a short list', async () => {
+    const ref = userDoc(dbFor(OWNER), OWNER.uid);
+    await assertFails(updateDoc(ref, { locationIds: LOCATION }));
+    await assertFails(updateDoc(ref, { locationIds: Array.from({ length: 51 }, (_, i) => `loc-${i}`) }));
+  });
+});
+
+describe('co-owner invite links', () => {
+  beforeEach(async () => {
+    await seedLocation();
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(ownerInvitesCol(admin, LOCATION), 'hash-1'), { createdBy: OWNER.uid });
+    });
+  });
+
+  test('owners see and revoke them', async () => {
+    const db = dbFor(OWNER);
+    const listed = await getDocs(ownerInvitesCol(db, LOCATION));
+    assert.equal(listed.size, 1);
+    await assertSucceeds(deleteDoc(doc(ownerInvitesCol(db, LOCATION), 'hash-1')));
+  });
+
+  test('only the server makes or uses them', async () => {
+    const db = dbFor(OWNER);
+    await assertFails(setDoc(doc(ownerInvitesCol(db, LOCATION), 'hash-2'), { createdBy: OWNER.uid }));
+    await assertFails(updateDoc(doc(ownerInvitesCol(db, LOCATION), 'hash-1'), { usedBy: OUTSIDER.uid }));
+  });
+
+  test('staff and outsiders can’t see them', async () => {
+    await assertFails(getDocs(ownerInvitesCol(passcodeDb(), LOCATION)));
+    await assertFails(getDocs(ownerInvitesCol(dbFor(OUTSIDER), LOCATION)));
+    await assertFails(getDocs(ownerInvitesCol(anonDb(), LOCATION)));
+  });
+
+  test('nobody joins or removes owners from the client', async () => {
+    await assertFails(
+      setDoc(memberDoc(dbFor(OUTSIDER), LOCATION, OUTSIDER.uid), { email: OUTSIDER.email, role: 'owner' }),
+    );
+    await assertFails(deleteDoc(memberDoc(dbFor(OWNER), LOCATION, OLD_STAFF.uid)));
   });
 });

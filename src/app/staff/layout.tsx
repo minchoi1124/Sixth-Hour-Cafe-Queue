@@ -22,6 +22,7 @@ import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
 import { StaffPasscodeButton } from '@/components/staff/StaffPasscodeButton';
+import { LocationSwitcher } from '@/components/staff/LocationSwitcher';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 import { toast } from '@/hooks/use-toast';
 import { passcodeVersionOf } from '@/lib/staff-passcode';
@@ -96,7 +97,7 @@ export default function StaffLayout({
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const { cafeId, role, passcodeVersion, loading: isResolving } = useResolveCafe();
+  const { cafeId, role, passcodeVersion, locationIds, loading: isResolving } = useResolveCafe();
   const [isFullScreen, setIsFullScreen] = useState(false);
   useWakeLock();
 
@@ -144,7 +145,9 @@ export default function StaffLayout({
   };
 
   // Block rendering until we've confirmed a valid member with a loaded cafe.
-  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe || passcodeChanged) {
+  // `cafe.id !== cafeId` covers the moment after an owner switches location,
+  // before the new one has loaded.
+  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe || cafe.id !== cafeId || passcodeChanged) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -156,7 +159,7 @@ export default function StaffLayout({
 
   if (isFullScreen) {
     return (
-      <CafeProvider cafeId={cafeId} role={role}>
+      <CafeProvider key={cafeId} cafeId={cafeId} role={role}>
         <div className="relative">
             <Button
                 variant="secondary"
@@ -176,7 +179,7 @@ export default function StaffLayout({
   }
 
   return (
-    <CafeProvider cafeId={cafeId} role={role}>
+    <CafeProvider key={cafeId} cafeId={cafeId} role={role}>
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b">
         <div className="container mx-auto flex items-center justify-between p-4">
@@ -188,6 +191,9 @@ export default function StaffLayout({
                 <span className="text-muted-foreground"> — {cafe.location}</span>
               )}
             </h1>
+            {isOwner && cafeId && (
+              <LocationSwitcher cafeId={cafeId} currentName={cafe.location} locationIds={locationIds} />
+            )}
           </div>
           <nav className="flex items-center gap-2 sm:gap-4 p-1 bg-secondary rounded-lg">
             <NavLink href="/staff">Queue</NavLink>

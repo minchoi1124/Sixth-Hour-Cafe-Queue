@@ -218,11 +218,36 @@ export type Member = {
   email: string | null;
   role: MemberRole;
   joinedAt?: Timestamp;
+  /** For a co-owner: the uid of the owner whose invite link they used. */
+  invitedBy?: string | null;
 };
 
-/** `users/{uid}`: which location an owner's account belongs to. */
+/**
+ * A co-owner invite link, at `locations/{locationId}/ownerInvites/{hash}`.
+ * The doc id is a hash of the link's secret; the link itself is never stored.
+ */
+export type OwnerInvite = {
+  id: string;
+  createdBy: string;
+  createdByEmail: string | null;
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
+  usedBy?: string;
+  usedByEmail?: string;
+  usedAt?: Timestamp;
+};
+
+/** `users/{uid}`: the locations an owner's account owns, and which it's on. */
 export type UserLocation = {
+  /** The location the account opens to. */
   locationId: string;
+  /**
+   * Every location the account owns, for the switcher. Convenience only:
+   * access still comes from each location's member doc. Missing on accounts
+   * from before v1.4, which means just `[locationId]`.
+   */
+  locationIds?: string[];
   role: MemberRole;
   email: string | null;
+  lastSeenUpdate?: string;
 };

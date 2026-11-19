@@ -26,6 +26,8 @@ import {
   passcodeProblem,
 } from '@/lib/staff-passcode';
 import type { Cafe } from '@/lib/definitions';
+import { OwnersCard } from '@/components/staff/OwnersCard';
+import { LocationsCard } from '@/components/staff/LocationsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -368,6 +370,9 @@ export default function SettingsPage() {
       {/* Staff passcode */}
       <StaffPasscodeCard cafeId={cafe.id} />
 
+      {/* Co-owners */}
+      <OwnersCard cafeId={cafe.id} locationName={cafe.location} />
+
       {/* Location name */}
       <Card>
         <CardHeader>
@@ -510,6 +515,9 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Other locations this account owns */}
+      <LocationsCard cafeId={cafe.id} />
 
       {/* Read-only current link reference */}
       <p className="text-center text-base text-muted-foreground break-all">

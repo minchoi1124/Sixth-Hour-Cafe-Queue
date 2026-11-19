@@ -18,6 +18,8 @@ import {
   Settings,
   KeyRound,
   MoreHorizontal,
+  Check,
+  Plus,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -36,9 +38,15 @@ import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
 import { StaffPasscodeButton, StaffPasscodeDialog } from '@/components/staff/StaffPasscodeButton';
 import {
+  LocationSwitcher,
+  switchLocation,
+  useOwnedLocations,
+} from '@/components/staff/LocationSwitcher';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -127,19 +135,28 @@ function PhoneNav({
   isOwner,
   onFullScreen,
   onSignOut,
-  showWhatsNew,
+  isPhone,
+  locationIds,
 }: {
   cafe: Cafe;
   cafeId: string | null;
   isOwner: boolean;
   onFullScreen: () => void;
   onSignOut: () => void;
-  /** Only on phones: the tablet header has its own, and it opens itself. */
-  showWhatsNew: boolean;
+  /** True below md: only then does this header run What's new (it opens itself) and look up locations. */
+  isPhone: boolean;
+  /** The owner's locations (v1.4), for switching from the More menu. */
+  locationIds: string[];
 }) {
   const pathname = usePathname();
+  const firestore = useFirestore();
+  const { user } = useUser();
   const [passcodeOpen, setPasscodeOpen] = useState(false);
   const tabs = TABS.filter((tab) => isOwner || !tab.ownerOnly);
+  // The tablet header's location switcher doesn't fit on a phone, so owners of
+  // two or more locations switch from the More menu instead.
+  const owned = useOwnedLocations(isOwner && isPhone ? locationIds : []);
+  const canSwitch = isOwner && user != null && owned != null && owned.length >= 2;
 
   return (
     <>
@@ -148,14 +165,37 @@ function PhoneNav({
           <Logo className="h-9 w-9 flex-shrink-0" />
           <span className="min-w-0 flex-1 truncate text-xl">{cafe.location || 'Sixth Hour Cafe'}</span>
           <CustomerScreenButton slug={cafe.slug} />
-          {showWhatsNew && <WhatsNew />}
+          {isPhone && <WhatsNew />}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="More">
                 <MoreHorizontal className="h-7 w-7" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-64">
+              {canSwitch && (
+                <>
+                  <DropdownMenuLabel className="text-base">Your locations</DropdownMenuLabel>
+                  {owned.map((location) => (
+                    <DropdownMenuItem
+                      key={location.id}
+                      className="gap-3 py-3 text-lg"
+                      onSelect={() => {
+                        if (location.id !== cafeId) switchLocation(firestore, user.uid, location.id);
+                      }}
+                    >
+                      <Check className={cn('h-5 w-5 flex-shrink-0', location.id !== cafeId && 'opacity-0')} />
+                      <span className="truncate">{location.name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem asChild className="gap-3 py-3 text-lg">
+                    <Link href="/onboarding?add=1">
+                      <Plus className="h-5 w-5" /> Add another location
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {!isOwner && cafeId && (
                 <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={() => setPasscodeOpen(true)}>
                   <KeyRound className="h-5 w-5" /> Staff passcode
@@ -220,7 +260,7 @@ export default function StaffLayout({
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
-  const { cafeId, role, passcodeVersion, loading: isResolving } = useResolveCafe();
+  const { cafeId, role, passcodeVersion, locationIds, loading: isResolving } = useResolveCafe();
   const [isFullScreen, setIsFullScreen] = useState(false);
   const isMobile = useIsMobile();
   useWakeLock();
@@ -269,7 +309,9 @@ export default function StaffLayout({
   };
 
   // Block rendering until we've confirmed a valid member with a loaded cafe.
-  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe || passcodeChanged) {
+  // `cafe.id !== cafeId` covers the moment after an owner switches location,
+  // before the new one has loaded.
+  if (isUserLoading || isResolving || !user || user.isAnonymous || !cafe || cafe.id !== cafeId || passcodeChanged) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -281,7 +323,7 @@ export default function StaffLayout({
 
   if (isFullScreen) {
     return (
-      <CafeProvider cafeId={cafeId} role={role}>
+      <CafeProvider key={cafeId} cafeId={cafeId} role={role}>
         <div className="relative">
             <Button
                 variant="secondary"
@@ -301,7 +343,7 @@ export default function StaffLayout({
   }
 
   return (
-    <CafeProvider cafeId={cafeId} role={role}>
+    <CafeProvider key={cafeId} cafeId={cafeId} role={role}>
     <div className="flex flex-col min-h-screen">
       {/* Phones: a slim top bar and tabs along the bottom (see PhoneNav). */}
       <PhoneNav
@@ -310,7 +352,8 @@ export default function StaffLayout({
         isOwner={isOwner}
         onFullScreen={() => setIsFullScreen(true)}
         onSignOut={handleSignOut}
-        showWhatsNew={isMobile}
+        isPhone={isMobile}
+        locationIds={locationIds}
       />
       <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b hidden md:block">
         <div className="container mx-auto flex items-center justify-between p-4">
@@ -322,6 +365,9 @@ export default function StaffLayout({
                 <span className="text-muted-foreground"> — {cafe.location}</span>
               )}
             </h1>
+            {isOwner && cafeId && !isMobile && (
+              <LocationSwitcher cafeId={cafeId} currentName={cafe.location} locationIds={locationIds} />
+            )}
           </div>
           <nav className="flex items-center gap-2 sm:gap-4 p-1 bg-secondary rounded-lg">
             <NavLink href="/staff">Queue</NavLink>

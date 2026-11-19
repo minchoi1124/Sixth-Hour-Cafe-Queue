@@ -249,6 +249,38 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
     ),
   },
   {
+    id: 'owners',
+    title: (
+      <>
+        Co-owners and more than one location
+        <OwnerOnly />
+      </>
+    ),
+    body: (
+      <>
+        <Steps>
+          <li>
+            To share a location with another owner, open <strong>Settings</strong> and, under{' '}
+            <strong>Owners</strong>, tap <strong>Invite a co-owner</strong>. Copy the link and send it to them.
+          </li>
+          <li>They open it, sign in (or create an account) and tap <strong>Accept</strong>. They can now do everything you can.</li>
+          <li>
+            To run another location yourself, go to <strong>Settings → Your locations → Add another location</strong>.
+            Switch between your locations with the button next to the logo at the top.
+          </li>
+          <li>
+            To remove an owner, or leave a location yourself, tap <strong>Remove</strong> or{' '}
+            <strong>Leave</strong> next to the name under <strong>Owners</strong>.
+          </li>
+        </Steps>
+        <Tip>
+          An invite link works once and expires after 7 days. Anyone who opens it can become an owner, so send
+          it only to the person you mean. A location always keeps at least one owner.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: 'settings',
     title: (
       <>

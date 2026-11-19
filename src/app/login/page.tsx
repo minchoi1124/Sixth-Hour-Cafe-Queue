@@ -30,10 +30,18 @@ function authErrorMessage(error: unknown): string {
         return 'Please enter a valid email address.';
       case 'auth/popup-closed-by-user':
         return 'Sign-in was cancelled.';
+      case 'auth/popup-blocked':
+        return 'Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.';
+      // A host missing from Firebase → Authentication → Settings → Authorized
+      // domains, e.g. a new Vercel branch preview.
+      case 'auth/unauthorized-domain':
+        return `Sign-in isn’t set up for ${window.location.host} yet. Add it to Firebase’s authorized domains.`;
       default:
-        return 'Something went wrong. Please try again.';
+        console.error('Sign-in failed:', error.code, error.message);
+        return `Something went wrong (${error.code}). Please try again.`;
     }
   }
+  console.error('Sign-in failed:', error);
   return 'Something went wrong. Please try again.';
 }
 
@@ -45,18 +53,24 @@ export default function LoginPage() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Once a real (non-anonymous) owner is signed in, leave the login page.
-  // /staff decides whether they still need onboarding. A phone signed in with
-  // a staff passcode stays here, so an owner can sign in on it; doing so replaces
-  // the staff sign-in.
+  // Once a real (non-anonymous) owner is signed in, leave the login page: back
+  // to `?next=` (an invite link sends people here), or /staff, which decides
+  // whether they still need onboarding. A phone signed in with a staff
+  // passcode stays here, so an owner can sign in on it; doing so replaces the
+  // staff sign-in.
   useEffect(() => {
     if (isUserLoading || !user || user.isAnonymous) return;
     let cancelled = false;
+    const next = new URLSearchParams(window.location.search).get('next');
+    // Only paths on this site.
+    const destination = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')
+      ? next
+      : '/staff';
     user
       .getIdTokenResult()
       .then(({ claims }) => {
         if (!cancelled && typeof claims[STAFF_LOCATION_CLAIM] !== 'string') {
-          router.replace('/staff');
+          router.replace(destination);
         }
       })
       .catch((e) => console.error('Failed to read sign-in:', e));

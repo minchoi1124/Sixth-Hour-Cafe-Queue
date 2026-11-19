@@ -96,6 +96,18 @@ export const userDoc = (db: Firestore, uid: string) =>
   doc(db, 'users', uid);
 export const staffPasscodeDoc = (db: Firestore, cafeId: string) =>
   doc(db, 'locations', cafeId, 'private', 'staffPasscode');
+// Co-owner invite links (made and accepted on the server, see owners.ts).
+export const ownerInvitesCol = (db: Firestore, cafeId: string) =>
+  collection(db, 'locations', cafeId, 'ownerInvites');
+
+/** The locations a `users/{uid}` pointer lists; pre-v1.4 accounts have only `locationId`. */
+export function pointerLocationIds(pointer: { locationId?: unknown; locationIds?: unknown } | null | undefined): string[] {
+  if (!pointer) return [];
+  if (Array.isArray(pointer.locationIds)) {
+    return pointer.locationIds.filter((id): id is string => typeof id === 'string');
+  }
+  return typeof pointer.locationId === 'string' ? [pointer.locationId] : [];
+}
 
 // --- Slug validation ---
 
@@ -113,6 +125,7 @@ export const RESERVED_SLUGS = new Set([
   'orders',
   'onboarding',
   'join',
+  'invite',
   'admin',
   'api',
   'app',

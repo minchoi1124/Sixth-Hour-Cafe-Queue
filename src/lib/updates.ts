@@ -16,6 +16,18 @@ export type Update = {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-11-19-locations-and-co-owners',
+    date: '2026-11-19',
+    title: 'More than one location, and co-owners',
+    points: [
+      'Running Sixth Hour somewhere else too? Go to Settings → Your locations → Add another location. Use the same account for both and switch between them at the top of the screen.',
+      'Share a location with another owner: Settings → Owners → Invite a co-owner makes a link. Whoever opens it and signs in becomes an owner too.',
+      'Links work once and expire after 7 days. Unused ones can be revoked in Settings.',
+      'Any owner can remove another, and you can leave a location yourself, as long as someone is still an owner.',
+      'Helpers still just use the staff passcode.',
+    ],
+  },
+  {
     id: '2026-11-18-auto-end-sessions',
     date: '2026-11-18',
     title: 'Forgotten sessions end on their own',

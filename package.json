@@ -1,6 +1,6 @@
 {
   "name": "sixth-hour-cafe-queue",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002 --hostname 0.0.0.0",
@@ -15,6 +15,7 @@
     "remove-staff-invites": "tsx scripts/remove-staff-invites.ts",
     "promote-staff": "tsx scripts/promote-staff-to-owners.ts",
     "fix-session-times": "tsx scripts/fix-idle-session-times.ts",
+    "make-admin": "tsx scripts/make-admin.ts",
     "test:emulator": "firebase emulators:exec --only firestore,auth --project demo-sixth-hour \"tsx --test --test-concurrency=1 tests/*.test.ts\""
   },
   "dependencies": {

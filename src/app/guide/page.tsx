@@ -81,7 +81,7 @@ const SECTIONS: { id: string; title: React.ReactNode; body: React.ReactNode }[] 
           <li>Open <strong>Settings</strong> and change the <strong>Staff passcode</strong> from 000000 to your own (see “Giving staff access”).</li>
           <li>Open <strong>Menu</strong> and add your drinks (see “Building your menu” below).</li>
         </Steps>
-        <p className="font-semibold">If you’re working a shift</p>
+        <p className="font-semibold">If you’re doing Sixth Hour</p>
         <Steps>
           <li>Ask the owner, or anyone already signed in at your location, for its staff passcode.</li>
           <li>On your phone, open the app’s main page, pick your location and type the passcode.</li>

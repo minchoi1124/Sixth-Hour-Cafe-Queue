@@ -99,7 +99,7 @@ export function StaffSignIn({ locations }: { locations: LocationChoice[] }) {
   return (
     <Card className="w-full text-left">
       <CardHeader>
-        <CardTitle className="text-3xl">Working a shift?</CardTitle>
+        <CardTitle className="text-3xl">Doing Sixth Hour?</CardTitle>
         <CardDescription className="text-lg">
           Pick your location and enter its staff passcode. No account needed.
         </CardDescription>

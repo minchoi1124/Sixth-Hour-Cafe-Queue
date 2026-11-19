@@ -235,8 +235,9 @@ export default function OnboardingPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="cafe-slug">Public link</Label>
-              <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap text-sm text-muted-foreground">
+              {/* Phones: the address on its own line (it may wrap), as in Settings. */}
+              <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+                <span className="break-all text-sm text-muted-foreground md:whitespace-nowrap md:break-normal">
                   {origin}/order/
                 </span>
                 <Input

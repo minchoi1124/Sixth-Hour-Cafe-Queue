@@ -114,13 +114,15 @@ const OrderCard = ({
     <Card className="flex flex-col h-full overflow-hidden border-primary/20 shadow-lg hover:shadow-xl hover:border-primary/40 transition-all duration-300">
       <CardHeader className="space-y-0.5 p-4 pb-2 md:space-y-1.5 md:p-6 md:pb-4">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="flex min-w-0 items-center gap-2 break-words text-3xl tracking-tight md:gap-3 md:text-4xl">
+          <CardTitle className="flex min-w-0 items-center gap-2 text-3xl tracking-tight md:gap-3 md:text-4xl">
             {order.number ? (
-              <span className="text-primary/70">#{order.number}</span>
+              <span className="flex-shrink-0 text-primary/70">#{order.number}</span>
             ) : (
-              <Tag className="w-8 h-8 text-primary/70" />
+              <Tag className="w-8 h-8 flex-shrink-0 text-primary/70" />
             )}
-            {order.customerName}
+            {/* A long single-word name breaks rather than running under the
+                delete button; the number beside it never breaks. */}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{order.customerName}</span>
           </CardTitle>
           <Button
             variant="ghost"

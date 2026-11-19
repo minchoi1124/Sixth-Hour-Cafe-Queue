@@ -50,14 +50,16 @@ export function ModificationEditor({
       <Label className={cn(labelClassName)}>{label}</Label>
       <div className="space-y-3 rounded-md border p-4">
         {safeModifications.map((mod) => (
-          <div key={mod.id} className="flex items-center gap-4">
+          // Phones: the name gets its own full-width line (beside the switch
+          // and delete it was squeezed to a few letters); one row from sm.
+          <div key={mod.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:flex-nowrap">
             <Input
               value={mod.name}
               onChange={(e) => handleChange(mod.id, 'name', e.target.value)}
               placeholder="e.g., Extra Shot"
-              className="text-xl h-12 flex-grow"
+              className="h-12 min-w-0 basis-full text-xl sm:basis-auto sm:flex-grow"
             />
-            <div className="flex items-center space-x-2">
+            <div className="mr-auto flex items-center space-x-2 sm:mr-0">
               <Switch
                 id={`mod-default-${mod.id}`}
                 checked={mod.default}

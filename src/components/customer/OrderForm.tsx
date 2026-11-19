@@ -54,7 +54,9 @@ function DrinkOption({ item, soldOut }: { item: MenuItem; soldOut: boolean }) {
         htmlFor={`item-${item.id}`}
         id={`label-item-${item.id}`}
         className={cn(
-          'flex flex-col items-center justify-between p-6 text-center rounded-lg border-2 border-primary/20',
+          // Less padding and a smaller icon on phones, where they squeezed the
+          // name into a narrow column; from sm it's as on the customer iPad.
+          'flex flex-col items-center justify-between p-4 sm:p-6 text-center rounded-lg border-2 border-primary/20',
           'transition-all duration-200 ease-in-out',
           // Sold out stays visible rather than vanishing mid-service: a customer
           // reading the board should see it's known-out, not wonder where it went.
@@ -66,13 +68,13 @@ function DrinkOption({ item, soldOut }: { item: MenuItem; soldOut: boolean }) {
               ]
         )}
       >
-        <div className="flex items-start gap-4 w-full">
-            {Icon && <div className="h-14 w-14 flex-shrink-0 mt-1"><Icon /></div>}
-            <div className="text-left flex-1">
+        <div className="flex items-start gap-3 sm:gap-4 w-full">
+            {Icon && <div className="h-10 w-10 sm:h-14 sm:w-14 flex-shrink-0 mt-1"><Icon /></div>}
+            <div className="text-left flex-1 min-w-0">
                 <span className="block text-2xl font-medium">
                   {item.name}
                   {soldOut && (
-                    <span className="ml-3 align-middle text-lg font-normal text-muted-foreground">
+                    <span className="block align-middle text-lg font-normal text-muted-foreground sm:ml-3 sm:inline">
                       Out of stock
                     </span>
                   )}

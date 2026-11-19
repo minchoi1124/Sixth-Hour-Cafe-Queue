@@ -69,11 +69,11 @@ export function SessionChip({ session, timezone }: { session: Session; timezone:
   if (!startsAt) return null;
 
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-secondary p-3 text-xl font-medium">
+    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-secondary p-2 text-lg font-medium md:p-3 md:text-xl">
       <MapPin className="h-6 w-6 flex-shrink-0" />
-      <div className="leading-tight">
-        <div>{session.location}</div>
-        <div className="text-base font-normal text-muted-foreground">
+      <div className="min-w-0 leading-tight">
+        <div className="truncate">{session.location}</div>
+        <div className="text-sm font-normal text-muted-foreground md:text-base">
           Since {formatSessionTime(startsAt, timezone)} · {formatDuration(startsAt, now)}
         </div>
       </div>
@@ -371,7 +371,7 @@ export function EndSessionButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" disabled={isEnding} className="py-6 text-xl">
+        <Button variant="outline" disabled={isEnding} className="h-auto py-3 text-lg md:h-10 md:py-6 md:text-xl">
           <Square className="mr-2 h-5 w-5" />
           {isEnding ? 'Ending...' : 'End Session'}
         </Button>

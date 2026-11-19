@@ -173,22 +173,29 @@ export default function StaffPageClient() {
   const defaultLocation = suggestedLocation(sessions, cafe?.location);
 
   return (
-    <div className="container mx-auto p-4 sm:p-8">
+    // Phones (below md) get a tighter page so the first orders show without
+    // scrolling: no page title (the bottom tab says Queue), smaller controls.
+    // From md up it's the tablet layout as before.
+    <div className="container mx-auto px-3 py-3 md:p-8">
         <Tabs defaultValue="queue" onValueChange={setActiveTab}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                <div className="flex-1">
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:mb-8">
+                <div className="hidden flex-1 md:block">
                     <h1 className="text-5xl font-bold">Order Queue</h1>
                     <p className="text-2xl text-muted-foreground">
                         View pending and completed orders.
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-2 md:gap-4">
                   {activeSession ? (
                     <>
                       <SessionChip session={activeSession} timezone={timezone} />
-                      <div className="flex items-center gap-2 text-xl font-medium p-3 bg-secondary rounded-lg" title="Drinks completed in this session">
+                      <div className="flex items-center gap-2 rounded-lg bg-secondary p-2 text-lg font-medium md:p-3 md:text-xl" title="Drinks completed in this session">
                         <Coffee className="w-6 h-6" />
-                        <span>{liveStats.drinkCount} Drinks Made</span>
+                        <span>
+                          {liveStats.drinkCount}
+                          <span className="md:hidden"> made</span>
+                          <span className="hidden md:inline"> Drinks Made</span>
+                        </span>
                       </div>
                       {cafeId && (
                         <EndSessionButton
@@ -246,8 +253,8 @@ export default function StaffPageClient() {
                   </Dialog>
 
                   <TabsList className="grid w-full sm:w-[300px] grid-cols-2 h-auto">
-                      <TabsTrigger value="queue" className="py-3 text-xl">Queue</TabsTrigger>
-                      <TabsTrigger value="history" className="py-3 text-xl">History</TabsTrigger>
+                      <TabsTrigger value="queue" className="py-2 text-lg md:py-3 md:text-xl">Queue</TabsTrigger>
+                      <TabsTrigger value="history" className="py-2 text-lg md:py-3 md:text-xl">History</TabsTrigger>
                   </TabsList>
                 </div>
             </div>
@@ -255,14 +262,14 @@ export default function StaffPageClient() {
             {activeTab === 'queue' && <GuideCard />}
 
             {!activeSession && activeTab === 'queue' && (
-              <div className="mb-6 rounded-md border border-dashed bg-card p-4 text-xl text-muted-foreground">
+              <div className="mb-4 rounded-md border border-dashed bg-card p-4 text-lg text-muted-foreground md:mb-6 md:text-xl">
                 No active session. Customers can&apos;t order until you start one.
               </div>
             )}
 
             <TabsContent value="queue">
                 {activeSession && cafeId && (
-                  <div className="mb-6">
+                  <div className="mb-4 md:mb-6">
                     <TodaysMenu
                       cafeId={cafeId}
                       session={activeSession}

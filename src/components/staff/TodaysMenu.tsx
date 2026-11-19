@@ -53,11 +53,14 @@ export function TodaysMenu({
   // One recipe open at a time — the panel sits above the order queue, and two
   // expanded recipes would push the queue off screen mid-rush.
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
+  // Phones only: the list starts folded. Tablets always show it.
+  const [expanded, setExpanded] = useState(false);
 
   const menuIds = session.menuIds ?? [];
   const soldOutIds = session.soldOutIds ?? [];
   const drinks = resolveMenu(library, menuIds);
   const soldOut = new Set(soldOutIds);
+  const soldOutCount = drinks.filter((drink) => soldOut.has(drink.id)).length;
   const recipeFor = useMemo(() => recipesByDrink(recipes), [recipes]);
 
   const preset = session.presetId ? presets.find((p) => p.id === session.presetId) ?? null : null;
@@ -121,13 +124,25 @@ export function TodaysMenu({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-        <CardTitle className="text-2xl">
-          Today&apos;s menu
-          <span className="ml-2 text-lg font-normal text-muted-foreground">
-            ({drinks.length})
-          </span>
-        </CardTitle>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 p-4 md:flex-nowrap md:p-6 md:pb-3">
+        {/* Phones: the title folds the list away, so the orders come first. */}
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          className="flex min-w-0 items-center gap-2 text-left md:pointer-events-none"
+        >
+          {expanded
+            ? <ChevronDown className="h-5 w-5 flex-shrink-0 text-muted-foreground md:hidden" />
+            : <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground md:hidden" />}
+          <CardTitle className="text-xl md:text-2xl">
+            Today&apos;s menu
+            <span className="ml-2 text-base font-normal text-muted-foreground md:text-lg">
+              ({drinks.length})
+              {soldOutCount > 0 && <span className="md:hidden"> · {soldOutCount} sold out</span>}
+            </span>
+          </CardTitle>
+        </button>
         <div className="flex items-center gap-2">
           {differsFromPreset && (
             <Button variant="outline" onClick={handleSaveToPreset} className="text-base">
@@ -164,7 +179,7 @@ export function TodaysMenu({
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className={cn('px-4 pb-4 md:block md:px-6 md:pb-6', !expanded && 'hidden')}>
         {drinks.length === 0 ? (
           <p className="py-6 text-center text-lg text-muted-foreground">
             No drinks on the menu. Customers can&apos;t order anything — use Edit to add some.

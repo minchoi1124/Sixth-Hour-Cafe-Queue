@@ -98,13 +98,23 @@ const OrderCard = ({
   };
 
   const createdAtTimestamp = order.createdAt as unknown as Timestamp;
-  const date = createdAtTimestamp ? createdAtTimestamp.toDate().toLocaleString() : 'Processing...';
+  const created = createdAtTimestamp ? createdAtTimestamp.toDate() : null;
+  const date = created ? created.toLocaleString() : 'Processing...';
+  // Phones: just the time ("8:27 AM"), with the day only if it isn't today.
+  const shortDate = created
+    ? (created.toDateString() === new Date().toDateString()
+        ? ''
+        : `${created.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, `)
+      + created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : 'Processing...';
 
+  // Phones get a tighter card (less padding, smaller type) so several orders
+  // fit on screen; from md up it's the tablet card as before.
   return (
     <Card className="flex flex-col h-full overflow-hidden border-primary/20 shadow-lg hover:shadow-xl hover:border-primary/40 transition-all duration-300">
-      <CardHeader className="pb-4">
+      <CardHeader className="space-y-0.5 p-4 pb-2 md:space-y-1.5 md:p-6 md:pb-4">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-4xl tracking-tight flex items-center gap-3">
+          <CardTitle className="flex min-w-0 items-center gap-2 break-words text-3xl tracking-tight md:gap-3 md:text-4xl">
             {order.number ? (
               <span className="text-primary/70">#{order.number}</span>
             ) : (
@@ -115,7 +125,7 @@ const OrderCard = ({
           <Button
             variant="ghost"
             size="icon"
-            className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+            className="-mr-2 -mt-1 h-11 w-11 flex-shrink-0 text-muted-foreground hover:text-destructive md:mr-0 md:mt-0 md:h-10 md:w-10"
             onClick={handleDelete}
             disabled={isDeleting}
             aria-label="Delete order"
@@ -123,14 +133,15 @@ const OrderCard = ({
             <Trash2 className="w-6 h-6" />
           </Button>
         </div>
-        <CardDescription className="text-lg">
-          {date}
+        <CardDescription className="text-base md:text-lg" title={date}>
+          <span className="md:hidden">{shortDate}</span>
+          <span className="hidden md:inline">{date}</span>
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1">
-        <ul className="space-y-3">
+      <CardContent className="flex-1 px-4 pb-4 md:px-6 md:pb-6">
+        <ul className="space-y-2 md:space-y-3">
           {order.items.map((item, index) => (
-            <li key={`${item.id}-${index}`} className="text-2xl">
+            <li key={`${item.id}-${index}`} className="text-xl md:text-2xl">
                 <div className="flex items-start gap-3">
                     <Coffee className="w-6 h-6 text-muted-foreground flex-shrink-0 mt-1" />
                     <div className="flex-1">
@@ -151,9 +162,9 @@ const OrderCard = ({
         </ul>
       </CardContent>
       {status === 'pending' && (
-        <CardFooter>
-            <Button 
-            className="w-full text-2xl py-7" 
+        <CardFooter className="px-4 pb-4 md:px-6 md:pb-6">
+            <Button
+            className="w-full py-6 text-xl md:py-7 md:text-2xl"
             onClick={handleComplete} 
             disabled={isCompleting}
             >
@@ -168,7 +179,7 @@ const OrderCard = ({
 
 function OrderQueueSkeleton() {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
             {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="p-6 rounded-lg bg-card border">
                     <Skeleton className="h-8 w-3/4 mb-4" />
@@ -187,19 +198,19 @@ function OrderQueueSkeleton() {
 const EmptyState = ({ status }: { status: 'pending' | 'completed' }) => {
     if (status === 'completed') {
         return (
-            <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
-                <History className="w-24 h-24 text-muted-foreground/50 mb-6"/>
-                <h2 className="text-4xl font-bold">No Completed Orders</h2>
-                <p className="text-2xl text-muted-foreground mt-2">The order history is empty.</p>
+            <div className="flex flex-col items-center justify-center text-center py-12 md:py-24 px-4 rounded-lg bg-card border-2 border-dashed">
+                <History className="w-16 h-16 md:w-24 md:h-24 text-muted-foreground/50 mb-6"/>
+                <h2 className="text-3xl md:text-4xl font-bold">No Completed Orders</h2>
+                <p className="text-xl md:text-2xl text-muted-foreground mt-2">The order history is empty.</p>
             </div>
         )
     }
 
     return (
-        <div className="flex flex-col items-center justify-center text-center py-24 px-4 rounded-lg bg-card border-2 border-dashed">
-            <Coffee className="w-24 h-24 text-muted-foreground/50 mb-6"/>
-            <h2 className="text-4xl font-bold">All Caught Up!</h2>
-            <p className="text-2xl text-muted-foreground mt-2">Waiting for new orders...</p>
+        <div className="flex flex-col items-center justify-center text-center py-12 md:py-24 px-4 rounded-lg bg-card border-2 border-dashed">
+            <Coffee className="w-16 h-16 md:w-24 md:h-24 text-muted-foreground/50 mb-6"/>
+            <h2 className="text-3xl md:text-4xl font-bold">All Caught Up!</h2>
+            <p className="text-xl md:text-2xl text-muted-foreground mt-2">Waiting for new orders...</p>
         </div>
     )
 }
@@ -222,7 +233,7 @@ export function OrderQueue({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
       <AnimatePresence>
         {orders?.map((order) => (
           <motion.div

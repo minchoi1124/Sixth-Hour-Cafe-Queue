@@ -71,7 +71,8 @@ const NavLink = ({ href, children }: { href: string, children: React.ReactNode }
     <Link
       href={href}
       className={cn(
-        "px-6 py-3 rounded-lg text-2xl transition-colors",
+        // Smaller on tablets; the full size from xl.
+        "rounded-lg px-3 py-2 text-lg transition-colors lg:px-4 lg:text-xl xl:px-6 xl:py-3 xl:text-2xl",
         isActive ? "bg-primary text-primary-foreground" : "hover:bg-accent"
       )}
     >
@@ -92,7 +93,7 @@ function CustomerScreenButton({ slug }: { slug: string }) {
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2" title="Show a QR code to open the ordering page on your customer-facing device">
           <QrCode className="h-5 w-5" />
-          <span className="hidden md:inline">Customer screen</span>
+          <span className="hidden xl:inline">Customer screen</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -113,6 +114,55 @@ function CustomerScreenButton({ slug }: { slug: string }) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The "⋯" menu: the header buttons that don't fit. Phones always use it;
+ * tablets below xl use it for help, full screen and sign out. `children` go
+ * at the top (the phone's location list). `onPasscode` adds Staff passcode.
+ */
+function MoreMenu({
+  isOwner,
+  onPasscode,
+  onFullScreen,
+  onSignOut,
+  children,
+}: {
+  isOwner: boolean;
+  onPasscode?: () => void;
+  onFullScreen: () => void;
+  onSignOut: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="More">
+          <MoreHorizontal className="h-7 w-7" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {children}
+        {onPasscode && (
+          <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onPasscode}>
+            <KeyRound className="h-5 w-5" /> Staff passcode
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem asChild className="gap-3 py-3 text-lg">
+          <Link href="/guide">
+            <CircleHelp className="h-5 w-5" /> How to use the app
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onFullScreen}>
+          <Maximize className="h-5 w-5" /> Full screen
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onSignOut}>
+          <LogOut className="h-5 w-5" /> {isOwner ? 'Sign out' : 'Leave location'}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -166,13 +216,12 @@ function PhoneNav({
           <span className="min-w-0 flex-1 truncate text-xl">{cafe.location || 'Sixth Hour Cafe'}</span>
           <CustomerScreenButton slug={cafe.slug} />
           {isPhone && <WhatsNew />}
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="More">
-                <MoreHorizontal className="h-7 w-7" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
+          <MoreMenu
+            isOwner={isOwner}
+            onPasscode={!isOwner && cafeId ? () => setPasscodeOpen(true) : undefined}
+            onFullScreen={onFullScreen}
+            onSignOut={onSignOut}
+          >
               {canSwitch && (
                 <>
                   <DropdownMenuLabel className="text-base">Your locations</DropdownMenuLabel>
@@ -196,25 +245,7 @@ function PhoneNav({
                   <DropdownMenuSeparator />
                 </>
               )}
-              {!isOwner && cafeId && (
-                <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={() => setPasscodeOpen(true)}>
-                  <KeyRound className="h-5 w-5" /> Staff passcode
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem asChild className="gap-3 py-3 text-lg">
-                <Link href="/guide">
-                  <CircleHelp className="h-5 w-5" /> How to use the app
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onFullScreen}>
-                <Maximize className="h-5 w-5" /> Full screen
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onSignOut}>
-                <LogOut className="h-5 w-5" /> {isOwner ? 'Sign out' : 'Leave location'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          </MoreMenu>
         </div>
       </header>
       {!isOwner && cafeId && (
@@ -356,41 +387,55 @@ export default function StaffLayout({
         locationIds={locationIds}
       />
       <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b hidden md:block">
-        <div className="container mx-auto flex items-center justify-between p-4">
-          <div className="flex items-center gap-4">
-            <Logo className="w-12 h-12" />
-            <h1 className="text-3xl hidden sm:block">
-              Sixth Hour Cafe
-              {cafe.location && (
-                <span className="text-muted-foreground"> — {cafe.location}</span>
-              )}
-            </h1>
-            {isOwner && cafeId && !isMobile && (
-              <LocationSwitcher cafeId={cafeId} currentName={cafe.location} locationIds={locationIds} />
+        {/* The location's name (or, for owners of several, the switcher,
+            which shows it) beside the logo; the old "Sixth Hour Cafe — name"
+            title wrapped into a column and, with the switcher, made the header
+            ~1200px wide. Tablets (md to xl) also get smaller tabs, icon-only
+            buttons and the rest under "⋯". */}
+        <div className="container mx-auto flex items-center justify-between gap-3 p-4">
+          <div className="flex min-w-0 items-center gap-3 xl:gap-4">
+            <Logo className="h-10 w-10 flex-shrink-0 xl:h-12 xl:w-12" />
+            {isOwner && cafeId && !isMobile ? (
+              <LocationSwitcher
+                cafeId={cafeId}
+                currentName={cafe.location}
+                locationIds={locationIds}
+                fallback={<h1 className="min-w-0 truncate text-xl xl:text-2xl">{cafe.location}</h1>}
+              />
+            ) : (
+              <h1 className="min-w-0 truncate text-xl xl:text-2xl">{cafe.location}</h1>
             )}
           </div>
-          <nav className="flex items-center gap-2 sm:gap-4 p-1 bg-secondary rounded-lg">
+          <nav className="flex flex-shrink-0 items-center gap-1 rounded-lg bg-secondary p-1 xl:gap-4">
             <NavLink href="/staff">Queue</NavLink>
             <NavLink href="/staff/menu">Menu</NavLink>
             <NavLink href="/staff/stats">Stats</NavLink>
             {isOwner && <NavLink href="/staff/settings">Settings</NavLink>}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
             <CustomerScreenButton slug={cafe.slug} />
             {!isOwner && cafeId && <StaffPasscodeButton cafeId={cafeId} />}
             {/* One What's new at a time: it opens itself when there is news. */}
             {!isMobile && <WhatsNew />}
-            <Button variant="ghost" size="icon" asChild>
+            <div className="xl:hidden">
+              <MoreMenu
+                isOwner={isOwner}
+                onFullScreen={() => setIsFullScreen(true)}
+                onSignOut={handleSignOut}
+              />
+            </div>
+            <Button variant="ghost" size="icon" className="hidden xl:inline-flex" asChild>
               <Link href="/guide" aria-label="How to use the app" title="How to use the app">
                 <CircleHelp className="w-7 h-7" />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
+            <Button variant="ghost" size="icon" className="hidden xl:inline-flex" onClick={() => setIsFullScreen(true)} aria-label="Enter full screen">
                 <Maximize className="w-8 h-8"/>
             </Button>
             <Button
               variant="ghost"
               size="icon"
+              className="hidden xl:inline-flex"
               onClick={handleSignOut}
               aria-label={isOwner ? 'Sign out' : 'Leave location'}
               title={isOwner ? 'Sign out' : 'Leave location (you’ll need the passcode to come back)'}

@@ -78,28 +78,32 @@ export async function switchLocation(
 }
 
 /**
- * Header dropdown for owners of more than one location. Hidden for everyone
- * else; they add a second location from Settings.
+ * Header dropdown for owners of more than one location. For everyone else it
+ * shows `fallback` (nothing by default); they add a second location from
+ * Settings.
  */
 export function LocationSwitcher({
   cafeId,
   currentName,
   locationIds,
+  fallback = null,
 }: {
   cafeId: string;
   currentName: string;
   locationIds: string[];
+  fallback?: React.ReactNode;
 }) {
   const firestore = useFirestore();
   const { user } = useUser();
   const owned = useOwnedLocations(locationIds);
 
-  if (!user || !owned || owned.length < 2) return null;
+  if (!user || !owned || owned.length < 2) return <>{fallback}</>;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="max-w-[14rem] gap-2" title="Switch location">
+        {/* Narrower on tablets, where the header is tight. */}
+        <Button variant="outline" className="max-w-[9rem] gap-2 lg:max-w-[12rem] xl:max-w-[14rem]" title="Switch location">
           <Store className="h-5 w-5 flex-shrink-0" />
           <span className="truncate">{currentName}</span>
           <ChevronDown className="h-4 w-4 flex-shrink-0" />

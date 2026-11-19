@@ -28,7 +28,7 @@ export function StaffPasscodeButton({ cafeId }: { cafeId: string }) {
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2" title="See the staff passcode to let another helper in">
           <KeyRound className="h-5 w-5" />
-          <span className="hidden md:inline">Passcode</span>
+          <span className="hidden xl:inline">Passcode</span>
         </Button>
       </DialogTrigger>
     </StaffPasscodeDialog>

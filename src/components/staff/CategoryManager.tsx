@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -81,14 +81,15 @@ function AddCategoryForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} ref={formRef} className="flex items-start gap-4">
-      <div className="flex-grow space-y-2">
+    // Phones: smaller and tighter, so the box keeps most of the width.
+    <form onSubmit={handleSubmit} ref={formRef} className="flex items-start gap-2 md:gap-4">
+      <div className="min-w-0 flex-grow space-y-2">
         <Label htmlFor="new-category-name" className="sr-only">New Category Name</Label>
         <Input
           id="new-category-name"
           name="name"
           placeholder="e.g. Specials"
-          className="text-2xl h-14"
+          className="h-12 text-xl md:h-14 md:text-2xl"
           required
         />
         {error && (
@@ -97,8 +98,8 @@ function AddCategoryForm() {
           </p>
         )}
       </div>
-      <Button type="submit" disabled={isPending} size="lg" className="h-14 text-xl">
-        <PlusCircle className="mr-2 h-6 w-6" />
+      <Button type="submit" disabled={isPending} size="lg" className="h-12 flex-shrink-0 px-4 text-lg md:h-14 md:px-8 md:text-xl">
+        <PlusCircle className="mr-1 h-5 w-5 md:mr-2 md:h-6 md:w-6" />
         {isPending ? 'Adding...' : 'Add'}
       </Button>
     </form>
@@ -172,33 +173,48 @@ function CategoryEditRow({ category }: { category: Category }) {
   };
 
   return (
-    <div className="flex items-center gap-4">
+    // Phones: the name gets the room; Edit and Delete are icon buttons (their
+    // labels squeezed a long name into a column). Labels from sm, full size
+    // from md. Editing puts Save and Cancel under the box on phones.
+    <div className="flex items-center gap-2 md:gap-4">
       {isEditing ? (
-        <div className="flex-grow flex items-center gap-4">
+        <div className="flex flex-grow flex-wrap items-center gap-2 md:flex-nowrap md:gap-4">
             <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="text-2xl h-14 flex-grow"
+                aria-label={`New name for ${category.name}`}
+                className="h-12 min-w-0 basis-full text-xl md:h-14 md:basis-auto md:flex-grow md:text-2xl"
                 autoFocus
                 required
             />
-            <Button onClick={handleUpdate} disabled={isPending} className="h-14 text-xl">
+            <Button onClick={handleUpdate} disabled={isPending} className="h-12 flex-1 text-lg md:h-14 md:flex-none md:text-xl">
                 {isPending ? 'Saving...' : 'Save'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => {setIsEditing(false); setName(category.name)}} className="h-14 text-xl">
+            <Button type="button" variant="ghost" onClick={() => {setIsEditing(false); setName(category.name)}} className="h-12 flex-1 text-lg md:h-14 md:flex-none md:text-xl">
                 Cancel
             </Button>
         </div>
       ) : (
         <>
-            <p className="text-2xl flex-grow">{category.name}</p>
-            <Button variant="outline" onClick={() => setIsEditing(true)} className="text-xl h-14">
-                Edit
+            <p className="min-w-0 flex-grow text-xl [overflow-wrap:anywhere] md:text-2xl">{category.name}</p>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditing(true)}
+              aria-label={`Rename ${category.name}`}
+              className="h-11 w-11 flex-shrink-0 p-0 text-xl sm:w-auto sm:px-4 md:h-14"
+            >
+                <Pencil className="h-5 w-5 sm:mr-2" />
+                <span className="hidden sm:inline">Edit</span>
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="text-xl h-14">
-                    <Trash2 className="mr-2"/> Delete
+                <Button
+                  variant="destructive"
+                  aria-label={`Delete ${category.name}`}
+                  className="h-11 w-11 flex-shrink-0 p-0 text-xl sm:w-auto sm:px-4 md:h-14"
+                >
+                    <Trash2 className="h-5 w-5 sm:mr-2" />
+                    <span className="hidden sm:inline">Delete</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -247,14 +263,14 @@ export default function CategoryManager({ initialCategories }: { initialCategori
   }
 
   return (
-    <div className="space-y-6">
-        <h3 className="text-2xl font-semibold">Add New Category</h3>
+    <div className="space-y-4 md:space-y-6">
+        <h3 className="text-xl font-semibold md:text-2xl">Add New Category</h3>
         <AddCategoryForm />
-        
+
         <hr className="border-border"/>
 
-        <h3 className="text-2xl font-semibold">Existing Categories</h3>
-        <div className="space-y-4">
+        <h3 className="text-xl font-semibold md:text-2xl">Existing Categories</h3>
+        <div className="space-y-3 md:space-y-4">
           {isLoading && displayCategories.length === 0 ? (
             <div className="space-y-4">
               <Skeleton className="h-14 w-full" />

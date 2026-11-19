@@ -16,6 +16,18 @@ export type Update = {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-11-19-made-for-phones',
+    date: '2026-11-19',
+    title: 'Made for your phone',
+    points: [
+      'On a phone, the pages are now tabs along the bottom. Passcode, help, full screen and sign out are under ⋯ at the top.',
+      'The queue shows orders first. Today’s menu folds into one line: tap it to open it.',
+      'Pop-ups fit the screen and scroll, with an × that’s easy to tap. Start session now says what’s still missing.',
+      'Own more than one location? Switch between them from ⋯ on your phone.',
+      'A bit more fun: confetti when a customer orders, and new orders pulse when they arrive.',
+    ],
+  },
+  {
     id: '2026-11-19-locations-and-co-owners',
     date: '2026-11-19',
     title: 'More than one location, and co-owners',

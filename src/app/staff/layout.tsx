@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { motion } from 'framer-motion';
 import { signOut } from 'firebase/auth';
 import {
   useAuth,
@@ -269,8 +270,16 @@ function PhoneNav({
                   active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                <span className={cn('rounded-full px-4 py-1', active && 'bg-primary/15')}>
-                  <Icon className="h-6 w-6" />
+                <span className="relative rounded-full px-4 py-1">
+                  {/* One highlight that slides to the tab you tap. */}
+                  {active && (
+                    <motion.span
+                      layoutId="phone-tab-highlight"
+                      className="absolute inset-0 rounded-full bg-primary/15"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <Icon className="relative h-6 w-6" />
                 </span>
                 {label}
               </Link>

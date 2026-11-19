@@ -96,8 +96,16 @@ export default {
             height: '0',
           },
         },
+        // A soft ring that pulses out from a new order's card, so it's easy
+        // to spot during a rush.
+        'new-order': {
+          '0%': { boxShadow: '0 0 0 0 hsl(var(--primary) / 0.55)' },
+          '70%': { boxShadow: '0 0 0 14px hsl(var(--primary) / 0)' },
+          '100%': { boxShadow: '0 0 0 0 hsl(var(--primary) / 0)' },
+        },
       },
       animation: {
+        'new-order': 'new-order 1.4s ease-out 3',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },

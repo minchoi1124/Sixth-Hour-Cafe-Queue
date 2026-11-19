@@ -4,6 +4,7 @@
 import { OrderQueue } from '@/components/staff/OrderQueue';
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SessionHistory from '@/components/staff/SessionHistory';
 import {
@@ -192,7 +193,16 @@ export default function StaffPageClient() {
                       <div className="flex items-center gap-2 rounded-lg bg-secondary p-2 text-lg font-medium md:p-3 md:text-xl" title="Drinks completed in this session">
                         <Coffee className="w-6 h-6" />
                         <span>
-                          {liveStats.drinkCount}
+                          {/* Bumps each time a drink is added. */}
+                          <motion.span
+                            key={liveStats.drinkCount}
+                            className="inline-block"
+                            initial={{ scale: 1.5 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                          >
+                            {liveStats.drinkCount}
+                          </motion.span>
                           <span className="md:hidden"> made</span>
                           <span className="hidden md:inline"> Drinks Made</span>
                         </span>

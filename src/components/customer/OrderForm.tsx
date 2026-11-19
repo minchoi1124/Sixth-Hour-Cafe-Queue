@@ -17,6 +17,8 @@ import { toast } from '@/hooks/use-toast';
 import { DalgonaCoffeeIcon, AppleCiderChaiIcon, LondonFogIcon, MapleMatchaLatteIcon } from '../icons/CafeIcons';
 import { Checkbox } from '../ui/checkbox';
 import { QRCodeSVG } from 'qrcode.react';
+import { motion } from 'framer-motion';
+import { Confetti } from './Confetti';
 
 const OrderSchema = z.object({
   // Matches the limits in /api/orders.
@@ -63,7 +65,7 @@ function DrinkOption({ item, soldOut }: { item: MenuItem; soldOut: boolean }) {
           soldOut
             ? 'cursor-not-allowed bg-muted/40 opacity-60'
             : [
-                'cursor-pointer bg-background hover:bg-accent',
+                'cursor-pointer bg-background hover:bg-accent motion-safe:active:scale-[0.98]',
                 'peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground',
               ]
         )}
@@ -255,29 +257,62 @@ export default function OrderForm({
   };
   
   if (isSuccess) {
+    const totalSeconds = instagramUrl ? SUCCESS_SECONDS_WITH_INSTAGRAM : SUCCESS_SECONDS;
     return (
       <div className="text-center space-y-8">
-        <Alert className="border-primary/50 text-center">
-          <CheckCircle className="h-4 w-4" />
-          <AlertTitle className="text-3xl font-bold">Order Submitted!</AlertTitle>
-          <AlertDescription className="text-xl">
-            Thanks, {customerName}! Your order is in.
-          </AlertDescription>
-          {orderNumber !== null && (
-            <p className="mt-4 text-5xl font-bold text-primary">#{orderNumber}</p>
-          )}
-        </Alert>
+        <Confetti />
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+        >
+          <Alert className="border-primary/50 text-center">
+            <AlertTitle className="flex flex-col items-center gap-3 text-3xl font-bold">
+              <motion.span
+                initial={{ scale: 0, rotate: -90 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 14, delay: 0.1 }}
+              >
+                <CheckCircle className="h-14 w-14 text-primary" />
+              </motion.span>
+              Order Submitted!
+            </AlertTitle>
+            <AlertDescription className="text-xl">
+              Thanks, {customerName}! Your order is in.
+            </AlertDescription>
+            {orderNumber !== null && (
+              <motion.p
+                className="mt-4 text-5xl font-bold text-primary"
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 12, delay: 0.3 }}
+              >
+                #{orderNumber}
+              </motion.p>
+            )}
+          </Alert>
+        </motion.div>
 
         {/* The next person in line walks up to this screen, so starting a new
             order is the biggest thing on it. */}
         <div className="space-y-3">
-          <Button onClick={resetForm} className="h-auto w-full gap-3 py-10 text-3xl shadow-lg">
-            <Plus className="h-9 w-9" />
+          {/* Wraps and shrinks on phones, where it ran off both edges. */}
+          <Button onClick={resetForm} className="h-auto w-full gap-3 whitespace-normal py-8 text-2xl shadow-lg sm:py-10 sm:text-3xl [&_svg]:size-7 sm:[&_svg]:size-9">
+            <Plus className="h-7 w-7 flex-shrink-0 sm:h-9 sm:w-9" />
             Next in line? Tap to order
           </Button>
           <p className="text-lg text-muted-foreground" aria-live="polite">
             Starting a new order in {Math.max(secondsLeft, 0)}…
           </p>
+          {/* Shrinks over the countdown, so it's clear how long is left. */}
+          <div className="mx-auto h-2 max-w-md overflow-hidden rounded-full bg-muted" aria-hidden>
+            <motion.div
+              className="h-full origin-left rounded-full bg-primary"
+              initial={{ scaleX: 1 }}
+              animate={{ scaleX: 0 }}
+              transition={{ duration: totalSeconds, ease: 'linear' }}
+            />
+          </div>
         </div>
 
         {/* Kept small so it isn't mistaken for a way to order. */}

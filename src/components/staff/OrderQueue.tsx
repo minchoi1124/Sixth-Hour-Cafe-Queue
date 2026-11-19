@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Timestamp, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useFirestore, useCafeId } from '@/firebase';
 import { orderDoc } from '@/lib/cafe-paths';
@@ -226,6 +227,13 @@ export function OrderQueue({
   orders: Order[] | null;
   activeSessionId: string | null;
 }) {
+  // Orders already on screen when the queue first loads aren't "new"; only
+  // ones that arrive afterwards get the pulse.
+  const seen = useRef<Set<string> | null>(null);
+  if (seen.current === null && orders !== null) {
+    seen.current = new Set(orders.map((order) => order.id));
+  }
+
   if (orders === null) {
     return <OrderQueueSkeleton />;
   }
@@ -243,8 +251,13 @@ export function OrderQueue({
             layout
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.9, transition: { duration: 0.3 } }}
-            className="h-full"
+            // Done (or deleted): slides off to the right, quickly, so the
+            // next order moves up without a wait.
+            exit={{ opacity: 0, x: 80, scale: 0.95, transition: { duration: 0.25, ease: 'easeIn' } }}
+            className={cn(
+              'h-full rounded-lg',
+              status === 'pending' && seen.current && !seen.current.has(order.id) && 'motion-safe:animate-new-order',
+            )}
           >
             <OrderCard order={order} status={status} activeSessionId={activeSessionId} />
           </motion.div>

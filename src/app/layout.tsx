@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase';
+import { MotionProvider } from '@/components/MotionProvider';
 import localFont from 'next/font/local';
 
 export const metadata: Metadata = {
@@ -41,7 +42,7 @@ export default function RootLayout({
       </head>
       <body className={cn("font-headline antialiased min-h-screen", providenceSans.variable)}>
         <FirebaseClientProvider>
-          {children}
+          <MotionProvider>{children}</MotionProvider>
         </FirebaseClientProvider>
         <Toaster />
       </body>

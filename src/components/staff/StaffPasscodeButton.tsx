@@ -22,8 +22,35 @@ import { DEFAULT_STAFF_PASSCODE } from '@/lib/staff-passcode';
  * Settings. Loads only while open.
  */
 export function StaffPasscodeButton({ cafeId }: { cafeId: string }) {
-  const firestore = useFirestore();
   const [open, setOpen] = useState(false);
+  return (
+    <StaffPasscodeDialog cafeId={cafeId} open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2" title="See the staff passcode to let another helper in">
+          <KeyRound className="h-5 w-5" />
+          <span className="hidden md:inline">Passcode</span>
+        </Button>
+      </DialogTrigger>
+    </StaffPasscodeDialog>
+  );
+}
+
+/**
+ * The passcode dialog on its own, for opening from elsewhere (the phone
+ * header's menu). `children` is an optional trigger.
+ */
+export function StaffPasscodeDialog({
+  cafeId,
+  open,
+  onOpenChange,
+  children,
+}: {
+  cafeId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children?: React.ReactNode;
+}) {
+  const firestore = useFirestore();
 
   const passcodeRef = useMemoFirebase(
     () => (open ? staffPasscodeDoc(firestore, cafeId) : null),
@@ -42,13 +69,8 @@ export function StaffPasscodeButton({ cafeId }: { cafeId: string }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2" title="See the staff passcode to let another helper in">
-          <KeyRound className="h-5 w-5" />
-          <span className="hidden md:inline">Passcode</span>
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {children}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl">Staff passcode</DialogTitle>

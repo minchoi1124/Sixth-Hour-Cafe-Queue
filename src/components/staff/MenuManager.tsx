@@ -350,7 +350,9 @@ export default function MenuManager({
 
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Phones: two across with Add Drink full width below, so the row
+              never runs off the screen. */}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <ManagePresetsDialog library={localMenu} presets={presets}>
               <Button variant="outline" className="h-12 text-lg">
                 <ListChecks className="mr-2 h-5 w-5" />
@@ -364,7 +366,7 @@ export default function MenuManager({
               </Button>
             </ManageCategoriesDialog>
             <AddDrinkDialog categories={categories} menu={localMenu}>
-              <Button className="h-12 text-lg">
+              <Button className="col-span-2 h-12 text-lg">
                 <Plus className="mr-2 h-5 w-5" />
                 Add Drink
               </Button>

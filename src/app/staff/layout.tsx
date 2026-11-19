@@ -5,7 +5,20 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Maximize, Minimize, LogOut, QrCode, Loader2, CircleHelp } from 'lucide-react';
+import {
+  Maximize,
+  Minimize,
+  LogOut,
+  QrCode,
+  Loader2,
+  CircleHelp,
+  ClipboardList,
+  Coffee,
+  BarChart3,
+  Settings,
+  KeyRound,
+  MoreHorizontal,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { signOut } from 'firebase/auth';
@@ -21,8 +34,16 @@ import {
 import { cafeDoc } from '@/lib/cafe-paths';
 import type { Cafe } from '@/lib/definitions';
 import { WhatsNew } from '@/components/staff/WhatsNew';
-import { StaffPasscodeButton } from '@/components/staff/StaffPasscodeButton';
+import { StaffPasscodeButton, StaffPasscodeDialog } from '@/components/staff/StaffPasscodeButton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useWakeLock } from '@/hooks/use-wake-lock';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from '@/hooks/use-toast';
 import { passcodeVersionOf } from '@/lib/staff-passcode';
 import {
@@ -87,6 +108,109 @@ function CustomerScreenButton({ slug }: { slug: string }) {
   );
 }
 
+const TABS = [
+  { href: '/staff', label: 'Queue', icon: ClipboardList, ownerOnly: false },
+  { href: '/staff/menu', label: 'Menu', icon: Coffee, ownerOnly: false },
+  { href: '/staff/stats', label: 'Stats', icon: BarChart3, ownerOnly: false },
+  { href: '/staff/settings', label: 'Settings', icon: Settings, ownerOnly: true },
+];
+
+/**
+ * The header on phones, where the tablet one is far too wide (it made every
+ * staff page scroll sideways). A slim top bar keeps what staff reach for during
+ * service (customer screen, what's new); the rest is under "More". The pages
+ * are tabs along the bottom, within reach of a thumb.
+ */
+function PhoneNav({
+  cafe,
+  cafeId,
+  isOwner,
+  onFullScreen,
+  onSignOut,
+  showWhatsNew,
+}: {
+  cafe: Cafe;
+  cafeId: string | null;
+  isOwner: boolean;
+  onFullScreen: () => void;
+  onSignOut: () => void;
+  /** Only on phones: the tablet header has its own, and it opens itself. */
+  showWhatsNew: boolean;
+}) {
+  const pathname = usePathname();
+  const [passcodeOpen, setPasscodeOpen] = useState(false);
+  const tabs = TABS.filter((tab) => isOwner || !tab.ownerOnly);
+
+  return (
+    <>
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-sm md:hidden">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <Logo className="h-9 w-9 flex-shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-xl">{cafe.location || 'Sixth Hour Cafe'}</span>
+          <CustomerScreenButton slug={cafe.slug} />
+          {showWhatsNew && <WhatsNew />}
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="More">
+                <MoreHorizontal className="h-7 w-7" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {!isOwner && cafeId && (
+                <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={() => setPasscodeOpen(true)}>
+                  <KeyRound className="h-5 w-5" /> Staff passcode
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild className="gap-3 py-3 text-lg">
+                <Link href="/guide">
+                  <CircleHelp className="h-5 w-5" /> How to use the app
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onFullScreen}>
+                <Maximize className="h-5 w-5" /> Full screen
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-3 py-3 text-lg" onSelect={onSignOut}>
+                <LogOut className="h-5 w-5" /> {isOwner ? 'Sign out' : 'Leave location'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+      {!isOwner && cafeId && (
+        <StaffPasscodeDialog cafeId={cafeId} open={passcodeOpen} onOpenChange={setPasscodeOpen} />
+      )}
+
+      <nav
+        aria-label="Pages"
+        className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden"
+      >
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+          {tabs.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex min-h-16 flex-col items-center justify-center gap-0.5 py-2 text-base transition-colors',
+                  active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span className={cn('rounded-full px-4 py-1', active && 'bg-primary/15')}>
+                  <Icon className="h-6 w-6" />
+                </span>
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
+  );
+}
+
 export default function StaffLayout({
   children,
 }: {
@@ -98,6 +222,7 @@ export default function StaffLayout({
   const { user, isUserLoading } = useUser();
   const { cafeId, role, passcodeVersion, loading: isResolving } = useResolveCafe();
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const isMobile = useIsMobile();
   useWakeLock();
 
   const cafeRef = useMemoFirebase(() => {
@@ -178,7 +303,16 @@ export default function StaffLayout({
   return (
     <CafeProvider cafeId={cafeId} role={role}>
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b">
+      {/* Phones: a slim top bar and tabs along the bottom (see PhoneNav). */}
+      <PhoneNav
+        cafe={cafe}
+        cafeId={cafeId}
+        isOwner={isOwner}
+        onFullScreen={() => setIsFullScreen(true)}
+        onSignOut={handleSignOut}
+        showWhatsNew={isMobile}
+      />
+      <header className="sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b hidden md:block">
         <div className="container mx-auto flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <Logo className="w-12 h-12" />
@@ -198,7 +332,8 @@ export default function StaffLayout({
           <div className="flex items-center gap-2">
             <CustomerScreenButton slug={cafe.slug} />
             {!isOwner && cafeId && <StaffPasscodeButton cafeId={cafeId} />}
-            <WhatsNew />
+            {/* One What's new at a time: it opens itself when there is news. */}
+            {!isMobile && <WhatsNew />}
             <Button variant="ghost" size="icon" asChild>
               <Link href="/guide" aria-label="How to use the app" title="How to use the app">
                 <CircleHelp className="w-7 h-7" />
@@ -219,7 +354,8 @@ export default function StaffLayout({
           </div>
         </div>
       </header>
-      <main className="flex-1">
+      {/* Room for the phone tab bar, so it never covers the last order. */}
+      <main className="flex-1 pb-24 md:pb-0">
         {children}
       </main>
     </div>

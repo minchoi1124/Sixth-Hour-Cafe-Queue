@@ -124,7 +124,6 @@ export default function StatsPageClient() {
   );
 
   const totalDrinks = leaderboard.reduce((n, d) => n + d.drinks, 0);
-  const bestRate = rates.find((r) => r.reliable) ?? null;
   const busiest = [...series].sort((a, b) => b.drinks - a.drinks)[0] ?? null;
   const cancelled = (orders ?? []).filter((o) => !isCounted(o)).length;
 
@@ -132,8 +131,7 @@ export default function StatsPageClient() {
     return (
       <div className="container mx-auto space-y-8 p-4 sm:p-8">
         <Skeleton className="h-14 w-1/2" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Skeleton className="h-32" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Skeleton className="h-32" />
           <Skeleton className="h-32" />
         </div>
@@ -170,17 +168,12 @@ export default function StatsPageClient() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard label="Drinks all time" value={totalDrinks.toLocaleString()} />
         <StatCard
           label="Busiest session"
           value={busiest ? String(busiest.drinks) : '—'}
           hint={busiest ? `${busiest.label} · ${busiest.location}` : undefined}
-        />
-        <StatCard
-          label="Fastest service"
-          value={bestRate?.perHour ? `${bestRate.perHour.toFixed(0)}/hr` : '—'}
-          hint={bestRate ? `${bestRate.label} · ${bestRate.location}` : 'Needs a longer session'}
         />
       </div>
 

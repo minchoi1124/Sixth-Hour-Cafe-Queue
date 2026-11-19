@@ -25,8 +25,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 
 /**
  * Settings → Test locations. Shown only to the app's admin (src/lib/admin.ts);
@@ -37,31 +35,28 @@ export function TestLocationCard({ cafe }: { cafe: Cafe }) {
   const isAdmin = useIsAdmin();
   const firestore = useFirestore();
   const { user } = useUser();
-  const [isSavingHidden, setIsSavingHidden] = useState(false);
+  const [isUnhiding, setIsUnhiding] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   if (!isAdmin) return null;
 
-  const hidden = cafe.hidden === true;
+  const isTestLocation = cafe.hidden === true;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const staffLink = `${origin}/?${REVEAL_PARAM}=${encodeURIComponent(cafe.slug)}`;
   const customerLink = `${origin}/order/${cafe.slug}`;
 
-  const handleHiddenChange = async (next: boolean) => {
-    setIsSavingHidden(true);
+  // One way only: the rules let `hidden` be switched off, never on, so a real
+  // location can never be made clearable.
+  const handleMakeNormal = async () => {
+    setIsUnhiding(true);
     try {
-      await updateDoc(cafeDoc(firestore, cafe.id), { hidden: next });
-      toast({
-        title: next ? 'Hidden' : 'Shown',
-        description: next
-          ? `${cafe.location} is no longer in the location picker.`
-          : `${cafe.location} is back in the location picker for everyone.`,
-      });
+      await updateDoc(cafeDoc(firestore, cafe.id), { hidden: false });
+      toast({ title: 'Now a normal location', description: `${cafe.location} is in the location picker for everyone.` });
     } catch (e) {
-      console.error('Failed to change hidden:', e);
+      console.error('Failed to unhide:', e);
       toast({ variant: 'destructive', title: 'Could not save', description: 'Please try again.' });
     } finally {
-      setIsSavingHidden(false);
+      setIsUnhiding(false);
     }
   };
 
@@ -105,23 +100,14 @@ export function TestLocationCard({ cafe }: { cafe: Cafe }) {
         </CardTitle>
         <CardDescription className="text-lg">
           Only you see this. A test location works like any other, but it’s left out of the location
-          picker on the main page, so nobody picks it by mistake.
+          picker on the main page, so nobody picks it by mistake, and you can clear its orders.{' '}
+          {isTestLocation
+            ? `${cafe.location} is a test location.`
+            : `${cafe.location} is a normal location, so there’s nothing to change here.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex items-center gap-3">
-          <Switch
-            id="location-hidden"
-            checked={hidden}
-            onCheckedChange={handleHiddenChange}
-            disabled={isSavingHidden}
-          />
-          <Label htmlFor="location-hidden" className="text-lg">
-            Hide {cafe.location} from the location picker
-          </Label>
-        </div>
-
-        {hidden && (
+        {isTestLocation && (
           <>
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-base text-muted-foreground">
@@ -167,6 +153,28 @@ export function TestLocationCard({ cafe }: { cafe: Cafe }) {
                   <AlertDialogAction onClick={handleClear} variant="destructive">
                     Yes, clear it
                   </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" className="w-full text-base text-muted-foreground" disabled={isUnhiding}>
+                  {isUnhiding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Make it a normal location
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Make {cafe.location} a normal location?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    It shows in the location picker for everyone, and its orders can no longer be
+                    cleared. This can’t be turned back into a test location.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMakeNormal}>Yes, make it normal</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

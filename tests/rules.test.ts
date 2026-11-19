@@ -448,15 +448,24 @@ describe('test locations (admin only)', () => {
     await assertFails(addTestLocation(dbFor(OWNER), OWNER));
   });
 
-  test('only the admin hides or shows a location, and only one they own', async () => {
+  test('nobody, not even the admin, makes an existing location hidden', async () => {
     await assertFails(updateDoc(cafeDoc(dbFor(OWNER), LOCATION), { hidden: true }));
-    await assertSucceeds(updateDoc(cafeDoc(adminDbFor(OWNER), LOCATION), { hidden: true }));
-    await assertSucceeds(updateDoc(cafeDoc(adminDbFor(OWNER), LOCATION), { hidden: false }));
-    await assertFails(updateDoc(cafeDoc(adminDbFor(OUTSIDER), LOCATION), { hidden: true }));
+    await assertFails(updateDoc(cafeDoc(adminDbFor(OWNER), LOCATION), { hidden: true }));
+    await assertFails(updateDoc(cafeDoc(passcodeDb(), LOCATION), { hidden: true }));
   });
 
-  test('staff can’t hide or show it', async () => {
-    await assertFails(updateDoc(cafeDoc(passcodeDb(), LOCATION), { hidden: true }));
+  test('only the admin, as an owner, turns a test location into a normal one', async () => {
+    await addTestLocation(adminDbFor(OWNER), OWNER);
+    await assertFails(updateDoc(cafeDoc(dbFor(OWNER), 'test-kitchen'), { hidden: false }));
+    await assertFails(updateDoc(cafeDoc(adminDbFor(OUTSIDER), 'test-kitchen'), { hidden: false }));
+    await assertSucceeds(updateDoc(cafeDoc(adminDbFor(OWNER), 'test-kitchen'), { hidden: false }));
+    // …and it can't go back.
+    await assertFails(updateDoc(cafeDoc(adminDbFor(OWNER), 'test-kitchen'), { hidden: true }));
+  });
+
+  test('staff can’t change it', async () => {
+    await addTestLocation(adminDbFor(OWNER), OWNER);
+    await assertFails(updateDoc(cafeDoc(passcodeDb('test-kitchen'), 'test-kitchen'), { hidden: false }));
   });
 
   test('a co-owner without the claim runs a test location but can’t unhide it', async () => {

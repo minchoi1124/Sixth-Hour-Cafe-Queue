@@ -41,9 +41,17 @@ service cloud.firestore {
     // The app's admin: an account given the `admin` custom claim by
     // scripts/make-admin.ts, run with the service account. Nothing in the app
     // can grant it. Only the admin makes test locations (`hidden: true`, left
-    // out of the location picker) or hides and unhides one.
+    // out of the location picker, and clearable).
     function isAdmin() {
       return request.auth != null && request.auth.token.get('admin', false) == true;
+    }
+
+    // `hidden` is decided when a location is created and never switched on
+    // afterwards, so a real location can't become a test one (and clearable).
+    // The admin may only switch it off, turning a test location into a normal one.
+    function keepsOrClearsHidden() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hidden'])
+        || (isAdmin() && request.resource.data.get('hidden', false) == false);
     }
 
     match /locations/{locationId} {
@@ -60,10 +68,8 @@ service cloud.firestore {
       // end sessions and set today's menu — which means `activeSessionId` and
       // `liveMenu`, and nothing else, on this doc. `liveMenu` is the public
       // mirror the unauthenticated ordering page reads, since sessions are
-      // staff-only. `hidden` is the admin's alone, even among owners.
-      allow update: if (isOwner(locationId)
-            && (isAdmin()
-                || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hidden'])))
+      // staff-only. `hidden`: see keepsOrClearsHidden.
+      allow update: if (isOwner(locationId) && keepsOrClearsHidden())
         || (isPasscodeStaff(locationId)
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['activeSessionId', 'liveMenu']));

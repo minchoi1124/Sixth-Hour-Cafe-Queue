@@ -54,7 +54,7 @@ export function PasscodeAnnouncement() {
         What changed with staff sign-in?
       </button>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
               <Megaphone className="h-6 w-6 text-primary" />

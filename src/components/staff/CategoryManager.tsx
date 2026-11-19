@@ -288,7 +288,7 @@ export function ManageCategoriesDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-3xl">Manage categories</DialogTitle>
           <DialogDescription className="text-lg">

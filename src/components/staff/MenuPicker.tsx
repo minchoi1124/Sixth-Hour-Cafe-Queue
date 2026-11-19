@@ -58,7 +58,7 @@ export function MenuPicker({
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
       {/* Library */}
       <div className="space-y-3">
         <div className="relative">
@@ -89,8 +89,10 @@ export function MenuPicker({
                     />
                     <span className="min-w-0 flex-1 truncate text-lg">{item.name}</span>
                     {item.category && (
-                      <Badge variant="secondary" className="flex-shrink-0 text-xs">
-                        {item.category}
+                      // Capped, so a long category can't push the drink's
+                      // name out of the row.
+                      <Badge variant="secondary" className="max-w-[45%] flex-shrink-0 text-xs" title={item.category}>
+                        <span className="truncate">{item.category}</span>
                       </Badge>
                     )}
                   </label>

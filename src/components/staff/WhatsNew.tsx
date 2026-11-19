@@ -112,7 +112,7 @@ export function WhatsNew() {
           <DialogTitle className="text-2xl">What&apos;s new</DialogTitle>
           <DialogDescription>Recent changes to the Sixth Hour Cafe app.</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] space-y-6 overflow-y-auto pr-2">
+        <div className="max-h-[60dvh] space-y-6 overflow-y-auto pr-2">
           {UPDATES.map((update) => (
             <section key={update.id} className="space-y-2">
               <div className="flex items-center gap-2">

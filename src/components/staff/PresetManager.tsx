@@ -241,7 +241,7 @@ export function ManagePresetsDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-3xl">Menu presets</DialogTitle>
           <DialogDescription className="text-lg">

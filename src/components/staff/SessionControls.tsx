@@ -160,6 +160,22 @@ export function StartSessionDialog({
   const canSubmit =
     location.trim().length > 0 && startsAtValid && menuReady && !isSaving;
 
+  // Why the button is off, said next to it: a faded button with no reason
+  // looked like the app had frozen.
+  const missing = !location.trim()
+    ? 'Enter a location to start.'
+    : !startsAtValid
+      ? 'Pick a valid date and start time.'
+      : !presetChoice
+        ? 'Choose a menu to start.'
+        : creatingPreset && !newPresetName.trim()
+          ? 'Give the new preset a name to start.'
+          : creatingPreset && newPresetIds.length === 0
+            ? 'Tick at least one drink for the menu to start.'
+            : !menuReady
+              ? 'That preset has no drinks. Pick another or build a new one.'
+              : null;
+
   const handleSubmit = async () => {
     if (!firestore || !canSubmit || !startsAt) return;
     setIsSaving(true);
@@ -204,7 +220,7 @@ export function StartSessionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-3xl">Start a new session</DialogTitle>
           <DialogDescription className="text-lg">
@@ -224,7 +240,7 @@ export function StartSessionDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
             <div className="space-y-2">
               <Label htmlFor="session-date" className="text-lg">Date</Label>
               <Input
@@ -232,7 +248,7 @@ export function StartSessionDialog({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="h-12 text-xl"
+                className="h-12 min-w-0 text-xl"
               />
             </div>
             <div className="space-y-2">
@@ -242,7 +258,7 @@ export function StartSessionDialog({
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="h-12 text-xl"
+                className="h-12 min-w-0 text-xl"
               />
             </div>
           </div>
@@ -318,7 +334,12 @@ export function StartSessionDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
+          {missing && !isSaving && (
+            <p className="text-center text-base text-muted-foreground sm:mr-auto sm:text-left" role="status">
+              {missing}
+            </p>
+          )}
           <Button onClick={handleSubmit} disabled={!canSubmit} className="py-6 text-xl">
             {isSaving ? (
               <Loader2 className="h-5 w-5 animate-spin" />

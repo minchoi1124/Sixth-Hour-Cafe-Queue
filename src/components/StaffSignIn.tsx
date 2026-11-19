@@ -18,32 +18,37 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getAppCheckToken, useAuth, useUser } from '@/firebase';
-import type { LocationChoice } from '@/lib/data';
+import type { LocationChoice } from '@/lib/location-picker';
 import { PASSCODE_MAX_LENGTH, normalizePasscode } from '@/lib/staff-passcode';
 
 // The location picked last time on this phone, so a returning helper only
 // types the passcode.
 const LAST_LOCATION_KEY = 'staffSignIn.lastLocation';
 
-/** Pick a location, type its passcode, and this device is signed in as staff. */
-export function StaffSignIn({ locations }: { locations: LocationChoice[] }) {
+/**
+ * Pick a location, type its passcode, and this device is signed in as staff.
+ * `preselectedId` (a test location opened with its /?location= link) wins over
+ * the one remembered on this phone.
+ */
+export function StaffSignIn({ locations, preselectedId }: { locations: LocationChoice[]; preselectedId?: string }) {
   const auth = useAuth();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
 
-  const [locationId, setLocationId] = useState('');
+  const [locationId, setLocationId] = useState(preselectedId ?? '');
   const [passcode, setPasscode] = useState('');
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (preselectedId) return;
     try {
       const last = localStorage.getItem(LAST_LOCATION_KEY);
       if (last && locations.some((location) => location.id === last)) setLocationId(last);
     } catch {
       // Storage blocked: they just pick it again.
     }
-  }, [locations]);
+  }, [locations, preselectedId]);
 
   const signedIn = !isUserLoading && user && !user.isAnonymous;
   const chosenSlug = locations.find((location) => location.id === locationId)?.slug;

@@ -2,6 +2,7 @@
 
 import { getAdminDb } from './firebase-admin';
 import type { MenuItem, Cafe } from './definitions';
+import { pickerLocations, type LocationChoice } from './location-picker';
 
 /** Resolve a public cafe slug to its cafe record, or null if it doesn't exist. */
 export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
@@ -21,20 +22,25 @@ export const getCafeBySlug = async (slug: string): Promise<Cafe | null> => {
   }
 };
 
-/** `slug` is the public ordering link, /order/{slug}. */
-export type LocationChoice = { id: string; name: string; slug: string | null };
+export type { LocationChoice } from './location-picker';
 
-/** Every location, by name, for the picker on the main page (staff sign-in and the customer screen). */
-export const listLocations = async (): Promise<LocationChoice[]> => {
+/**
+ * The locations for the picker on the main page (staff sign-in and the
+ * customer screen): all but hidden test locations, except the one whose slug
+ * is `reveal` (see pickerLocations).
+ */
+export const listLocations = async (reveal?: string | null): Promise<LocationChoice[]> => {
   try {
-    const snap = await getAdminDb().collection('locations').select('location', 'slug').get();
-    return snap.docs
-      .map((doc) => ({
+    const snap = await getAdminDb().collection('locations').select('location', 'slug', 'hidden').get();
+    return pickerLocations(
+      snap.docs.map((doc) => ({
         id: doc.id,
         name: (doc.get('location') as string | undefined) || doc.id,
         slug: (doc.get('slug') as string | undefined) ?? null,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+        hidden: doc.get('hidden') === true,
+      })),
+      reveal,
+    );
   } catch (error) {
     console.error('Failed to list locations:', error);
     return [];

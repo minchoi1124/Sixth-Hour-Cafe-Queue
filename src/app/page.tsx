@@ -5,12 +5,22 @@ import { Coffee, QrCode, ListChecks } from 'lucide-react';
 import { StaffSignIn } from '@/components/StaffSignIn';
 import { PasscodeAnnouncement } from '@/components/PasscodeAnnouncement';
 import { listLocations } from '@/lib/data';
+import { REVEAL_PARAM } from '@/lib/location-picker';
 
 // The staff sign-in lists locations, so a new one shows up right away.
 export const dynamic = 'force-dynamic';
 
-export default async function LandingPage() {
-  const locations = await listLocations();
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // /?location={slug} also lists that location if it's a hidden test one,
+  // already picked (src/lib/location-picker.ts).
+  const revealParam = (await searchParams)[REVEAL_PARAM];
+  const reveal = typeof revealParam === 'string' ? revealParam : null;
+  const locations = await listLocations(reveal);
+  const preselectedId = reveal ? locations.find((location) => location.slug === reveal)?.id : undefined;
 
   return (
     <main className="container mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-4 text-center sm:p-6">
@@ -25,7 +35,7 @@ export default async function LandingPage() {
       </p>
 
       <div className="mt-8 w-full max-w-md">
-        <StaffSignIn locations={locations} />
+        <StaffSignIn locations={locations} preselectedId={preselectedId} />
       </div>
       <div className="mt-3">
         <PasscodeAnnouncement />

@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
 
-export type OwnedLocation = { id: string; name: string };
+/** `hidden`: a test location (src/lib/test-locations.ts). */
+export type OwnedLocation = { id: string; name: string; hidden: boolean };
 
 /**
  * The locations in `locationIds` this account still owns, with their names,
@@ -42,7 +43,11 @@ export function useOwnedLocations(locationIds: string[]): OwnedLocation[] | null
             getDoc(cafeDoc(firestore, id)),
           ]);
           if (member.get('role') !== 'owner' || !location.exists()) return null;
-          return { id, name: (location.get('location') as string | undefined) ?? id };
+          return {
+            id,
+            name: (location.get('location') as string | undefined) ?? id,
+            hidden: location.get('hidden') === true,
+          };
         } catch {
           return null;
         }

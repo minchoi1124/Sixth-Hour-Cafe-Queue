@@ -49,6 +49,7 @@ import { startSession } from '@/lib/sessions';
 import { createPreset } from '@/lib/presets';
 import { LATEST_UPDATE_ID } from '@/lib/updates';
 import { STAFF_LOCATION_CLAIM, STAFF_PASSCODE_VERSION_CLAIM } from '@/lib/staff-passcode';
+import { ADMIN_CLAIM } from '@/lib/admin';
 
 const PROJECT_ID = 'demo-sixth-hour';
 const LOCATION = 'msu-campus';
@@ -404,5 +405,68 @@ describe('co-owner invite links', () => {
       setDoc(memberDoc(dbFor(OUTSIDER), LOCATION, OUTSIDER.uid), { email: OUTSIDER.email, role: 'owner' }),
     );
     await assertFails(deleteDoc(memberDoc(dbFor(OWNER), LOCATION, OLD_STAFF.uid)));
+  });
+});
+
+/** An account with the admin claim, as scripts/make-admin.ts gives it. */
+const adminDbFor = (user: { uid: string; email: string }) =>
+  env.authenticatedContext(user.uid, { email: user.email, [ADMIN_CLAIM]: true }).firestore() as unknown as Firestore;
+
+/** Adding a hidden test location, as /onboarding?add=1&test=1 does it. */
+async function addTestLocation(db: Firestore, user: { uid: string; email: string }) {
+  await runTransaction(db, async (tx) => {
+    await tx.get(slugDoc(db, 'test-k7q2px'));
+    await tx.get(userDoc(db, user.uid));
+    await tx.get(cafeDoc(db, 'test-kitchen'));
+    tx.set(cafeDoc(db, 'test-kitchen'), {
+      location: 'Test kitchen',
+      slug: 'test-k7q2px',
+      createdAt: serverTimestamp(),
+      hidden: true,
+    });
+    tx.set(memberDoc(db, 'test-kitchen', user.uid), { email: user.email, role: 'owner', joinedAt: serverTimestamp() });
+    tx.set(userDoc(db, user.uid), {
+      locationId: 'test-kitchen',
+      locationIds: [LOCATION, 'test-kitchen'],
+      role: 'owner',
+      email: user.email,
+    });
+    tx.set(slugDoc(db, 'test-k7q2px'), { locationId: 'test-kitchen' });
+  });
+}
+
+describe('test locations (admin only)', () => {
+  beforeEach(seedLocation);
+
+  test('the admin makes a hidden test location', async () => {
+    await assertSucceeds(addTestLocation(adminDbFor(OWNER), OWNER));
+    const made = await getDoc(cafeDoc(dbFor(OWNER), 'test-kitchen'));
+    assert.equal(made.get('hidden'), true);
+  });
+
+  test('an owner without the claim can’t make one', async () => {
+    await assertFails(addTestLocation(dbFor(OWNER), OWNER));
+  });
+
+  test('only the admin hides or shows a location, and only one they own', async () => {
+    await assertFails(updateDoc(cafeDoc(dbFor(OWNER), LOCATION), { hidden: true }));
+    await assertSucceeds(updateDoc(cafeDoc(adminDbFor(OWNER), LOCATION), { hidden: true }));
+    await assertSucceeds(updateDoc(cafeDoc(adminDbFor(OWNER), LOCATION), { hidden: false }));
+    await assertFails(updateDoc(cafeDoc(adminDbFor(OUTSIDER), LOCATION), { hidden: true }));
+  });
+
+  test('staff can’t hide or show it', async () => {
+    await assertFails(updateDoc(cafeDoc(passcodeDb(), LOCATION), { hidden: true }));
+  });
+
+  test('a co-owner without the claim runs a test location but can’t unhide it', async () => {
+    await addTestLocation(adminDbFor(OWNER), OWNER);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(memberDoc(admin, 'test-kitchen', OUTSIDER.uid), { email: OUTSIDER.email, role: 'owner' });
+    });
+    const db = dbFor(OUTSIDER);
+    await assertSucceeds(updateDoc(cafeDoc(db, 'test-kitchen'), { location: 'Renamed kitchen' }));
+    await assertFails(updateDoc(cafeDoc(db, 'test-kitchen'), { hidden: false }));
   });
 });

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTPayload } from 'jose';
 import { STAFF_LOCATION_CLAIM } from '@/lib/staff-passcode';
+import { ADMIN_CLAIM } from '@/lib/admin';
 
 // Firebase ID tokens, verified with `jose` for the same reason as App Check
 // tokens (see app-check-server.ts): firebase-admin/auth crashes the serverless
@@ -43,6 +44,18 @@ async function payloadOf(token: string): Promise<JWTPayload | null> {
  * have no account to make an owner of.
  */
 export async function signedInAccount(req: NextRequest): Promise<SignedInAccount | null> {
+  return (await verifiedAccount(req))?.account ?? null;
+}
+
+/** As signedInAccount, but only the admin account (src/lib/admin.ts). */
+export async function signedInAdmin(req: NextRequest): Promise<SignedInAccount | null> {
+  const verified = await verifiedAccount(req);
+  return verified && verified.payload[ADMIN_CLAIM] === true ? verified.account : null;
+}
+
+async function verifiedAccount(
+  req: NextRequest,
+): Promise<{ account: SignedInAccount; payload: JWTPayload } | null> {
   const header = req.headers.get('Authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!token) return null;
@@ -50,5 +63,5 @@ export async function signedInAccount(req: NextRequest): Promise<SignedInAccount
   if (!payload || typeof payload.sub !== 'string' || payload.sub.length === 0) return null;
   if (typeof payload[STAFF_LOCATION_CLAIM] === 'string') return null;
   if (typeof payload.email !== 'string' || payload.email.length === 0) return null;
-  return { uid: payload.sub, email: payload.email };
+  return { account: { uid: payload.sub, email: payload.email }, payload };
 }

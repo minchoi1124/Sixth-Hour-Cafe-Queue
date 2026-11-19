@@ -26,6 +26,14 @@ import type { UserLocation } from '@/lib/definitions';
 import { LATEST_UPDATE_ID } from '@/lib/updates';
 import { STAFF_LOCATION_CLAIM } from '@/lib/staff-passcode';
 import { idPart, pickFreeId } from '@/lib/readable-ids';
+import { useIsAdmin } from '@/hooks/use-is-admin';
+
+/** A hard-to-guess link for a test location, e.g. test-k7q2px. */
+function randomTestSlug(): string {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return `test-${Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('')}`;
+}
 
 export default function OnboardingPage() {
   const firestore = useFirestore();
@@ -41,9 +49,24 @@ export default function OnboardingPage() {
   // `/onboarding?add=1`: an owner adding another location. Read from the URL
   // after mounting, which avoids a Suspense boundary for useSearchParams.
   const [isAdding, setIsAdding] = useState<boolean | null>(null);
+  // `&test=1` as well: the admin making a hidden test location
+  // (src/lib/test-locations.ts). Anyone else just adds a normal one; the rules
+  // refuse `hidden` from them anyway.
+  const [wantsTest, setWantsTest] = useState(false);
   useEffect(() => {
-    setIsAdding(new URLSearchParams(window.location.search).get('add') === '1');
+    const params = new URLSearchParams(window.location.search);
+    setIsAdding(params.get('add') === '1');
+    setWantsTest(params.get('test') === '1');
   }, []);
+  const isAdmin = useIsAdmin();
+  const isTest = Boolean(isAdding && wantsTest && isAdmin);
+
+  useEffect(() => {
+    if (!isTest) return;
+    setLocation((current) => current || 'Test kitchen');
+    setSlug(randomTestSlug());
+    setSlugTouched(true);
+  }, [isTest]);
 
   // Send unauthenticated visitors to login; send owners who already have a
   // cafe (unless they're adding another), and staff phones signed in with a
@@ -127,6 +150,8 @@ export default function OnboardingPage() {
           location: locationName,
           slug: finalSlug,
           createdAt: serverTimestamp(),
+          // Hidden from the first write, so it never shows in the picker.
+          ...(isTest ? { hidden: true } : {}),
         });
         tx.set(memberDoc(firestore, locationId, user.uid), {
           email,
@@ -170,12 +195,18 @@ export default function OnboardingPage() {
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo className="mb-4 h-20 w-20" />
         <h1 className="text-4xl font-bold tracking-tight">
-          {isAdding ? 'Add another location' : 'Set up your Sixth Hour Cafe location'}
+          {isTest
+            ? 'Create a test location'
+            : isAdding
+              ? 'Add another location'
+              : 'Set up your Sixth Hour Cafe location'}
         </h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          {isAdding
-            ? 'It gets its own menu, queue, history and staff passcode. Switch between your locations from the top of the screen.'
-            : 'Name your location and choose a public link customers will use to order.'}
+          {isTest
+            ? 'A location of its own for test orders, hidden from the location picker. Open it from the switcher at the top, or its link.'
+            : isAdding
+              ? 'It gets its own menu, queue, history and staff passcode. Switch between your locations from the top of the screen.'
+              : 'Name your location and choose a public link customers will use to order.'}
         </p>
       </div>
 
@@ -225,7 +256,13 @@ export default function OnboardingPage() {
               </p>
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create my location'}
+              {isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : isTest ? (
+                'Create test location'
+              ) : (
+                'Create my location'
+              )}
             </Button>
           </form>
           {isAdding ? (

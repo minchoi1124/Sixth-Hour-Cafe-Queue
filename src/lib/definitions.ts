@@ -204,6 +204,11 @@ export type Cafe = {
    * version they signed in under and stop working once it moves on. Absent = 0.
    */
   staffPasscodeVersion?: number;
+  /**
+   * A test location: left out of the location picker, and only the admin may
+   * set or change this (src/lib/test-locations.ts). Absent = false.
+   */
+  hidden?: boolean;
 };
 
 /** 'owner' signs in with an account; 'staff' signs in with the location passcode. */

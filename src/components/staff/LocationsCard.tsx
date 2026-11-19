@@ -36,7 +36,10 @@ export function LocationsCard({ cafeId }: { cafeId: string }) {
           <ul className="divide-y rounded-md border">
             {owned.map((location) => (
               <li key={location.id} className="flex items-center justify-between gap-3 p-3">
-                <span className="min-w-0 truncate text-xl">{location.name}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-xl">{location.name}</span>
+                  {location.hidden && <Badge variant="outline" className="text-sm">Test</Badge>}
+                </span>
                 {location.id === cafeId ? (
                   <Badge variant="secondary" className="text-base">Open now</Badge>
                 ) : (

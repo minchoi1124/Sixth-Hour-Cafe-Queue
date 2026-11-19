@@ -38,21 +38,32 @@ service cloud.firestore {
       return isOwner(locationId) || isPasscodeStaff(locationId);
     }
 
+    // The app's admin: an account given the `admin` custom claim by
+    // scripts/make-admin.ts, run with the service account. Nothing in the app
+    // can grant it. Only the admin makes test locations (`hidden: true`, left
+    // out of the location picker) or hides and unhides one.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.get('admin', false) == true;
+    }
+
     match /locations/{locationId} {
       // Menu/cafe info is public so customers can view it without an account.
       allow read: if true;
       // Created by onboarding in the same write as the founder's owner
       // membership. Holds nothing private: it's world-readable, so who owns it
       // lives in `members`, which isn't.
-      allow create: if isOwnerAfter(locationId);
+      allow create: if isOwnerAfter(locationId)
+        && (request.resource.data.get('hidden', false) == false || isAdmin());
       allow delete: if isOwner(locationId);
       // Settings (location, slug, instagram, timezone, staffPasscodeVersion) are
       // owner-only, but staff work the queue and so must be able to start and
       // end sessions and set today's menu — which means `activeSessionId` and
       // `liveMenu`, and nothing else, on this doc. `liveMenu` is the public
       // mirror the unauthenticated ordering page reads, since sessions are
-      // staff-only.
-      allow update: if isOwner(locationId)
+      // staff-only. `hidden` is the admin's alone, even among owners.
+      allow update: if (isOwner(locationId)
+            && (isAdmin()
+                || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hidden'])))
         || (isPasscodeStaff(locationId)
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['activeSessionId', 'liveMenu']));

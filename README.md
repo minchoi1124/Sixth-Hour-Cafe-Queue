@@ -161,6 +161,8 @@ Access is enforced by [`firestore.rules`](firestore.rules): the owner by their m
 
 **Correcting forgotten sessions** — [`scripts/fix-idle-session-times.ts`](scripts/fix-idle-session-times.ts) moves the end time of past sessions that ended 3+ hours after their last order back to that order, keeping the old value in `originalEndedAt` (dry run by default, `--commit` to apply; `npm run fix-session-times`).
 
+**Test locations (admin only)** — a location with `hidden: true` is left out of the location picker on the main page; `/?location={slug}` shows it, already picked. Only the admin account can create one, hide or unhide a location, or clear a test location's orders and sessions (Settings → Test locations). The rules and `/api/admin/clear-test-location` check the `admin` custom claim themselves. [`scripts/make-admin.ts`](scripts/make-admin.ts) is the only way to grant it: `npm run make-admin -- <email>` is a dry run, `--commit` grants it, `--remove --commit` takes it away. Sign out and back in afterwards. Hidden isn't secret, since location docs are world-readable; it keeps test data out of everyone's way.
+
 **Moving from the old `cafes/{uid}` layout** — [`scripts/migrate-readable-ids.ts`](scripts/migrate-readable-ids.ts) copies every cafe into `locations/`, assigns readable ids, rewrites every reference to them, and builds `members` and `users`. See the header of the script for the run order (dry run → copy → deploy → catch-up → cleanup).
 
 **Testing rules and the migration** — `npm run test:emulator` runs [`tests/`](tests/) against the Firestore and Auth emulators: the security rules, and a full migration of seeded old-layout data. Needs Java on `PATH` (e.g. `brew install openjdk`).
